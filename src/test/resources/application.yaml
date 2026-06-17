@@ -1,0 +1,20 @@
+spring:
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: none
+  ai:
+    openai:
+      api-key: test-only
+
+app:
+  guest:
+    signing-secret: 0123456789abcdef0123456789abcdef
+    ttl: 30d
+    cookie-secure: false
+  consent:
+    versions:
+      terms: 2026-06-10
+      privacy: 2026-06-10
+      sensitive-data: 2026-06-10

@@ -38,3 +38,6 @@ out/
 
 ### secret ###
 applicaiton-secret.yaml
+
+### local ###
+application-dev.yaml
