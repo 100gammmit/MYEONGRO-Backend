@@ -159,6 +159,58 @@ class ReadingControllerTests {
 			.andExpect(jsonPath("$.code").value("OPENAI_READING_GENERATION_FAILED"));
 	}
 
+	@Test
+	void rejectsUnknownReadingRequestFields() throws Exception {
+		when(signer.verify("signed-token")).thenReturn(java.util.Optional.of(
+			new GuestSession(GUEST_ID, Instant.parse("2026-07-16T00:00:00Z"))
+		));
+
+		mockMvc.perform(post("/api/readings")
+				.cookie(new jakarta.servlet.http.Cookie(
+					CookieService.GUEST_COOKIE_NAME,
+					"signed-token"
+				))
+				.contentType("application/json")
+				.content("""
+					{
+					  "kind":"tarot",
+					  "question":"How is today?",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "cardIds":["major-00-fool","major-01-magician","major-02-high-priestess"],
+					  "unexpected": true
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").exists());
+
+		verifyNoInteractions(service);
+	}
+
+	@Test
+	void rejectsReadingRequestWithoutRequestId() throws Exception {
+		when(signer.verify("signed-token")).thenReturn(java.util.Optional.of(
+			new GuestSession(GUEST_ID, Instant.parse("2026-07-16T00:00:00Z"))
+		));
+
+		mockMvc.perform(post("/api/readings")
+				.cookie(new jakarta.servlet.http.Cookie(
+					CookieService.GUEST_COOKIE_NAME,
+					"signed-token"
+				))
+				.contentType("application/json")
+				.content("""
+					{
+					  "kind":"tarot",
+					  "question":"How is today?",
+					  "cardIds":["major-00-fool","major-01-magician","major-02-high-priestess"]
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").exists());
+
+		verifyNoInteractions(service);
+	}
+
 	private String validTarotRequest() {
 		return """
 			{

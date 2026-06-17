@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
@@ -93,7 +94,12 @@ class ReadingCreationServiceTests {
 
 		assertThat(response.status()).isEqualTo("completed");
 		assertThat(response.result()).isNotNull();
-		verify(repository).createPending(any(PendingReadingCommand.class));
+		ArgumentCaptor<PendingReadingCommand> command =
+			ArgumentCaptor.forClass(PendingReadingCommand.class);
+		verify(repository).createPending(command.capture());
+		assertThat(command.getValue().provider()).isEqualTo("demo");
+		assertThat(command.getValue().model()).isEqualTo("deterministic-demo");
+		assertThat(command.getValue().promptVersion()).isEqualTo("mvp-test");
 		verify(repository).completePending(any(), any());
 	}
 
@@ -127,7 +133,29 @@ class ReadingCreationServiceTests {
 	}
 
 	@Test
-	void marksPendingReadingFailedWhenGenerationFails() {
+	void rejectsMissingRequestIdBeforeCreatingPendingReading() {
+		ConsentService consentService = mock(ConsentService.class);
+		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
+		when(consentService.getStatus(GUEST_ID)).thenReturn(new ConsentStatus(
+			ConsentDocumentType.required(),
+			ConsentDocumentType.required(),
+			true
+		));
+		ReadingCreationService service = service(consentService, repository);
+
+		assertThatThrownBy(() -> service.createGuestReading(
+			GUEST_ID,
+			"127.0.0.1",
+			null,
+			tarotRequest()
+		)).isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("Request id is required");
+
+		verify(repository, never()).createPending(any());
+	}
+
+	@Test
+	void marksPendingReadingFailedWhenAnyGeneratorFails() {
 		ConsentService consentService = mock(ConsentService.class);
 		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
 		when(consentService.getStatus(GUEST_ID)).thenReturn(new ConsentStatus(
@@ -151,14 +179,15 @@ class ReadingCreationServiceTests {
 		);
 		when(repository.createPending(any())).thenReturn(pending);
 		ReadingGenerator failingGenerator = (kind, question, input) -> {
-			throw new OpenAiReadingGenerationException();
+			throw new IllegalStateException("demo generator failed");
 		};
 		ReadingCreationService service = new ReadingCreationService(
 			consentService,
 			repository,
 			failingGenerator,
 			new ObjectMapper(),
-			"test-signing-secret"
+			"test-signing-secret",
+			new ReadingGenerationMetadata("demo", "deterministic-demo", "mvp-test")
 		);
 
 		assertThatThrownBy(() -> service.createGuestReading(
@@ -166,9 +195,9 @@ class ReadingCreationServiceTests {
 			"127.0.0.1",
 			REQUEST_ID,
 			tarotRequest()
-		)).isInstanceOf(OpenAiReadingGenerationException.class);
+		)).isInstanceOf(IllegalStateException.class);
 
-		verify(repository).failPending(pending, "OPENAI_READING_GENERATION_FAILED");
+		verify(repository).failPending(pending, "READING_GENERATION_FAILED");
 		verify(repository, never()).completePending(any(), any());
 	}
 
@@ -181,7 +210,8 @@ class ReadingCreationServiceTests {
 			repository,
 			new DemoReadingGenerator(),
 			new ObjectMapper(),
-			"test-signing-secret"
+			"test-signing-secret",
+			new ReadingGenerationMetadata("demo", "deterministic-demo", "mvp-test")
 		);
 	}
 

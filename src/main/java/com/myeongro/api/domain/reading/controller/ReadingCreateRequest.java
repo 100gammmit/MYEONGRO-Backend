@@ -4,9 +4,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 public record ReadingCreateRequest(
+	@NotBlank
 	String kind,
+	@NotBlank
 	String question,
+	@NotNull
 	UUID requestId,
 	List<String> cardIds,
 	String birthDate,
@@ -30,5 +38,10 @@ public record ReadingCreateRequest(
 				"gender", gender == null ? "unspecified" : gender
 			)
 		);
+	}
+
+	@JsonAnySetter
+	static void rejectUnknownField(String name, Object value) {
+		throw new IllegalArgumentException("Unknown field: " + name);
 	}
 }

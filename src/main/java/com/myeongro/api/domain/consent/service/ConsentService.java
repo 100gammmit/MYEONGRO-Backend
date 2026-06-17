@@ -88,7 +88,28 @@ public class ConsentService {
 			throw new IllegalArgumentException("Only required consent documents are allowed");
 		}
 
+		Instant acceptedAt = clock.instant();
+		ConsentDocumentType.required().forEach(type ->
+			repository.insertGuestConsentIfAbsent(
+				guestSessionId,
+				type.value(),
+				versions.get(type),
+				acceptedAt
+			)
+		);
+
 		List<ConsentEntity> stored = repository.findAllByGuestSessionId(guestSessionId);
+		Map<ConsentDocumentType, ConsentEntity> current = currentVersionByType(stored);
+
+		return ConsentDocumentType.required().stream()
+			.map(current::get)
+			.map(ConsentAcceptance::from)
+			.toList();
+	}
+
+	private Map<ConsentDocumentType, ConsentEntity> currentVersionByType(
+		List<ConsentEntity> stored
+	) {
 		Map<ConsentDocumentType, ConsentEntity> current = new EnumMap<>(
 			ConsentDocumentType.class
 		);
@@ -99,24 +120,6 @@ public class ConsentService {
 				consent.getDocumentType(),
 				consent
 			));
-
-		Instant acceptedAt = clock.instant();
-		List<ConsentEntity> missing = ConsentDocumentType.required().stream()
-			.filter(type -> !current.containsKey(type))
-			.map(type -> ConsentEntity.forGuest(
-				guestSessionId,
-				type,
-				versions.get(type),
-				acceptedAt
-			))
-			.toList();
-		repository.saveAll(missing).forEach(consent ->
-			current.put(consent.getDocumentType(), consent)
-		);
-
-		return ConsentDocumentType.required().stream()
-			.map(current::get)
-			.map(ConsentAcceptance::from)
-			.toList();
+		return current;
 	}
 }

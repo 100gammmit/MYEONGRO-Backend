@@ -22,6 +22,7 @@ class ReadingGeneratorBeanSelectionTests {
 		new ApplicationContextRunner()
 			.withBean(ObjectMapper.class, ObjectMapper::new)
 			.withUserConfiguration(TestChatModelConfig.class)
+			.withUserConfiguration(ReadingGenerationMetadataConfig.class)
 			.withUserConfiguration(DemoReadingGenerator.class)
 			.withUserConfiguration(OpenAiReadingGenerator.class);
 
@@ -42,6 +43,36 @@ class ReadingGeneratorBeanSelectionTests {
 				assertThat(context).hasSingleBean(ReadingGenerator.class);
 				assertThat(context.getBean(ReadingGenerator.class))
 					.isInstanceOf(OpenAiReadingGenerator.class);
+			});
+	}
+
+	@Test
+	void exposesDemoGenerationMetadataByDefault() {
+		contextRunner.run(context -> {
+			assertThat(context.getBean(ReadingGenerationMetadata.class))
+				.isEqualTo(new ReadingGenerationMetadata(
+					"demo",
+					"deterministic-demo",
+					"mvp-2026-06-16"
+				));
+		});
+	}
+
+	@Test
+	void exposesOpenAiGenerationMetadataWhenOpenAiGeneratorIsConfigured() {
+		contextRunner
+			.withPropertyValues(
+				"app.reading.generator=openai",
+				"app.reading.openai.model=gpt-test",
+				"app.reading.prompt-version=mvp-test"
+			)
+			.run(context -> {
+				assertThat(context.getBean(ReadingGenerationMetadata.class))
+					.isEqualTo(new ReadingGenerationMetadata(
+						"openai",
+						"gpt-test",
+						"mvp-test"
+					));
 			});
 	}
 

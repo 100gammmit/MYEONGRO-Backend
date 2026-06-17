@@ -59,19 +59,22 @@ public class ReadingCreationService {
 	private final ReadingGenerator generator;
 	private final ObjectMapper objectMapper;
 	private final String signingSecret;
+	private final ReadingGenerationMetadata generationMetadata;
 
 	public ReadingCreationService(
 		ConsentService consentService,
 		ReadingCreationRepository repository,
 		ReadingGenerator generator,
 		ObjectMapper objectMapper,
-		@Value("${app.guest.signing-secret}") String signingSecret
+		@Value("${app.guest.signing-secret}") String signingSecret,
+		ReadingGenerationMetadata generationMetadata
 	) {
 		this.consentService = consentService;
 		this.repository = repository;
 		this.generator = generator;
 		this.objectMapper = objectMapper;
 		this.signingSecret = signingSecret;
+		this.generationMetadata = generationMetadata;
 	}
 
 	public CreatedReadingResponse createGuestReading(
@@ -80,6 +83,9 @@ public class ReadingCreationService {
 		UUID requestId,
 		ReadingCreateRequest request
 	) {
+		if (requestId == null) {
+			throw new IllegalArgumentException("Request id is required");
+		}
 		if (!consentService.getStatus(guestSessionId).hasAcceptedRequired()) {
 			throw new RequiredConsentMissingException("필수 동의가 필요합니다.");
 		}
@@ -94,9 +100,9 @@ public class ReadingCreationService {
 			ipHash(remoteAddress),
 			kind,
 			input,
-			"openai",
-			"pending-mvp",
-			"mvp-2026-06-16"
+			generationMetadata.provider(),
+			generationMetadata.model(),
+			generationMetadata.promptVersion()
 		));
 		if (pending.reading().result() != null) {
 			return pending.reading();
@@ -106,6 +112,9 @@ public class ReadingCreationService {
 			result = generator.generate(kind, request.question().trim(), input);
 		} catch (OpenAiReadingGenerationException exception) {
 			repository.failPending(pending, exception.getCode());
+			throw exception;
+		} catch (RuntimeException exception) {
+			repository.failPending(pending, "READING_GENERATION_FAILED");
 			throw exception;
 		}
 		return repository.completePending(pending, result);

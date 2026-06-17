@@ -16,14 +16,10 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
     clean-disabled: true
-  ai:
-    openai:
-      api-key: ${openai.api-key}
-
-
 app:
   reading:
     generator: demo
+    prompt-version: mvp-2026-06-16
     openai:
       model: ${openai.free-model:gpt-5.4-mini}
       max-output-tokens: 1200

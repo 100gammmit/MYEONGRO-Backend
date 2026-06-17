@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +24,7 @@ import com.myeongro.api.global.guest.GuestSessionSigner;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
@@ -48,7 +50,7 @@ public class ReadingController {
 			name = CookieService.GUEST_COOKIE_NAME,
 			required = false
 		) String token,
-		@RequestBody ReadingCreateRequest request,
+		@Valid @RequestBody ReadingCreateRequest request,
 		HttpServletRequest servletRequest
 	) {
 		GuestSession session = signer.verify(token)
@@ -101,7 +103,8 @@ public class ReadingController {
 
 	@ExceptionHandler({
 		IllegalArgumentException.class,
-		HttpMessageNotReadableException.class
+		HttpMessageNotReadableException.class,
+		MethodArgumentNotValidException.class
 	})
 	public ResponseEntity<Map<String, String>> badRequest(Exception exception) {
 		return ResponseEntity.badRequest().body(Map.of("error", "잘못된 리딩 요청입니다."));
