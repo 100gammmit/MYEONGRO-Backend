@@ -23,4 +23,12 @@ class OpenApiConfigTests {
 			.getSecuritySchemes())
 			.containsKey("bearerAuth");
 	}
+
+	@Test
+	void doesNotRequireBearerAuthGlobally() {
+		OpenApiConfig config = new OpenApiConfig();
+
+		assertThat(config.myeongroOpenApi().getSecurity())
+			.isNullOrEmpty();
+	}
 }
