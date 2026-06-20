@@ -9,6 +9,9 @@ spring:
       api-key: test-only
 
 app:
+  auth:
+    issuer-uri: https://project.supabase.co/auth/v1
+    jwk-set-uri: https://project.supabase.co/auth/v1/.well-known/jwks.json
   guest:
     signing-secret: 0123456789abcdef0123456789abcdef
     ttl: 30d

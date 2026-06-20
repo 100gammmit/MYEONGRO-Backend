@@ -13,4 +13,14 @@ class OpenApiConfigTests {
 		assertThat(config.myeongroOpenApi().getInfo().getTitle())
 			.isEqualTo("MYEONGRO API");
 	}
+
+	@Test
+	void exposesBearerAuthSchemeForSwaggerAuthorize() {
+		OpenApiConfig config = new OpenApiConfig();
+
+		assertThat(config.myeongroOpenApi()
+			.getComponents()
+			.getSecuritySchemes())
+			.containsKey("bearerAuth");
+	}
 }
