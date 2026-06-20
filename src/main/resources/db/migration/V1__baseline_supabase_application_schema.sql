@@ -1,0 +1,1516 @@
+-- Flyway baseline for the Supabase application-owned public schema.
+-- Remote Supabase migration history at the handoff:
+-- 20260612052334 initial_persistence_baseline
+-- 20260612052405 preserve_initial_consent_acceptance
+-- 20260612052434 secure_guest_ownership_transfer
+-- 20260612052638 reading_persistence_free_quotas_and_atomic_generation
+-- 20260612060926 transfer_guest_quota_ownership
+-- 20260613101757 add_reading_record_actions
+--
+-- Existing Supabase databases must be baselined at version 1. Do not execute
+-- this cumulative migration against an existing application schema.
+
+-- Source: supabase/migrations/20260610120000_initial_persistence.sql
+
+create extension if not exists pgcrypto;
+
+create type public.reading_kind as enum ('tarot', 'saju');
+create type public.reading_tier as enum ('free', 'paid');
+create type public.reading_status as enum ('draft', 'generating', 'completed', 'failed');
+create type public.consent_document_type as enum ('terms', 'privacy', 'sensitive-data');
+create type public.purchase_status as enum ('pending', 'confirming', 'paid', 'cancelled', 'failed');
+create type public.followup_status as enum ('pending', 'completed', 'failed');
+create type public.generation_status as enum ('pending', 'completed', 'failed');
+
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.readings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  guest_session_id uuid,
+  kind public.reading_kind not null,
+  tier public.reading_tier not null default 'free',
+  status public.reading_status not null default 'draft',
+  title text not null,
+  input jsonb not null default '{}'::jsonb,
+  result jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint readings_exactly_one_owner check (
+    (user_id is not null)::integer + (guest_session_id is not null)::integer = 1
+  )
+);
+
+alter table public.readings add constraint readings_id_user_key unique (id, user_id);
+
+create index readings_user_created_idx on public.readings (user_id, created_at desc);
+create index readings_guest_created_idx on public.readings (guest_session_id, created_at desc);
+
+create table public.consents (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  guest_session_id uuid,
+  document_type public.consent_document_type not null,
+  document_version text not null check (length(trim(document_version)) > 0),
+  accepted_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  constraint consents_exactly_one_subject check (
+    (user_id is not null)::integer + (guest_session_id is not null)::integer = 1
+  )
+);
+
+create unique index consents_user_document_version_key
+  on public.consents (user_id, document_type, document_version)
+  where user_id is not null;
+create unique index consents_guest_document_version_key
+  on public.consents (guest_session_id, document_type, document_version)
+  where guest_session_id is not null;
+
+create table public.purchases (
+  id uuid primary key default gen_random_uuid(),
+  reading_id uuid not null references public.readings(id) on delete restrict,
+  user_id uuid not null references public.profiles(id) on delete restrict,
+  order_id text not null unique check (length(trim(order_id)) > 0),
+  payment_key text unique,
+  amount integer not null default 3900 check (amount = 3900),
+  currency text not null default 'KRW' check (currency = 'KRW'),
+  status public.purchase_status not null default 'pending',
+  approved_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint purchases_paid_fields check (
+    status <> 'paid' or (payment_key is not null and approved_at is not null)
+  ),
+  constraint purchases_reading_owner_fk
+    foreign key (reading_id, user_id)
+    references public.readings(id, user_id)
+    on delete restrict
+);
+
+create unique index purchases_one_paid_reading_key
+  on public.purchases (reading_id)
+  where status = 'paid';
+
+create table public.followups (
+  id uuid primary key default gen_random_uuid(),
+  reading_id uuid not null references public.readings(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  question text not null check (length(trim(question)) > 0),
+  answer text,
+  sequence smallint not null check (sequence between 1 and 2),
+  status public.followup_status not null default 'pending',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (reading_id, sequence)
+);
+
+create table public.generation_records (
+  id uuid primary key default gen_random_uuid(),
+  reading_id uuid not null references public.readings(id) on delete cascade,
+  provider text not null,
+  model text not null,
+  prompt_version text not null,
+  idempotency_key text not null unique,
+  input_tokens integer check (input_tokens is null or input_tokens >= 0),
+  output_tokens integer check (output_tokens is null or output_tokens >= 0),
+  status public.generation_status not null default 'pending',
+  error_code text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.guest_ownership_transfers (
+  guest_session_id uuid primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  transferred_reading_count integer not null default 0,
+  transferred_consent_count integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table public.payment_webhook_events (
+  event_id text primary key,
+  order_id text not null references public.purchases(order_id) on delete cascade,
+  payment_key text not null,
+  event_type text not null,
+  payload jsonb not null default '{}'::jsonb,
+  processed_at timestamptz not null default now()
+);
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger profiles_set_updated_at before update on public.profiles
+for each row execute function public.set_updated_at();
+create trigger readings_set_updated_at before update on public.readings
+for each row execute function public.set_updated_at();
+create trigger purchases_set_updated_at before update on public.purchases
+for each row execute function public.set_updated_at();
+create trigger followups_set_updated_at before update on public.followups
+for each row execute function public.set_updated_at();
+create trigger generation_records_set_updated_at before update on public.generation_records
+for each row execute function public.set_updated_at();
+
+create or replace function public.create_profile_for_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'name', new.raw_user_meta_data ->> 'full_name'))
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+create trigger auth_user_created
+after insert on auth.users
+for each row execute function public.create_profile_for_new_user();
+
+create or replace function public.record_required_consents(
+  requested_user_id uuid,
+  requested_guest_session_id uuid,
+  requested_document_types public.consent_document_type[],
+  requested_document_versions text[],
+  requested_accepted_at timestamptz
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  item_index integer;
+begin
+  if (requested_user_id is not null)::integer
+    + (requested_guest_session_id is not null)::integer <> 1 then
+    raise exception 'Exactly one consent subject is required';
+  end if;
+  if cardinality(requested_document_types) <> 3
+    or cardinality(requested_document_versions) <> 3
+    or not requested_document_types @> array[
+      'terms', 'privacy', 'sensitive-data'
+    ]::public.consent_document_type[] then
+    raise exception 'All required consent documents are required';
+  end if;
+
+  for item_index in 1..3 loop
+    if requested_user_id is not null then
+      insert into public.consents (
+        user_id, document_type, document_version, accepted_at
+      ) values (
+        requested_user_id,
+        requested_document_types[item_index],
+        requested_document_versions[item_index],
+        requested_accepted_at
+      )
+      on conflict (user_id, document_type, document_version)
+        where user_id is not null
+      do update set accepted_at = excluded.accepted_at;
+    else
+      insert into public.consents (
+        guest_session_id, document_type, document_version, accepted_at
+      ) values (
+        requested_guest_session_id,
+        requested_document_types[item_index],
+        requested_document_versions[item_index],
+        requested_accepted_at
+      )
+      on conflict (guest_session_id, document_type, document_version)
+        where guest_session_id is not null
+      do update set accepted_at = excluded.accepted_at;
+    end if;
+  end loop;
+end;
+$$;
+
+create or replace function public.transfer_guest_ownership(
+  requested_guest_session_id uuid
+)
+returns table (
+  guest_session_id uuid,
+  user_id uuid,
+  transferred_reading_count integer,
+  transferred_consent_count integer,
+  already_transferred boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  reading_count integer := 0;
+  consent_count integer := 0;
+  prior public.guest_ownership_transfers%rowtype;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(requested_guest_session_id::text, 0));
+  select * into prior
+  from public.guest_ownership_transfers
+  where guest_ownership_transfers.guest_session_id = requested_guest_session_id;
+
+  if found then
+    if prior.user_id <> current_user_id then
+      raise exception 'Guest session was transferred to another user';
+    end if;
+    return query select prior.guest_session_id, prior.user_id,
+      prior.transferred_reading_count, prior.transferred_consent_count, true;
+    return;
+  end if;
+
+  update public.readings
+  set user_id = current_user_id, guest_session_id = null
+  where readings.guest_session_id = requested_guest_session_id
+    and readings.user_id is null;
+  get diagnostics reading_count = row_count;
+
+  insert into public.consents (
+    user_id, document_type, document_version, accepted_at, created_at
+  )
+  select current_user_id, document_type, document_version, accepted_at, created_at
+  from public.consents
+  where consents.guest_session_id = requested_guest_session_id
+  on conflict (user_id, document_type, document_version)
+    where user_id is not null
+  do nothing;
+  get diagnostics consent_count = row_count;
+
+  delete from public.consents
+  where consents.guest_session_id = requested_guest_session_id;
+
+  insert into public.guest_ownership_transfers (
+    guest_session_id, user_id, transferred_reading_count, transferred_consent_count
+  ) values (
+    requested_guest_session_id, current_user_id, reading_count, consent_count
+  );
+
+  return query select requested_guest_session_id, current_user_id,
+    reading_count, consent_count, false;
+end;
+$$;
+
+create or replace function public.claim_payment_confirmation(
+  requested_order_id text,
+  requested_payment_key text,
+  requested_reading_id uuid,
+  requested_user_id uuid,
+  requested_amount integer
+)
+returns table (
+  claim_state text,
+  id uuid,
+  reading_id uuid,
+  user_id uuid,
+  order_id text,
+  payment_key text,
+  amount integer,
+  status public.purchase_status
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  purchase public.purchases%rowtype;
+begin
+  perform pg_advisory_xact_lock(hashtextextended(requested_order_id, 0));
+  select * into purchase
+  from public.purchases
+  where purchases.order_id = requested_order_id
+  for update;
+
+  if not found then
+    raise exception 'Payment order not found';
+  end if;
+  if purchase.reading_id <> requested_reading_id
+    or purchase.user_id <> requested_user_id
+    or purchase.amount <> requested_amount then
+    raise exception 'Payment confirmation does not match the order';
+  end if;
+  if purchase.status = 'paid' then
+    if purchase.payment_key <> requested_payment_key then
+      raise exception 'Order was paid with a different payment key';
+    end if;
+    return query select 'paid', purchase.id, purchase.reading_id, purchase.user_id,
+      purchase.order_id, purchase.payment_key, purchase.amount, purchase.status;
+    return;
+  end if;
+  if purchase.status = 'confirming' then
+    if purchase.payment_key <> requested_payment_key then
+      raise exception 'Order is confirming with a different payment key';
+    end if;
+    return query select 'processing', purchase.id, purchase.reading_id, purchase.user_id,
+      purchase.order_id, purchase.payment_key, purchase.amount, purchase.status;
+    return;
+  end if;
+  if purchase.status <> 'pending' then
+    raise exception 'Payment order cannot be confirmed from status %', purchase.status;
+  end if;
+
+  update public.purchases
+  set status = 'confirming', payment_key = requested_payment_key
+  where purchases.id = purchase.id
+  returning * into purchase;
+
+  return query select 'claimed', purchase.id, purchase.reading_id, purchase.user_id,
+    purchase.order_id, purchase.payment_key, purchase.amount, purchase.status;
+end;
+$$;
+
+create or replace function public.complete_payment_confirmation(
+  requested_order_id text,
+  requested_payment_key text,
+  requested_approved_at timestamptz
+)
+returns table (
+  id uuid,
+  reading_id uuid,
+  user_id uuid,
+  order_id text,
+  payment_key text,
+  amount integer,
+  status public.purchase_status
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return query
+  update public.purchases
+  set status = 'paid', approved_at = requested_approved_at
+  where purchases.order_id = requested_order_id
+    and purchases.payment_key = requested_payment_key
+    and purchases.status in ('confirming', 'paid')
+  returning purchases.id, purchases.reading_id, purchases.user_id,
+    purchases.order_id, purchases.payment_key, purchases.amount, purchases.status;
+
+  if not found then
+    raise exception 'Payment confirmation claim not found';
+  end if;
+end;
+$$;
+
+create or replace function public.release_payment_confirmation(
+  requested_order_id text,
+  requested_payment_key text
+)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.purchases
+  set status = 'pending', payment_key = null
+  where purchases.order_id = requested_order_id
+    and purchases.payment_key = requested_payment_key
+    and purchases.status = 'confirming';
+$$;
+
+create or replace function public.record_payment_webhook(
+  requested_event_id text,
+  requested_event_type text,
+  requested_order_id text,
+  requested_payment_key text,
+  requested_payload jsonb
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  event_count integer;
+  purchase public.purchases%rowtype;
+begin
+  insert into public.payment_webhook_events (
+    event_id, order_id, payment_key, event_type, payload
+  ) values (
+    requested_event_id,
+    requested_order_id,
+    requested_payment_key,
+    requested_event_type,
+    requested_payload
+  )
+  on conflict (event_id) do nothing;
+  get diagnostics event_count = row_count;
+
+  if event_count = 0 then
+    return false;
+  end if;
+
+  select * into purchase
+  from public.purchases
+  where purchases.order_id = requested_order_id
+  for update;
+  if not found then
+    raise exception 'Payment order not found';
+  end if;
+  if purchase.payment_key is not null
+    and purchase.payment_key <> requested_payment_key then
+    raise exception 'Webhook payment key does not match the order';
+  end if;
+
+  update public.purchases
+  set status = 'paid',
+    payment_key = requested_payment_key,
+    approved_at = coalesce(approved_at, now())
+  where purchases.id = purchase.id;
+  return true;
+end;
+$$;
+
+alter table public.profiles enable row level security;
+alter table public.readings enable row level security;
+alter table public.consents enable row level security;
+alter table public.purchases enable row level security;
+alter table public.followups enable row level security;
+alter table public.generation_records enable row level security;
+alter table public.guest_ownership_transfers enable row level security;
+alter table public.payment_webhook_events enable row level security;
+
+create policy profiles_select_own on public.profiles
+for select using (id = auth.uid());
+create policy profiles_update_own on public.profiles
+for update using (id = auth.uid()) with check (id = auth.uid());
+
+create policy readings_select_own on public.readings
+for select using (user_id = auth.uid());
+create policy readings_insert_own on public.readings
+for insert with check (user_id = auth.uid() and guest_session_id is null);
+create policy readings_update_own on public.readings
+for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy readings_delete_own on public.readings
+for delete using (user_id = auth.uid());
+
+create policy consents_select_own on public.consents
+for select using (user_id = auth.uid());
+create policy consents_insert_own on public.consents
+for insert with check (user_id = auth.uid() and guest_session_id is null);
+
+create policy purchases_select_own on public.purchases
+for select using (user_id = auth.uid());
+
+create policy followups_select_own on public.followups
+for select using (user_id = auth.uid());
+create policy followups_insert_own on public.followups
+for insert with check (
+  user_id = auth.uid()
+  and exists (
+    select 1 from public.readings
+    where readings.id = reading_id and readings.user_id = auth.uid()
+  )
+);
+
+create policy generation_records_select_own on public.generation_records
+for select using (
+  exists (
+    select 1 from public.readings
+    where readings.id = reading_id and readings.user_id = auth.uid()
+  )
+);
+
+create policy guest_transfers_select_own on public.guest_ownership_transfers
+for select using (user_id = auth.uid());
+
+revoke all on function public.transfer_guest_ownership(uuid) from public;
+grant execute on function public.transfer_guest_ownership(uuid) to authenticated;
+revoke all on function public.record_required_consents(
+  uuid, uuid, public.consent_document_type[], text[], timestamptz
+) from public;
+grant execute on function public.record_required_consents(
+  uuid, uuid, public.consent_document_type[], text[], timestamptz
+) to service_role;
+revoke all on function public.claim_payment_confirmation(
+  text, text, uuid, uuid, integer
+) from public;
+grant execute on function public.claim_payment_confirmation(
+  text, text, uuid, uuid, integer
+) to service_role;
+revoke all on function public.complete_payment_confirmation(
+  text, text, timestamptz
+) from public;
+grant execute on function public.complete_payment_confirmation(
+  text, text, timestamptz
+) to service_role;
+revoke all on function public.release_payment_confirmation(text, text) from public;
+grant execute on function public.release_payment_confirmation(text, text) to service_role;
+revoke all on function public.record_payment_webhook(
+  text, text, text, text, jsonb
+) from public;
+grant execute on function public.record_payment_webhook(
+  text, text, text, text, jsonb
+) to service_role;
+
+
+
+-- Source: supabase/migrations/20260611110047_preserve_initial_consent_acceptance.sql
+
+create or replace function public.record_required_consents(
+  requested_user_id uuid,
+  requested_guest_session_id uuid,
+  requested_document_types public.consent_document_type[],
+  requested_document_versions text[],
+  requested_accepted_at timestamptz
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  item_index integer;
+begin
+  if (requested_user_id is not null)::integer
+    + (requested_guest_session_id is not null)::integer <> 1 then
+    raise exception 'Exactly one consent subject is required';
+  end if;
+  if cardinality(requested_document_types) <> 3
+    or cardinality(requested_document_versions) <> 3
+    or not requested_document_types @> array[
+      'terms', 'privacy', 'sensitive-data'
+    ]::public.consent_document_type[] then
+    raise exception 'All required consent documents are required';
+  end if;
+
+  for item_index in 1..3 loop
+    if requested_user_id is not null then
+      insert into public.consents (
+        user_id, document_type, document_version, accepted_at
+      ) values (
+        requested_user_id,
+        requested_document_types[item_index],
+        requested_document_versions[item_index],
+        requested_accepted_at
+      )
+      on conflict (user_id, document_type, document_version)
+        where user_id is not null
+      do nothing;
+    else
+      insert into public.consents (
+        guest_session_id, document_type, document_version, accepted_at
+      ) values (
+        requested_guest_session_id,
+        requested_document_types[item_index],
+        requested_document_versions[item_index],
+        requested_accepted_at
+      )
+      on conflict (guest_session_id, document_type, document_version)
+        where guest_session_id is not null
+      do nothing;
+    end if;
+  end loop;
+end;
+$$;
+
+revoke all on function public.record_required_consents(
+  uuid, uuid, public.consent_document_type[], text[], timestamptz
+) from public;
+grant execute on function public.record_required_consents(
+  uuid, uuid, public.consent_document_type[], text[], timestamptz
+) to service_role;
+
+
+
+-- Source: supabase/migrations/20260611165309_secure_guest_ownership_transfer.sql
+
+revoke all on function public.transfer_guest_ownership(uuid) from public;
+revoke all on function public.transfer_guest_ownership(uuid) from anon;
+revoke all on function public.transfer_guest_ownership(uuid) from authenticated;
+drop function if exists public.transfer_guest_ownership(uuid);
+
+create or replace function public.transfer_guest_ownership(
+  requested_guest_session_id uuid,
+  requested_user_id uuid
+)
+returns table (
+  guest_session_id uuid,
+  user_id uuid,
+  transferred_reading_count integer,
+  transferred_consent_count integer,
+  already_transferred boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  reading_count integer := 0;
+  consent_count integer := 0;
+  prior public.guest_ownership_transfers%rowtype;
+begin
+  if requested_guest_session_id is null then
+    raise exception 'Guest session is required';
+  end if;
+
+  if requested_user_id is null then
+    raise exception 'User is required';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(requested_guest_session_id::text, 0));
+  select * into prior
+  from public.guest_ownership_transfers
+  where guest_ownership_transfers.guest_session_id = requested_guest_session_id;
+
+  if found then
+    if prior.user_id <> requested_user_id then
+      raise exception 'Guest session was transferred to another user';
+    end if;
+
+    return query select
+      prior.guest_session_id,
+      prior.user_id,
+      prior.transferred_reading_count,
+      prior.transferred_consent_count,
+      true;
+    return;
+  end if;
+
+  update public.readings
+  set user_id = requested_user_id, guest_session_id = null
+  where readings.guest_session_id = requested_guest_session_id
+    and readings.user_id is null;
+  get diagnostics reading_count = row_count;
+
+  insert into public.consents (
+    user_id, document_type, document_version, accepted_at, created_at
+  )
+  select requested_user_id, document_type, document_version, accepted_at, created_at
+  from public.consents
+  where consents.guest_session_id = requested_guest_session_id
+  on conflict (user_id, document_type, document_version)
+    where user_id is not null
+  do update
+  set accepted_at = least(public.consents.accepted_at, excluded.accepted_at),
+      created_at = least(public.consents.created_at, excluded.created_at);
+  get diagnostics consent_count = row_count;
+
+  delete from public.consents
+  where consents.guest_session_id = requested_guest_session_id;
+
+  insert into public.guest_ownership_transfers (
+    guest_session_id,
+    user_id,
+    transferred_reading_count,
+    transferred_consent_count
+  ) values (
+    requested_guest_session_id,
+    requested_user_id,
+    reading_count,
+    consent_count
+  );
+
+  return query select
+    requested_guest_session_id,
+    requested_user_id,
+    reading_count,
+    consent_count,
+    false;
+end;
+$$;
+
+revoke all on function public.transfer_guest_ownership(uuid, uuid) from public;
+revoke all on function public.transfer_guest_ownership(uuid, uuid) from anon;
+revoke all on function public.transfer_guest_ownership(uuid, uuid) from authenticated;
+grant execute on function public.transfer_guest_ownership(uuid, uuid) to service_role;
+
+
+
+-- Source: supabase/migrations/20260611174940_add_reading_persistence_and_free_quotas.sql
+
+insert into public.profiles (id, display_name)
+select users.id,
+  coalesce(users.raw_user_meta_data ->> 'name', users.raw_user_meta_data ->> 'full_name')
+from auth.users as users
+on conflict (id) do nothing;
+
+alter table public.readings
+  add column if not exists deleted_at timestamptz;
+
+alter table public.readings
+  add column if not exists request_id uuid;
+
+update public.readings
+set request_id = id
+where request_id is null;
+
+alter table public.readings
+  alter column request_id set default gen_random_uuid();
+
+alter table public.readings
+  alter column request_id set not null;
+
+alter table public.readings
+  add column if not exists input_hash text;
+
+update public.readings
+set input_hash = encode(digest(coalesce(input::text, '{}'::jsonb::text), 'sha256'), 'hex')
+where input_hash is null;
+
+update public.readings
+set input_hash = encode(digest(coalesce(input::text, '{}'::jsonb::text), 'sha256'), 'hex')
+where length(btrim(input_hash)) = 0;
+
+alter table public.readings
+  alter column input_hash set not null;
+
+alter table public.readings
+  drop constraint if exists readings_input_hash_nonempty;
+
+alter table public.readings
+  add constraint readings_input_hash_nonempty
+  check (length(btrim(input_hash)) > 0);
+
+create unique index readings_user_request_id_key
+  on public.readings (user_id, request_id)
+  where user_id is not null;
+
+create unique index readings_guest_request_id_key
+  on public.readings (guest_session_id, request_id)
+  where guest_session_id is not null;
+
+create index readings_active_user_created_idx
+  on public.readings (user_id, created_at desc)
+  where deleted_at is null;
+
+create index readings_active_guest_created_idx
+  on public.readings (guest_session_id, created_at desc)
+  where deleted_at is null;
+
+create table public.free_reading_quota_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  guest_session_id uuid,
+  ip_hash text not null check (length(btrim(ip_hash)) > 0),
+  reading_id uuid references public.readings(id) on delete set null,
+  request_id uuid not null,
+  created_at timestamptz not null default now(),
+  constraint free_reading_quota_events_exactly_one_subject check (
+    (user_id is not null)::integer + (guest_session_id is not null)::integer = 1
+  )
+);
+
+create unique index free_reading_quota_events_reading_id_key
+  on public.free_reading_quota_events (reading_id)
+  where reading_id is not null;
+
+create unique index free_reading_quota_events_user_request_id_key
+  on public.free_reading_quota_events (user_id, request_id)
+  where user_id is not null and request_id is not null;
+
+create unique index free_reading_quota_events_guest_request_id_key
+  on public.free_reading_quota_events (guest_session_id, request_id)
+  where guest_session_id is not null and request_id is not null;
+
+create or replace function public.reserve_free_reading_quota(
+  requested_user_id uuid,
+  requested_guest_session_id uuid,
+  requested_ip_hash text,
+  requested_reading_id uuid,
+  requested_request_id uuid
+)
+returns table (
+  quota_event_id uuid,
+  user_id uuid,
+  guest_session_id uuid,
+  reading_id uuid,
+  request_id uuid,
+  already_reserved boolean
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $$
+declare
+  normalized_ip_hash text := btrim(coalesce(requested_ip_hash, ''));
+  normalized_request_id uuid;
+  existing_event public.free_reading_quota_events%rowtype;
+  inserted_event public.free_reading_quota_events%rowtype;
+  guest_hourly_count integer := 0;
+  guest_daily_count integer := 0;
+  user_daily_count integer := 0;
+begin
+  if (requested_user_id is not null)::integer
+    + (requested_guest_session_id is not null)::integer <> 1 then
+    raise exception 'Exactly one quota subject is required';
+  end if;
+
+  if (requested_reading_id is not null)::integer
+    + (requested_request_id is not null)::integer <> 1 then
+    raise exception 'Exactly one reservation key is required';
+  end if;
+
+  if normalized_ip_hash = '' then
+    raise exception 'IP hash is required';
+  end if;
+
+  if requested_reading_id is not null then
+    select readings.request_id into normalized_request_id
+    from public.readings
+    where readings.id = requested_reading_id
+      and (
+        (requested_user_id is not null and readings.user_id = requested_user_id)
+        or (
+          requested_guest_session_id is not null
+          and readings.guest_session_id = requested_guest_session_id
+        )
+      );
+
+    if normalized_request_id is null then
+      raise exception 'Reading not found for quota subject';
+    end if;
+  else
+    normalized_request_id := requested_request_id;
+  end if;
+
+  perform pg_advisory_xact_lock(
+    hashtextextended(
+      coalesce('user:' || requested_user_id::text, 'guest:' || requested_guest_session_id::text),
+      0
+    )
+  );
+
+  if requested_guest_session_id is not null then
+    perform pg_advisory_xact_lock(
+      hashtextextended('ip:' || normalized_ip_hash, 0)
+    );
+  end if;
+
+  select * into existing_event
+  from public.free_reading_quota_events
+  where (
+    (free_reading_quota_events.reading_id = requested_reading_id)
+    or (
+      (
+        (
+          requested_user_id is not null
+          and free_reading_quota_events.user_id = requested_user_id
+        )
+        or (
+          requested_guest_session_id is not null
+          and free_reading_quota_events.guest_session_id = requested_guest_session_id
+        )
+      )
+      and free_reading_quota_events.request_id = normalized_request_id
+    )
+  )
+  order by free_reading_quota_events.created_at asc
+  limit 1
+  for update;
+
+  if found then
+    if requested_reading_id is not null and existing_event.reading_id is null then
+      update public.free_reading_quota_events
+      set reading_id = requested_reading_id
+      where free_reading_quota_events.id = existing_event.id
+      returning * into existing_event;
+    end if;
+
+    return query select
+      existing_event.id,
+      existing_event.user_id,
+      existing_event.guest_session_id,
+      existing_event.reading_id,
+      existing_event.request_id,
+      true;
+    return;
+  end if;
+
+  if requested_guest_session_id is not null then
+    select count(*)::integer into guest_hourly_count
+    from public.free_reading_quota_events
+    where (
+        free_reading_quota_events.guest_session_id = requested_guest_session_id
+        or free_reading_quota_events.ip_hash = normalized_ip_hash
+      )
+      and created_at >= statement_timestamp() - interval '1 hour';
+
+    if guest_hourly_count >= 3 then
+      raise exception 'FREE_READING_QUOTA_EXCEEDED'
+        using errcode = 'RL101',
+          detail = 'guest_hourly_limit',
+          hint = 'Guests can reserve at most 3 free readings per rolling hour.';
+    end if;
+
+    select count(*)::integer into guest_daily_count
+    from public.free_reading_quota_events
+    where (
+        free_reading_quota_events.guest_session_id = requested_guest_session_id
+        or free_reading_quota_events.ip_hash = normalized_ip_hash
+      )
+      and timezone('Asia/Seoul', created_at)::date
+        = timezone('Asia/Seoul', statement_timestamp())::date;
+
+    if guest_daily_count >= 5 then
+      raise exception 'FREE_READING_QUOTA_EXCEEDED'
+        using errcode = 'RL102',
+          detail = 'guest_daily_limit_seoul',
+          hint = 'Guests can reserve at most 5 free readings per Asia/Seoul calendar day.';
+    end if;
+  else
+    select count(*)::integer into user_daily_count
+    from public.free_reading_quota_events
+    where free_reading_quota_events.user_id = requested_user_id
+      and timezone('Asia/Seoul', created_at)::date
+        = timezone('Asia/Seoul', statement_timestamp())::date;
+
+    if user_daily_count >= 10 then
+      raise exception 'FREE_READING_QUOTA_EXCEEDED'
+        using errcode = 'RL103',
+          detail = 'user_daily_limit_seoul',
+          hint = 'Users can reserve at most 10 free readings per Asia/Seoul calendar day.';
+    end if;
+  end if;
+
+  insert into public.free_reading_quota_events (
+    user_id,
+    guest_session_id,
+    ip_hash,
+    reading_id,
+    request_id
+  ) values (
+    requested_user_id,
+    requested_guest_session_id,
+    normalized_ip_hash,
+    requested_reading_id,
+    normalized_request_id
+  )
+  returning * into inserted_event;
+
+  return query select
+    inserted_event.id,
+    inserted_event.user_id,
+    inserted_event.guest_session_id,
+    inserted_event.reading_id,
+    inserted_event.request_id,
+    false;
+end;
+$$;
+
+create or replace function public.create_pending_free_reading(
+  requested_user_id uuid,
+  requested_guest_session_id uuid,
+  requested_ip_hash text,
+  requested_request_id uuid,
+  requested_input_hash text,
+  requested_kind public.reading_kind,
+  requested_input jsonb,
+  requested_provider text,
+  requested_model text,
+  requested_prompt_version text
+)
+returns table (
+  reading_id uuid,
+  generation_id uuid,
+  created boolean
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $$
+declare
+  existing_reading public.readings%rowtype;
+  inserted_reading public.readings%rowtype;
+  existing_generation_id uuid;
+  inserted_generation_id uuid;
+begin
+  if length(btrim(coalesce(requested_input_hash, ''))) = 0 then
+    raise exception 'Input hash is required';
+  end if;
+
+  perform *
+  from public.reserve_free_reading_quota(
+    requested_user_id,
+    requested_guest_session_id,
+    requested_ip_hash,
+    null,
+    requested_request_id
+  );
+
+  select * into existing_reading
+  from public.readings
+  where (
+      requested_user_id is not null
+      and readings.user_id = requested_user_id
+      and readings.request_id = requested_request_id
+    )
+    or (
+      requested_guest_session_id is not null
+      and readings.guest_session_id = requested_guest_session_id
+      and readings.request_id = requested_request_id
+    )
+  limit 1
+  for update;
+
+  if found then
+    if existing_reading.deleted_at is not null then
+      raise exception 'READING_DELETED'
+        using errcode = 'RL105';
+    end if;
+    if existing_reading.input_hash <> requested_input_hash then
+      raise exception 'IDEMPOTENCY_CONFLICT'
+        using errcode = 'RL104';
+    end if;
+
+    select generation_records.id into existing_generation_id
+    from public.generation_records
+    where generation_records.reading_id = existing_reading.id
+    order by generation_records.created_at desc
+    limit 1;
+
+    if existing_generation_id is null then
+      raise exception 'GENERATION_RECORD_MISSING'
+        using errcode = 'RL106';
+    end if;
+
+    return query select existing_reading.id, existing_generation_id, false;
+    return;
+  end if;
+
+  insert into public.readings (
+    user_id,
+    guest_session_id,
+    request_id,
+    input_hash,
+    kind,
+    tier,
+    status,
+    title,
+    input
+  ) values (
+    requested_user_id,
+    requested_guest_session_id,
+    requested_request_id,
+    requested_input_hash,
+    requested_kind,
+    'free',
+    'generating',
+    'Generating...',
+    requested_input
+  )
+  returning * into inserted_reading;
+
+  insert into public.generation_records (
+    reading_id,
+    provider,
+    model,
+    prompt_version,
+    idempotency_key,
+    status
+  ) values (
+    inserted_reading.id,
+    requested_provider,
+    requested_model,
+    requested_prompt_version,
+    'free-reading:' || inserted_reading.id::text,
+    'pending'
+  )
+  returning generation_records.id into inserted_generation_id;
+
+  update public.free_reading_quota_events
+  set reading_id = inserted_reading.id
+  where free_reading_quota_events.request_id = requested_request_id
+    and free_reading_quota_events.reading_id is null
+    and (
+      (
+        requested_user_id is not null
+        and free_reading_quota_events.user_id = requested_user_id
+      )
+      or (
+        requested_guest_session_id is not null
+        and free_reading_quota_events.guest_session_id = requested_guest_session_id
+      )
+    );
+
+  return query select inserted_reading.id, inserted_generation_id, true;
+end;
+$$;
+
+create or replace function public.complete_free_reading_generation(
+  requested_reading_id uuid,
+  requested_generation_id uuid,
+  requested_title text,
+  requested_result jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $$
+declare
+  changed_rows integer;
+begin
+  update public.generation_records
+  set status = 'completed',
+    error_code = null
+  where generation_records.id = requested_generation_id
+    and generation_records.reading_id = requested_reading_id
+    and generation_records.status = 'pending';
+  get diagnostics changed_rows = row_count;
+  if changed_rows <> 1 then
+    raise exception 'GENERATION_STATE_CONFLICT'
+      using errcode = 'RL107';
+  end if;
+
+  update public.readings
+  set status = 'completed',
+    title = requested_title,
+    result = requested_result
+  where readings.id = requested_reading_id
+    and readings.status = 'generating'
+    and readings.deleted_at is null;
+  get diagnostics changed_rows = row_count;
+  if changed_rows <> 1 then
+    raise exception 'READING_STATE_CONFLICT'
+      using errcode = 'RL108';
+  end if;
+end;
+$$;
+
+create or replace function public.fail_free_reading_generation(
+  requested_reading_id uuid,
+  requested_generation_id uuid,
+  requested_error_code text
+)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $$
+declare
+  changed_rows integer;
+begin
+  update public.generation_records
+  set status = 'failed',
+    error_code = requested_error_code
+  where generation_records.id = requested_generation_id
+    and generation_records.reading_id = requested_reading_id
+    and generation_records.status = 'pending';
+  get diagnostics changed_rows = row_count;
+  if changed_rows <> 1 then
+    raise exception 'GENERATION_STATE_CONFLICT'
+      using errcode = 'RL107';
+  end if;
+
+  update public.readings
+  set status = 'failed'
+  where readings.id = requested_reading_id
+    and readings.status = 'generating'
+    and readings.deleted_at is null;
+  get diagnostics changed_rows = row_count;
+  if changed_rows <> 1 then
+    raise exception 'READING_STATE_CONFLICT'
+      using errcode = 'RL108';
+  end if;
+end;
+$$;
+
+alter table public.free_reading_quota_events enable row level security;
+
+revoke all on table public.free_reading_quota_events from public;
+revoke all on table public.free_reading_quota_events from anon;
+revoke all on table public.free_reading_quota_events from authenticated;
+grant select, insert on table public.free_reading_quota_events to service_role;
+
+revoke all on table public.generation_records from public;
+revoke all on table public.generation_records from anon;
+revoke all on table public.generation_records from authenticated;
+grant select, insert, update, delete on table public.generation_records to service_role;
+
+revoke insert, update, delete on table public.readings from public;
+revoke insert, update, delete on table public.readings from anon;
+revoke insert, update, delete on table public.readings from authenticated;
+grant select, insert, update, delete on table public.readings to service_role;
+
+drop policy if exists readings_delete_own on public.readings;
+drop policy if exists readings_insert_own on public.readings;
+drop policy if exists readings_select_own on public.readings;
+create policy readings_select_own on public.readings
+for select using (user_id = auth.uid() and deleted_at is null);
+
+drop policy if exists readings_update_own on public.readings;
+drop policy if exists generation_records_select_own on public.generation_records;
+
+revoke create on schema public from public;
+revoke create on schema public from anon;
+revoke create on schema public from authenticated;
+
+revoke all on function public.reserve_free_reading_quota(
+  uuid, uuid, text, uuid, uuid
+) from public;
+revoke all on function public.reserve_free_reading_quota(
+  uuid, uuid, text, uuid, uuid
+) from anon;
+revoke all on function public.reserve_free_reading_quota(
+  uuid, uuid, text, uuid, uuid
+) from authenticated;
+grant execute on function public.reserve_free_reading_quota(
+  uuid, uuid, text, uuid, uuid
+) to service_role;
+
+revoke all on function public.create_pending_free_reading(
+  uuid, uuid, text, uuid, text, public.reading_kind, jsonb, text, text, text
+) from public;
+revoke all on function public.create_pending_free_reading(
+  uuid, uuid, text, uuid, text, public.reading_kind, jsonb, text, text, text
+) from anon;
+revoke all on function public.create_pending_free_reading(
+  uuid, uuid, text, uuid, text, public.reading_kind, jsonb, text, text, text
+) from authenticated;
+grant execute on function public.create_pending_free_reading(
+  uuid, uuid, text, uuid, text, public.reading_kind, jsonb, text, text, text
+) to service_role;
+
+revoke all on function public.complete_free_reading_generation(
+  uuid, uuid, text, jsonb
+) from public;
+revoke all on function public.complete_free_reading_generation(
+  uuid, uuid, text, jsonb
+) from anon;
+revoke all on function public.complete_free_reading_generation(
+  uuid, uuid, text, jsonb
+) from authenticated;
+grant execute on function public.complete_free_reading_generation(
+  uuid, uuid, text, jsonb
+) to service_role;
+
+revoke all on function public.fail_free_reading_generation(
+  uuid, uuid, text
+) from public;
+revoke all on function public.fail_free_reading_generation(
+  uuid, uuid, text
+) from anon;
+revoke all on function public.fail_free_reading_generation(
+  uuid, uuid, text
+) from authenticated;
+grant execute on function public.fail_free_reading_generation(
+  uuid, uuid, text
+) to service_role;
+
+
+
+-- Source: supabase/migrations/20260612151000_transfer_guest_quota_ownership.sql
+
+update public.free_reading_quota_events as quota
+set user_id = transfer.user_id,
+  guest_session_id = null
+from public.guest_ownership_transfers as transfer
+where quota.guest_session_id = transfer.guest_session_id
+  and quota.user_id is null;
+
+create or replace function public.transfer_guest_ownership(
+  requested_guest_session_id uuid,
+  requested_user_id uuid
+)
+returns table (
+  guest_session_id uuid,
+  user_id uuid,
+  transferred_reading_count integer,
+  transferred_consent_count integer,
+  already_transferred boolean
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $$
+declare
+  reading_count integer := 0;
+  consent_count integer := 0;
+  prior public.guest_ownership_transfers%rowtype;
+begin
+  if requested_guest_session_id is null then
+    raise exception 'Guest session is required';
+  end if;
+
+  if requested_user_id is null then
+    raise exception 'User is required';
+  end if;
+
+  perform pg_advisory_xact_lock(
+    hashtextextended(requested_guest_session_id::text, 0)
+  );
+
+  select * into prior
+  from public.guest_ownership_transfers
+  where guest_ownership_transfers.guest_session_id = requested_guest_session_id;
+
+  if found then
+    if prior.user_id <> requested_user_id then
+      raise exception 'Guest session was transferred to another user';
+    end if;
+  end if;
+
+  update public.free_reading_quota_events
+  set user_id = requested_user_id,
+    guest_session_id = null
+  where free_reading_quota_events.guest_session_id = requested_guest_session_id
+    and free_reading_quota_events.user_id is null;
+
+  if found then
+    return query select
+      prior.guest_session_id,
+      prior.user_id,
+      prior.transferred_reading_count,
+      prior.transferred_consent_count,
+      true;
+    return;
+  end if;
+
+  update public.readings
+  set user_id = requested_user_id,
+    guest_session_id = null
+  where readings.guest_session_id = requested_guest_session_id
+    and readings.user_id is null;
+  get diagnostics reading_count = row_count;
+
+  insert into public.consents (
+    user_id,
+    document_type,
+    document_version,
+    accepted_at,
+    created_at
+  )
+  select
+    requested_user_id,
+    document_type,
+    document_version,
+    accepted_at,
+    created_at
+  from public.consents
+  where consents.guest_session_id = requested_guest_session_id
+  on conflict (user_id, document_type, document_version)
+    where user_id is not null
+  do update
+  set accepted_at = least(
+        public.consents.accepted_at,
+        excluded.accepted_at
+      ),
+      created_at = least(
+        public.consents.created_at,
+        excluded.created_at
+      );
+  get diagnostics consent_count = row_count;
+
+  delete from public.consents
+  where consents.guest_session_id = requested_guest_session_id;
+
+  insert into public.guest_ownership_transfers (
+    guest_session_id,
+    user_id,
+    transferred_reading_count,
+    transferred_consent_count
+  ) values (
+    requested_guest_session_id,
+    requested_user_id,
+    reading_count,
+    consent_count
+  );
+
+  return query select
+    requested_guest_session_id,
+    requested_user_id,
+    reading_count,
+    consent_count,
+    false;
+end;
+$$;
+
+revoke all on function public.transfer_guest_ownership(uuid, uuid) from public;
+revoke all on function public.transfer_guest_ownership(uuid, uuid) from anon;
+revoke all on function public.transfer_guest_ownership(uuid, uuid) from authenticated;
+grant execute on function public.transfer_guest_ownership(uuid, uuid) to service_role;
+
+
+
+-- Source: supabase/migrations/20260613190000_add_reading_record_actions.sql
+
+create or replace function public.start_failed_reading_retry(
+  requested_user_id uuid,
+  requested_reading_id uuid,
+  requested_provider text,
+  requested_model text,
+  requested_prompt_version text
+)
+returns table (
+  generation_id uuid
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $$
+declare
+  owned_reading public.readings%rowtype;
+  inserted_generation_id uuid;
+begin
+  select * into owned_reading
+  from public.readings
+  where readings.id = requested_reading_id
+    and readings.user_id = requested_user_id
+    and readings.status = 'failed'
+    and readings.deleted_at is null
+  for update;
+
+  if not found then
+    raise exception 'READING_NOT_RETRYABLE'
+      using errcode = 'RL109';
+  end if;
+
+  insert into public.generation_records (
+    reading_id,
+    provider,
+    model,
+    prompt_version,
+    idempotency_key,
+    status
+  ) values (
+    owned_reading.id,
+    requested_provider,
+    requested_model,
+    requested_prompt_version,
+    'free-reading-retry:' || owned_reading.id::text || ':' || gen_random_uuid()::text,
+    'pending'
+  )
+  returning generation_records.id into inserted_generation_id;
+
+  update public.readings
+  set status = 'generating',
+    title = 'Generating...',
+    result = null
+  where readings.id = owned_reading.id;
+
+  return query select inserted_generation_id;
+end;
+$$;
+
+revoke all on function public.start_failed_reading_retry(
+  uuid, uuid, text, text, text
+) from public;
+revoke all on function public.start_failed_reading_retry(
+  uuid, uuid, text, text, text
+) from anon;
+revoke all on function public.start_failed_reading_retry(
+  uuid, uuid, text, text, text
+) from authenticated;
+grant execute on function public.start_failed_reading_retry(
+  uuid, uuid, text, text, text
+) to service_role;
+
+
+

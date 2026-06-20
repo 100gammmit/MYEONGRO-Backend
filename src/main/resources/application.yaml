@@ -1,3 +1,41 @@
 spring:
   application:
     name: MYEONGRO-Backend
+  profiles:
+    active: dev
+  config:
+    import: optional:classpath:applicaiton-secret.yaml
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: public
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    clean-disabled: true
+app:
+  reading:
+    generator: demo
+    prompt-version: mvp-2026-06-16
+    openai:
+      model: ${openai.free-model:gpt-5.4-mini}
+      max-output-tokens: 1200
+  guest:
+    signing-secret: ${guest.secret}
+    ttl: 30d
+  consent:
+    versions:
+      terms: 2026-06-10
+      privacy: 2026-06-10
+      sensitive-data: 2026-06-10
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
