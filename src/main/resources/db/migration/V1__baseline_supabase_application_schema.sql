@@ -1511,6 +1511,3 @@ revoke all on function public.start_failed_reading_retry(
 grant execute on function public.start_failed_reading_retry(
   uuid, uuid, text, text, text
 ) to service_role;
-
-
-
