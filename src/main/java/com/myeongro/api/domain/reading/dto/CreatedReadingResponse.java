@@ -10,6 +10,7 @@ public record CreatedReadingResponse(
 	UUID id,
 	ReadingKind kind,
 	String status,
+	String title,
 	Map<String, Object> input,
 	Object result,
 	String errorCode,

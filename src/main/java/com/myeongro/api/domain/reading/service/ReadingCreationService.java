@@ -107,9 +107,18 @@ public class ReadingCreationService {
 		if (pending.reading().result() != null) {
 			return pending.reading();
 		}
+		return generatePending(kind, request.question().trim(), input, pending);
+	}
+
+	public CreatedReadingResponse generatePending(
+		ReadingKind kind,
+		String question,
+		Map<String, Object> input,
+		PendingReadingCreation pending
+	) {
 		ReadingResult result;
 		try {
-			result = generator.generate(kind, request.question().trim(), input);
+			result = generator.generate(kind, question.trim(), input);
 		} catch (OpenAiReadingGenerationException exception) {
 			repository.failPending(pending, exception.getCode());
 			throw exception;

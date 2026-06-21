@@ -75,6 +75,7 @@ class ReadingCreationServiceTests {
 				READING_ID,
 				ReadingKind.TAROT,
 				"generating",
+				"Generating...",
 				Map.of("question", "오늘의 흐름은?"),
 				null,
 				null,
@@ -170,6 +171,7 @@ class ReadingCreationServiceTests {
 				READING_ID,
 				ReadingKind.TAROT,
 				"generating",
+				"Generating...",
 				Map.of("question", "How is today?"),
 				null,
 				null,
@@ -220,6 +222,7 @@ class ReadingCreationServiceTests {
 			READING_ID,
 			ReadingKind.TAROT,
 			"completed",
+			"Tarot reading",
 			Map.of("question", "오늘의 흐름은?"),
 			Map.of(
 				"title", "타로 데모 리딩",
