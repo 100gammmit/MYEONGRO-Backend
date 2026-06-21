@@ -23,6 +23,7 @@ import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;

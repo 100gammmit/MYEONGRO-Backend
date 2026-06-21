@@ -11,6 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import com.myeongro.api.global.auth.exception.InvalidAuthenticatedUserException;
+import com.myeongro.api.global.auth.exception.UnauthenticatedUserException;
+
 class AuthenticatedUserResolverTests {
 
 	private final AuthenticatedUserResolver resolver = new AuthenticatedUserResolver();

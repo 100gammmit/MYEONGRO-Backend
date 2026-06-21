@@ -11,6 +11,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.myeongro.api.global.auth.exception.InvalidAuthenticatedUserException;
+import com.myeongro.api.global.auth.exception.UnauthenticatedUserException;
+
 class AuthExceptionHandlerTests {
 
 	private MockMvc mockMvc;

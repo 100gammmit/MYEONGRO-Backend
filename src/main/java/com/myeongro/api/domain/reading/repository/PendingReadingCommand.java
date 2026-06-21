@@ -5,6 +5,9 @@ import java.util.UUID;
 
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 
+import lombok.Builder;
+
+@Builder
 public record PendingReadingCommand(
 	UUID userId,
 	UUID guestSessionId,

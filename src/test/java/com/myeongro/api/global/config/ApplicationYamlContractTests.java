@@ -17,7 +17,7 @@ class ApplicationYamlContractTests {
 			StandardCharsets.UTF_8
 		);
 
-		assertThat(applicationYaml).contains("generator: demo");
-		assertThat(applicationYaml).doesNotContain("api-key: ${openai.api-key}");
+		assertThat(applicationYaml).contains("api-key: ${openai.api-key:}");
+		assertThat(applicationYaml).contains("model: ${openai.free-model:");
 	}
 }

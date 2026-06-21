@@ -1,4 +1,4 @@
-package com.myeongro.api.domain.reading.service;
+package com.myeongro.api.domain.reading.exception;
 
 public class OpenAiReadingGenerationException extends RuntimeException {
 

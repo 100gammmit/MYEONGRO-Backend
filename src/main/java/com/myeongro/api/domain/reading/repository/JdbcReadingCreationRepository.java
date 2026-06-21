@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.FreeReadingIdempotencyConflictException;
+import com.myeongro.api.domain.reading.exception.FreeReadingQuotaExceededException;
 
 @Repository
 public class JdbcReadingCreationRepository implements ReadingCreationRepository {

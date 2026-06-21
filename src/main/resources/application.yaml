@@ -16,6 +16,9 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
     clean-disabled: true
+  ai:
+    openai:
+      api-key: ${openai.api-key:}
 app:
   reading:
     generator: demo

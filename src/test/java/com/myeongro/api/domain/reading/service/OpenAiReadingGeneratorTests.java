@@ -20,6 +20,7 @@ import org.springframework.ai.openai.api.ResponseFormat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 
 class OpenAiReadingGeneratorTests {
 

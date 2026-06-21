@@ -18,6 +18,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 
 @Component
 @ConditionalOnProperty(prefix = "app.reading", name = "generator", havingValue = "openai")

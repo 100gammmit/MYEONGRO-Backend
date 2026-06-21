@@ -6,6 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.myeongro.api.global.auth.exception.InvalidAuthenticatedUserException;
+import com.myeongro.api.global.auth.exception.UnauthenticatedUserException;
+
 @RestControllerAdvice
 public class AuthExceptionHandler {
 

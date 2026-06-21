@@ -22,6 +22,8 @@ import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
@@ -92,18 +94,18 @@ public class ReadingCreationService {
 
 		ReadingKind kind = ReadingKind.fromValue(request.kind());
 		Map<String, Object> input = toStorageInput(kind, request);
-		PendingReadingCreation pending = repository.createPending(new PendingReadingCommand(
-			null,
-			guestSessionId,
-			requestId,
-			inputHash(input),
-			ipHash(remoteAddress),
-			kind,
-			input,
-			generationMetadata.provider(),
-			generationMetadata.model(),
-			generationMetadata.promptVersion()
-		));
+		PendingReadingCreation pending = repository.createPending(PendingReadingCommand.builder()
+			.userId(null)
+			.guestSessionId(guestSessionId)
+			.requestId(requestId)
+			.inputHash(inputHash(input))
+			.ipHash(ipHash(remoteAddress))
+			.kind(kind)
+			.input(input)
+			.provider(generationMetadata.provider())
+			.model(generationMetadata.model())
+			.promptVersion(generationMetadata.promptVersion())
+			.build());
 		if (pending.reading().result() != null) {
 			return pending.reading();
 		}

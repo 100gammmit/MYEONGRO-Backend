@@ -1,4 +1,4 @@
-package com.myeongro.api.domain.reading.repository;
+package com.myeongro.api.domain.reading.exception;
 
 public class FreeReadingQuotaExceededException extends RuntimeException {
 

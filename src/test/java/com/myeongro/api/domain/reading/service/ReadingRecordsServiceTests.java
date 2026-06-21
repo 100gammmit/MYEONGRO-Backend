@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 
