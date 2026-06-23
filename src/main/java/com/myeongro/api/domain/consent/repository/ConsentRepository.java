@@ -15,6 +15,8 @@ public interface ConsentRepository extends JpaRepository<ConsentEntity, UUID> {
 
 	List<ConsentEntity> findAllByGuestSessionId(UUID guestSessionId);
 
+	List<ConsentEntity> findAllByUserId(UUID userId);
+
 	@Modifying
 	@Query(value = """
 		insert into public.consents (
@@ -37,6 +39,33 @@ public interface ConsentRepository extends JpaRepository<ConsentEntity, UUID> {
 		""", nativeQuery = true)
 	int insertGuestConsentIfAbsent(
 		@Param("guestSessionId") UUID guestSessionId,
+		@Param("documentType") String documentType,
+		@Param("documentVersion") String documentVersion,
+		@Param("acceptedAt") Instant acceptedAt
+	);
+
+	@Modifying
+	@Query(value = """
+		insert into public.consents (
+			user_id,
+			guest_session_id,
+			document_type,
+			document_version,
+			accepted_at
+		)
+		values (
+			:userId,
+			null,
+			cast(:documentType as public.consent_document_type),
+			:documentVersion,
+			:acceptedAt
+		)
+		on conflict (user_id, document_type, document_version)
+			where user_id is not null
+		do nothing
+		""", nativeQuery = true)
+	int insertUserConsentIfAbsent(
+		@Param("userId") UUID userId,
 		@Param("documentType") String documentType,
 		@Param("documentVersion") String documentVersion,
 		@Param("acceptedAt") Instant acceptedAt

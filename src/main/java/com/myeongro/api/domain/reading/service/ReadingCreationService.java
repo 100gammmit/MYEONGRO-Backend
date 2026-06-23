@@ -129,6 +129,9 @@ public class ReadingCreationService {
 		if (requestId == null) {
 			throw new IllegalArgumentException("Request id is required");
 		}
+		if (!consentService.getUserStatus(userId).hasAcceptedRequired()) {
+			throw new RequiredConsentMissingException("필수 동의가 필요합니다.");
+		}
 
 		ReadingKind kind = ReadingKind.fromValue(request.kind());
 		Map<String, Object> input = toStorageInput(kind, request);

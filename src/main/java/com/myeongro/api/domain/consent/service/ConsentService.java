@@ -56,6 +56,16 @@ public class ConsentService {
 	@Transactional(readOnly = true)
 	public ConsentStatus getStatus(UUID guestSessionId) {
 		List<ConsentEntity> stored = repository.findAllByGuestSessionId(guestSessionId);
+		return toStatus(stored);
+	}
+
+	@Transactional(readOnly = true)
+	public ConsentStatus getUserStatus(UUID userId) {
+		List<ConsentEntity> stored = repository.findAllByUserId(userId);
+		return toStatus(stored);
+	}
+
+	private ConsentStatus toStatus(List<ConsentEntity> stored) {
 		List<ConsentDocumentType> accepted = ConsentDocumentType.required().stream()
 			.filter(type -> stored.stream().anyMatch(consent ->
 				consent.getDocumentType() == type
@@ -74,20 +84,7 @@ public class ConsentService {
 		UUID guestSessionId,
 		List<ConsentDocumentType> acceptedDocumentTypes
 	) {
-		List<ConsentDocumentType> accepted = acceptedDocumentTypes == null
-			? List.of()
-			: acceptedDocumentTypes.stream().distinct().toList();
-		for (ConsentDocumentType required : ConsentDocumentType.required()) {
-			if (!accepted.contains(required)) {
-				throw new IllegalArgumentException(
-					"Missing required consent: " + required.value()
-				);
-			}
-		}
-		if (accepted.size() != ConsentDocumentType.required().size()) {
-			throw new IllegalArgumentException("Only required consent documents are allowed");
-		}
-
+		validateAcceptedRequired(acceptedDocumentTypes);
 		Instant acceptedAt = clock.instant();
 		ConsentDocumentType.required().forEach(type ->
 			repository.insertGuestConsentIfAbsent(
@@ -105,6 +102,47 @@ public class ConsentService {
 			.map(current::get)
 			.map(ConsentAcceptance::from)
 			.toList();
+	}
+
+	@Transactional
+	public List<ConsentAcceptance> acceptRequiredForUser(
+		UUID userId,
+		List<ConsentDocumentType> acceptedDocumentTypes
+	) {
+		validateAcceptedRequired(acceptedDocumentTypes);
+		Instant acceptedAt = clock.instant();
+		ConsentDocumentType.required().forEach(type ->
+			repository.insertUserConsentIfAbsent(
+				userId,
+				type.value(),
+				versions.get(type),
+				acceptedAt
+			)
+		);
+
+		List<ConsentEntity> stored = repository.findAllByUserId(userId);
+		Map<ConsentDocumentType, ConsentEntity> current = currentVersionByType(stored);
+
+		return ConsentDocumentType.required().stream()
+			.map(current::get)
+			.map(ConsentAcceptance::from)
+			.toList();
+	}
+
+	private void validateAcceptedRequired(List<ConsentDocumentType> acceptedDocumentTypes) {
+		List<ConsentDocumentType> accepted = acceptedDocumentTypes == null
+			? List.of()
+			: acceptedDocumentTypes.stream().distinct().toList();
+		for (ConsentDocumentType required : ConsentDocumentType.required()) {
+			if (!accepted.contains(required)) {
+				throw new IllegalArgumentException(
+					"Missing required consent: " + required.value()
+				);
+			}
+		}
+		if (accepted.size() != ConsentDocumentType.required().size()) {
+			throw new IllegalArgumentException("Only required consent documents are allowed");
+		}
 	}
 
 	private Map<ConsentDocumentType, ConsentEntity> currentVersionByType(

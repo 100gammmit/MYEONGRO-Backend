@@ -50,11 +50,13 @@ public class ConsentEntity {
 	}
 
 	private ConsentEntity(
+		UUID userId,
 		UUID guestSessionId,
 		ConsentDocumentType documentType,
 		String documentVersion,
 		Instant acceptedAt
 	) {
+		this.userId = userId;
 		this.guestSessionId = guestSessionId;
 		this.documentType = documentType.value();
 		this.documentVersion = documentVersion;
@@ -68,7 +70,23 @@ public class ConsentEntity {
 		Instant acceptedAt
 	) {
 		return new ConsentEntity(
+			null,
 			guestSessionId,
+			documentType,
+			documentVersion,
+			acceptedAt
+		);
+	}
+
+	public static ConsentEntity forUser(
+		UUID userId,
+		ConsentDocumentType documentType,
+		String documentVersion,
+		Instant acceptedAt
+	) {
+		return new ConsentEntity(
+			userId,
+			null,
 			documentType,
 			documentVersion,
 			acceptedAt

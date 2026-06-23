@@ -118,6 +118,11 @@ class ReadingCreationServiceTests {
 		ConsentService consentService = mock(ConsentService.class);
 		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
 		GuestReadingCacheRepository guestCacheRepository = mock(GuestReadingCacheRepository.class);
+		when(consentService.getUserStatus(userId)).thenReturn(new ConsentStatus(
+			ConsentDocumentType.required(),
+			ConsentDocumentType.required(),
+			true
+		));
 		when(repository.createPending(any())).thenReturn(new PendingReadingCreation(
 			READING_ID,
 			GENERATION_ID,
@@ -149,6 +154,30 @@ class ReadingCreationServiceTests {
 		verify(repository).createPending(command.capture());
 		assertThat(command.getValue().userId()).isEqualTo(userId);
 		assertThat(command.getValue().guestSessionId()).isNull();
+		verify(guestCacheRepository, never()).createPending(any());
+	}
+
+	@Test
+	void rejectsUserReadingWhenUserHasNotAcceptedRequiredConsent() {
+		UUID userId = UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
+		ConsentService consentService = mock(ConsentService.class);
+		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
+		GuestReadingCacheRepository guestCacheRepository = mock(GuestReadingCacheRepository.class);
+		when(consentService.getUserStatus(userId)).thenReturn(new ConsentStatus(
+			List.of(),
+			ConsentDocumentType.required(),
+			false
+		));
+		ReadingCreationService service = service(consentService, repository, guestCacheRepository);
+
+		assertThatThrownBy(() -> service.createUserReading(
+			userId,
+			"127.0.0.1",
+			REQUEST_ID,
+			tarotRequest()
+		)).isInstanceOf(RequiredConsentMissingException.class);
+
+		verify(repository, never()).createPending(any());
 		verify(guestCacheRepository, never()).createPending(any());
 	}
 

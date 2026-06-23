@@ -25,6 +25,8 @@ class ConsentRepositoryTests {
 
 	private static final UUID GUEST_ID =
 		UUID.fromString("9775ff70-5708-45d8-85f8-cb57878bc25d");
+	private static final UUID USER_ID =
+		UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
 
 	@Autowired
 	private ConsentRepository repository;
@@ -41,6 +43,25 @@ class ConsentRepositoryTests {
 		repository.save(consent);
 
 		List<ConsentEntity> found = repository.findAllByGuestSessionId(GUEST_ID);
+		assertThat(found).hasSize(1);
+		assertThat(found.getFirst().getDocumentType())
+			.isEqualTo(ConsentDocumentType.TERMS);
+		assertThat(found.getFirst().getAcceptedAt())
+			.isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
+	}
+
+	@Test
+	void savesAndFindsUserConsents() {
+		ConsentEntity consent = ConsentEntity.forUser(
+			USER_ID,
+			ConsentDocumentType.TERMS,
+			"2026-06-10",
+			Instant.parse("2026-06-15T00:00:00Z")
+		);
+
+		repository.save(consent);
+
+		List<ConsentEntity> found = repository.findAllByUserId(USER_ID);
 		assertThat(found).hasSize(1);
 		assertThat(found.getFirst().getDocumentType())
 			.isEqualTo(ConsentDocumentType.TERMS);

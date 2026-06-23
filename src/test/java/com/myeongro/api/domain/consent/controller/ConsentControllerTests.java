@@ -19,6 +19,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -27,6 +29,8 @@ import com.myeongro.api.domain.consent.dto.ConsentAcceptance;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
 import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.service.ConsentService;
+import com.myeongro.api.global.auth.AuthenticatedUser;
+import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.cookie.CookieService;
 import com.myeongro.api.global.guest.GuestService;
 import com.myeongro.api.global.guest.GuestSession;
@@ -37,6 +41,8 @@ class ConsentControllerTests {
 
 	private static final UUID GUEST_ID =
 		UUID.fromString("9775ff70-5708-45d8-85f8-cb57878bc25d");
+	private static final UUID USER_ID =
+		UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
 	private static final GuestSession SESSION = new GuestSession(
 		GUEST_ID,
 		Instant.parse("2026-07-15T00:00:00Z")
@@ -45,6 +51,7 @@ class ConsentControllerTests {
 	private ConsentService consentService;
 	private GuestService guestService;
 	private GuestSessionSigner signer;
+	private AuthenticatedUserResolver userResolver;
 	private MockMvc mockMvc;
 
 	@BeforeEach
@@ -52,8 +59,14 @@ class ConsentControllerTests {
 		consentService = mock(ConsentService.class);
 		guestService = mock(GuestService.class);
 		signer = mock(GuestSessionSigner.class);
+		userResolver = mock(AuthenticatedUserResolver.class);
 		mockMvc = MockMvcBuilders
-			.standaloneSetup(new ConsentController(consentService, guestService, signer))
+			.standaloneSetup(new ConsentController(
+				consentService,
+				guestService,
+				signer,
+				userResolver
+			))
 			.setMessageConverters(new MappingJackson2HttpMessageConverter(
 				new ObjectMapper().findAndRegisterModules()
 			))
@@ -104,6 +117,24 @@ class ConsentControllerTests {
 	}
 
 	@Test
+	void getReturnsAuthenticatedUserConsentStatusWithoutIssuingGuestCookie() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(consentService.getUserStatus(USER_ID)).thenReturn(new ConsentStatus(
+			ConsentDocumentType.required(),
+			ConsentDocumentType.required(),
+			true
+		));
+
+		mockMvc.perform(get("/api/consents").principal(authentication))
+			.andExpect(status().isOk())
+			.andExpect(cookie().doesNotExist(CookieService.GUEST_COOKIE_NAME))
+			.andExpect(jsonPath("$.status.hasAcceptedRequired").value(true));
+
+		verify(guestService, never()).issueGuest();
+	}
+
+	@Test
 	void postRecordsConsentForVerifiedCookie() throws Exception {
 		when(signer.verify("signed-token")).thenReturn(Optional.of(SESSION));
 		when(consentService.acceptRequired(GUEST_ID, ConsentDocumentType.required()))
@@ -125,6 +156,30 @@ class ConsentControllerTests {
 					"""))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.consents[0].documentType").value("terms"));
+	}
+
+	@Test
+	void postRecordsConsentForAuthenticatedUser() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(consentService.acceptRequiredForUser(USER_ID, ConsentDocumentType.required()))
+			.thenReturn(List.of(new ConsentAcceptance(
+				null,
+				ConsentDocumentType.TERMS,
+				"2026-06-10",
+				Instant.parse("2026-06-15T00:00:00Z")
+			)));
+
+		mockMvc.perform(post("/api/consents")
+				.principal(authentication)
+				.contentType("application/json")
+				.content("""
+					{"acceptedDocumentTypes":["terms","privacy","sensitive-data"]}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.consents[0].documentType").value("terms"));
+
+		verify(consentService).acceptRequiredForUser(USER_ID, ConsentDocumentType.required());
 	}
 
 	@Test
@@ -154,5 +209,15 @@ class ConsentControllerTests {
 			GUEST_ID,
 			ConsentDocumentType.required()
 		);
+	}
+
+	private TestingAuthenticationToken authentication() {
+		Jwt jwt = Jwt.withTokenValue("token")
+			.header("alg", "RS256")
+			.subject(USER_ID.toString())
+			.build();
+		TestingAuthenticationToken authentication = new TestingAuthenticationToken(jwt, null);
+		authentication.setAuthenticated(true);
+		return authentication;
 	}
 }
