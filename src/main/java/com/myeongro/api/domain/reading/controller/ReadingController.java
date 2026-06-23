@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -65,8 +66,22 @@ public class ReadingController {
 			required = false
 		) String token,
 		@Valid @RequestBody ReadingCreateRequest request,
+		Authentication authentication,
 		HttpServletRequest servletRequest
 	) {
+		if (isAuthenticatedUser(authentication)) {
+			UUID userId = userResolver.requireUser(authentication).id();
+			return ResponseEntity.ok(Map.of(
+				"reading",
+				service.createUserReading(
+					userId,
+					servletRequest.getRemoteAddr(),
+					request.requestId(),
+					request
+				)
+			));
+		}
+
 		GuestSession session = signer.verify(token)
 			.orElseThrow(() -> new GuestSessionRequiredException(
 				"로그인 또는 게스트 세션이 필요합니다."
@@ -88,6 +103,12 @@ public class ReadingController {
 	public ResponseEntity<Map<String, Object>> listReadings(Authentication authentication) {
 		UUID userId = userResolver.requireUser(authentication).id();
 		return ResponseEntity.ok(Map.of("items", recordsService.listByUser(userId)));
+	}
+
+	private boolean isAuthenticatedUser(Authentication authentication) {
+		return authentication != null
+			&& authentication.isAuthenticated()
+			&& authentication.getPrincipal() instanceof Jwt;
 	}
 
 	@GetMapping("/{readingId}")

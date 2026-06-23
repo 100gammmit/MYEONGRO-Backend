@@ -14,13 +14,12 @@ class FlywayBaselineContractTests {
 
     @Test
     void v1RecreatesTheCurrentSupabaseApplicationSchema() throws IOException {
-        var migrations = Files.list(MIGRATION_DIRECTORY)
+        var migration = Files.list(MIGRATION_DIRECTORY)
             .filter(path -> path.getFileName().toString().startsWith("V1__"))
-            .toList();
+            .findFirst()
+            .orElseThrow();
 
-        assertThat(migrations).hasSize(1);
-
-        var sql = Files.readString(migrations.getFirst());
+        var sql = Files.readString(migration);
 
         assertThat(sql)
             .contains("create table public.profiles")
@@ -35,6 +34,25 @@ class FlywayBaselineContractTests {
             .contains("create or replace function public.start_failed_reading_retry")
             .contains("alter table public.readings enable row level security")
             .doesNotContain("create table consent (");
+    }
+
+    @Test
+    void v2MovesGuestReadingResultsIntoTemporaryCache() throws IOException {
+        var migration = Files.list(MIGRATION_DIRECTORY)
+            .filter(path -> path.getFileName().toString().startsWith("V2__guest_reading_cache"))
+            .findFirst()
+            .orElseThrow();
+
+        var sql = Files.readString(migration);
+
+        assertThat(sql)
+            .contains("create table if not exists public.guest_reading_cache")
+            .contains("guest_cache_id uuid")
+            .contains("create or replace function public.create_pending_guest_reading_cache")
+            .contains("create or replace function public.complete_guest_reading_cache")
+            .contains("create or replace function public.fail_guest_reading_cache")
+            .contains("add constraint readings_user_owner_only")
+            .contains("check (user_id is not null and guest_session_id is null)");
     }
 
     @Test

@@ -24,7 +24,9 @@ import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
+import com.myeongro.api.domain.reading.repository.GuestReadingCacheRepository;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
+import com.myeongro.api.domain.reading.repository.PendingGuestReadingCache;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
 
@@ -43,12 +45,13 @@ class ReadingCreationServiceTests {
 	void rejectsCreationWhenGuestHasNotAcceptedRequiredConsent() {
 		ConsentService consentService = mock(ConsentService.class);
 		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
+		GuestReadingCacheRepository guestCacheRepository = mock(GuestReadingCacheRepository.class);
 		when(consentService.getStatus(GUEST_ID)).thenReturn(new ConsentStatus(
 			List.of(),
 			ConsentDocumentType.required(),
 			false
 		));
-		ReadingCreationService service = service(consentService, repository);
+		ReadingCreationService service = service(consentService, repository, guestCacheRepository);
 
 		assertThatThrownBy(() -> service.createGuestReading(
 			GUEST_ID,
@@ -58,20 +61,21 @@ class ReadingCreationServiceTests {
 		)).isInstanceOf(RequiredConsentMissingException.class);
 
 		verify(repository, never()).createPending(any());
+		verify(guestCacheRepository, never()).createPending(any());
 	}
 
 	@Test
 	void validatesTarotCardIdsAndReturnsCompletedReadingResult() {
 		ConsentService consentService = mock(ConsentService.class);
 		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
+		GuestReadingCacheRepository guestCacheRepository = mock(GuestReadingCacheRepository.class);
 		when(consentService.getStatus(GUEST_ID)).thenReturn(new ConsentStatus(
 			ConsentDocumentType.required(),
 			ConsentDocumentType.required(),
 			true
 		));
-		when(repository.createPending(any())).thenReturn(new PendingReadingCreation(
+		when(guestCacheRepository.createPending(any())).thenReturn(new PendingGuestReadingCache(
 			READING_ID,
-			GENERATION_ID,
 			new CreatedReadingResponse(
 				READING_ID,
 				ReadingKind.TAROT,
@@ -84,8 +88,8 @@ class ReadingCreationServiceTests {
 				Instant.parse("2026-06-16T00:00:00Z")
 			)
 		));
-		when(repository.completePending(any(), any())).thenReturn(completedReading());
-		ReadingCreationService service = service(consentService, repository);
+		when(guestCacheRepository.completePending(any(), any())).thenReturn(completedReading());
+		ReadingCreationService service = service(consentService, repository, guestCacheRepository);
 
 		CreatedReadingResponse response = service.createGuestReading(
 			GUEST_ID,
@@ -98,23 +102,67 @@ class ReadingCreationServiceTests {
 		assertThat(response.result()).isNotNull();
 		ArgumentCaptor<PendingReadingCommand> command =
 			ArgumentCaptor.forClass(PendingReadingCommand.class);
-		verify(repository).createPending(command.capture());
+		verify(guestCacheRepository).createPending(command.capture());
+		assertThat(command.getValue().userId()).isNull();
+		assertThat(command.getValue().guestSessionId()).isEqualTo(GUEST_ID);
 		assertThat(command.getValue().provider()).isEqualTo("demo");
 		assertThat(command.getValue().model()).isEqualTo("deterministic-demo");
 		assertThat(command.getValue().promptVersion()).isEqualTo("mvp-test");
-		verify(repository).completePending(any(), any());
+		verify(repository, never()).createPending(any());
+		verify(guestCacheRepository).completePending(any(), any());
+	}
+
+	@Test
+	void createsUserReadingAsPermanentRecordWithUserOwner() {
+		UUID userId = UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
+		ConsentService consentService = mock(ConsentService.class);
+		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
+		GuestReadingCacheRepository guestCacheRepository = mock(GuestReadingCacheRepository.class);
+		when(repository.createPending(any())).thenReturn(new PendingReadingCreation(
+			READING_ID,
+			GENERATION_ID,
+			new CreatedReadingResponse(
+				READING_ID,
+				ReadingKind.TAROT,
+				"generating",
+				"Generating...",
+				Map.of("question", "How is today?"),
+				null,
+				null,
+				Instant.parse("2026-06-16T00:00:00Z"),
+				Instant.parse("2026-06-16T00:00:00Z")
+			)
+		));
+		when(repository.completePending(any(), any())).thenReturn(completedReading());
+		ReadingCreationService service = service(consentService, repository, guestCacheRepository);
+
+		CreatedReadingResponse response = service.createUserReading(
+			userId,
+			"127.0.0.1",
+			REQUEST_ID,
+			tarotRequest()
+		);
+
+		assertThat(response.status()).isEqualTo("completed");
+		ArgumentCaptor<PendingReadingCommand> command =
+			ArgumentCaptor.forClass(PendingReadingCommand.class);
+		verify(repository).createPending(command.capture());
+		assertThat(command.getValue().userId()).isEqualTo(userId);
+		assertThat(command.getValue().guestSessionId()).isNull();
+		verify(guestCacheRepository, never()).createPending(any());
 	}
 
 	@Test
 	void rejectsDuplicateTarotCards() {
 		ConsentService consentService = mock(ConsentService.class);
 		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
+		GuestReadingCacheRepository guestCacheRepository = mock(GuestReadingCacheRepository.class);
 		when(consentService.getStatus(GUEST_ID)).thenReturn(new ConsentStatus(
 			ConsentDocumentType.required(),
 			ConsentDocumentType.required(),
 			true
 		));
-		ReadingCreationService service = service(consentService, repository);
+		ReadingCreationService service = service(consentService, repository, guestCacheRepository);
 
 		assertThatThrownBy(() -> service.createGuestReading(
 			GUEST_ID,
@@ -132,18 +180,20 @@ class ReadingCreationServiceTests {
 		)).isInstanceOf(IllegalArgumentException.class);
 
 		verify(repository, never()).createPending(any());
+		verify(guestCacheRepository, never()).createPending(any());
 	}
 
 	@Test
 	void rejectsMissingRequestIdBeforeCreatingPendingReading() {
 		ConsentService consentService = mock(ConsentService.class);
 		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
+		GuestReadingCacheRepository guestCacheRepository = mock(GuestReadingCacheRepository.class);
 		when(consentService.getStatus(GUEST_ID)).thenReturn(new ConsentStatus(
 			ConsentDocumentType.required(),
 			ConsentDocumentType.required(),
 			true
 		));
-		ReadingCreationService service = service(consentService, repository);
+		ReadingCreationService service = service(consentService, repository, guestCacheRepository);
 
 		assertThatThrownBy(() -> service.createGuestReading(
 			GUEST_ID,
@@ -154,20 +204,21 @@ class ReadingCreationServiceTests {
 			.hasMessage("Request id is required");
 
 		verify(repository, never()).createPending(any());
+		verify(guestCacheRepository, never()).createPending(any());
 	}
 
 	@Test
 	void marksPendingReadingFailedWhenAnyGeneratorFails() {
 		ConsentService consentService = mock(ConsentService.class);
 		ReadingCreationRepository repository = mock(ReadingCreationRepository.class);
+		GuestReadingCacheRepository guestCacheRepository = mock(GuestReadingCacheRepository.class);
 		when(consentService.getStatus(GUEST_ID)).thenReturn(new ConsentStatus(
 			ConsentDocumentType.required(),
 			ConsentDocumentType.required(),
 			true
 		));
-		PendingReadingCreation pending = new PendingReadingCreation(
+		PendingGuestReadingCache pending = new PendingGuestReadingCache(
 			READING_ID,
-			GENERATION_ID,
 			new CreatedReadingResponse(
 				READING_ID,
 				ReadingKind.TAROT,
@@ -180,13 +231,14 @@ class ReadingCreationServiceTests {
 				Instant.parse("2026-06-16T00:00:00Z")
 			)
 		);
-		when(repository.createPending(any())).thenReturn(pending);
+		when(guestCacheRepository.createPending(any())).thenReturn(pending);
 		ReadingGenerator failingGenerator = (kind, question, input) -> {
 			throw new IllegalStateException("demo generator failed");
 		};
 		ReadingCreationService service = new ReadingCreationService(
 			consentService,
 			repository,
+			guestCacheRepository,
 			failingGenerator,
 			new ObjectMapper(),
 			"test-signing-secret",
@@ -200,17 +252,20 @@ class ReadingCreationServiceTests {
 			tarotRequest()
 		)).isInstanceOf(IllegalStateException.class);
 
-		verify(repository).failPending(pending, "READING_GENERATION_FAILED");
-		verify(repository, never()).completePending(any(), any());
+		verify(guestCacheRepository).failPending(pending, "READING_GENERATION_FAILED");
+		verify(guestCacheRepository, never()).completePending(any(), any());
+		verify(repository, never()).failPending(any(), any());
 	}
 
 	private ReadingCreationService service(
 		ConsentService consentService,
-		ReadingCreationRepository repository
+		ReadingCreationRepository repository,
+		GuestReadingCacheRepository guestCacheRepository
 	) {
 		return new ReadingCreationService(
 			consentService,
 			repository,
+			guestCacheRepository,
 			new DemoReadingGenerator(),
 			new ObjectMapper(),
 			"test-signing-secret",

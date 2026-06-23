@@ -156,6 +156,29 @@ class ReadingControllerTests {
 	}
 
 	@Test
+	void createsPermanentReadingForAuthenticatedUserWithoutGuestCookie() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(service.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, tarotRequest()))
+			.thenReturn(completedReading());
+
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication)
+				.with(request -> {
+					request.setRemoteAddr("127.0.0.1");
+					return request;
+				})
+				.contentType("application/json")
+				.content(validTarotRequest()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.reading.id").value(READING_ID.toString()))
+			.andExpect(jsonPath("$.reading.status").value("completed"));
+
+		verify(service).createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, tarotRequest());
+		verifyNoInteractions(signer);
+	}
+
+	@Test
 	void listsAuthenticatedUserReadings() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
@@ -345,6 +368,8 @@ class ReadingControllerTests {
 			.header("alg", "RS256")
 			.subject(USER_ID.toString())
 			.build();
-		return new TestingAuthenticationToken(jwt, null);
+		TestingAuthenticationToken authentication = new TestingAuthenticationToken(jwt, null);
+		authentication.setAuthenticated(true);
+		return authentication;
 	}
 }

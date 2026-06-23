@@ -24,7 +24,9 @@ import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
+import com.myeongro.api.domain.reading.repository.GuestReadingCacheRepository;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
+import com.myeongro.api.domain.reading.repository.PendingGuestReadingCache;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
 
@@ -58,6 +60,7 @@ public class ReadingCreationService {
 
 	private final ConsentService consentService;
 	private final ReadingCreationRepository repository;
+	private final GuestReadingCacheRepository guestCacheRepository;
 	private final ReadingGenerator generator;
 	private final ObjectMapper objectMapper;
 	private final String signingSecret;
@@ -66,6 +69,7 @@ public class ReadingCreationService {
 	public ReadingCreationService(
 		ConsentService consentService,
 		ReadingCreationRepository repository,
+		GuestReadingCacheRepository guestCacheRepository,
 		ReadingGenerator generator,
 		ObjectMapper objectMapper,
 		@Value("${app.guest.signing-secret}") String signingSecret,
@@ -73,6 +77,7 @@ public class ReadingCreationService {
 	) {
 		this.consentService = consentService;
 		this.repository = repository;
+		this.guestCacheRepository = guestCacheRepository;
 		this.generator = generator;
 		this.objectMapper = objectMapper;
 		this.signingSecret = signingSecret;
@@ -94,9 +99,42 @@ public class ReadingCreationService {
 
 		ReadingKind kind = ReadingKind.fromValue(request.kind());
 		Map<String, Object> input = toStorageInput(kind, request);
-		PendingReadingCreation pending = repository.createPending(PendingReadingCommand.builder()
+		PendingGuestReadingCache pending = guestCacheRepository.createPending(PendingReadingCommand.builder()
 			.userId(null)
 			.guestSessionId(guestSessionId)
+			.requestId(requestId)
+			.inputHash(inputHash(input))
+			.ipHash(ipHash(remoteAddress))
+			.kind(kind)
+			.input(input)
+			.provider(generationMetadata.provider())
+			.model(generationMetadata.model())
+			.promptVersion(generationMetadata.promptVersion())
+			.build());
+		if (pending.reading().result() != null) {
+			return pending.reading();
+		}
+		return generatePendingGuestCache(kind, request.question().trim(), input, pending);
+	}
+
+	public CreatedReadingResponse createUserReading(
+		UUID userId,
+		String remoteAddress,
+		UUID requestId,
+		ReadingCreateRequest request
+	) {
+		if (userId == null) {
+			throw new IllegalArgumentException("User id is required");
+		}
+		if (requestId == null) {
+			throw new IllegalArgumentException("Request id is required");
+		}
+
+		ReadingKind kind = ReadingKind.fromValue(request.kind());
+		Map<String, Object> input = toStorageInput(kind, request);
+		PendingReadingCreation pending = repository.createPending(PendingReadingCommand.builder()
+			.userId(userId)
+			.guestSessionId(null)
 			.requestId(requestId)
 			.inputHash(inputHash(input))
 			.ipHash(ipHash(remoteAddress))
@@ -129,6 +167,25 @@ public class ReadingCreationService {
 			throw exception;
 		}
 		return repository.completePending(pending, result);
+	}
+
+	private CreatedReadingResponse generatePendingGuestCache(
+		ReadingKind kind,
+		String question,
+		Map<String, Object> input,
+		PendingGuestReadingCache pending
+	) {
+		ReadingResult result;
+		try {
+			result = generator.generate(kind, question.trim(), input);
+		} catch (OpenAiReadingGenerationException exception) {
+			guestCacheRepository.failPending(pending, exception.getCode());
+			throw exception;
+		} catch (RuntimeException exception) {
+			guestCacheRepository.failPending(pending, "READING_GENERATION_FAILED");
+			throw exception;
+		}
+		return guestCacheRepository.completePending(pending, result);
 	}
 
 	private Map<String, Object> toStorageInput(
