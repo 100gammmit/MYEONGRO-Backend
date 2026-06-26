@@ -77,7 +77,7 @@ class FlywayBaselineContractTests {
 
         assertThat(yaml)
             .contains("active: dev")
-            .contains("optional:classpath:applicaiton-secret.yaml");
+            .contains("optional:classpath:application-secret.yaml");
         assertThat(build)
             .contains("testRuntimeOnly 'com.h2database:h2'")
             .doesNotContain("runtimeOnly 'com.h2database:h2'");

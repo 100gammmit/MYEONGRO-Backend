@@ -3,17 +3,18 @@ package com.myeongro.api.global.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.util.matcher.RegexRequestMatcher;
+
+import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
+import com.myeongro.api.global.auth.oauth.OAuth2LoginSuccessHandler;
+import com.myeongro.api.global.auth.oauth.OAuth2NextRequestFilter;
 
 /**
  * SecurityConfig
@@ -23,15 +24,15 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
 
-	private final String issuerUri;
-	private final String jwkSetUri;
+	private final String frontendOrigin;
+	private final OAuth2SessionUserService oauth2SessionUserService;
 
 	public SecurityConfig(
-		@Value("${app.auth.issuer-uri}") String issuerUri,
-		@Value("${app.auth.jwk-set-uri}") String jwkSetUri
+		@Value("${app.frontend-origin:http://localhost:3000}") String frontendOrigin,
+		OAuth2SessionUserService oauth2SessionUserService
 	) {
-		this.issuerUri = issuerUri;
-		this.jwkSetUri = jwkSetUri;
+		this.frontendOrigin = frontendOrigin;
+		this.oauth2SessionUserService = oauth2SessionUserService;
 	}
 
 	@Bean
@@ -39,30 +40,39 @@ public class SecurityConfig {
 		return http
 			.csrf(csrf -> csrf.disable())
 			.sessionManagement(session -> session
-				.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+				.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+			)
+			.addFilterBefore(
+				new OAuth2NextRequestFilter(),
+				OAuth2AuthorizationRequestRedirectFilter.class
 			)
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
 					"/v3/api-docs/**",
 					"/swagger-ui/**",
-					"/swagger-ui.html"
+					"/swagger-ui.html",
+					"/oauth2/authorization/**",
+					"/login/oauth2/code/**"
 				).permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/me").permitAll()
+				.requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/consents").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/consents").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/readings").permitAll()
 				.anyRequest().authenticated()
 			)
-			.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+			.oauth2Login(oauth2 -> oauth2
+				.userInfoEndpoint(userInfo -> userInfo
+					.userService(oauth2SessionUserService)
+				)
+				.successHandler(new OAuth2LoginSuccessHandler(frontendOrigin))
+			)
+			.exceptionHandling(exceptions -> exceptions
+				.defaultAuthenticationEntryPointFor(
+					new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+					new RegexRequestMatcher("^/api/.*", null)
+				)
+			)
 			.build();
-	}
-
-	@Bean
-	JwtDecoder jwtDecoder() {
-		NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
-			.jwsAlgorithm(SignatureAlgorithm.ES256)
-			.build();
-		OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(issuerUri);
-		decoder.setJwtValidator(validator);
-		return decoder;
 	}
 }

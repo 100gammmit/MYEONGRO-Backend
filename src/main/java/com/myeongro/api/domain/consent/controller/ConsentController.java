@@ -7,7 +7,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +19,7 @@ import com.myeongro.api.domain.consent.dto.ConsentRequest;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
+import com.myeongro.api.global.auth.session.SessionPrincipal;
 import com.myeongro.api.global.cookie.CookieService;
 import com.myeongro.api.global.guest.GuestService;
 import com.myeongro.api.global.guest.GuestSession;
@@ -105,7 +105,7 @@ public class ConsentController {
 	private boolean isAuthenticatedUser(Authentication authentication) {
 		return authentication != null
 			&& authentication.isAuthenticated()
-			&& authentication.getPrincipal() instanceof Jwt;
+			&& authentication.getPrincipal() instanceof SessionPrincipal;
 	}
 
 	@ExceptionHandler({

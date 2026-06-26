@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.security.authentication.TestingAuthenticationToken;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -31,6 +30,7 @@ import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.global.auth.AuthenticatedUser;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
+import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
 import com.myeongro.api.global.cookie.CookieService;
 import com.myeongro.api.global.guest.GuestService;
 import com.myeongro.api.global.guest.GuestSession;
@@ -212,11 +212,16 @@ class ConsentControllerTests {
 	}
 
 	private TestingAuthenticationToken authentication() {
-		Jwt jwt = Jwt.withTokenValue("token")
-			.header("alg", "RS256")
-			.subject(USER_ID.toString())
-			.build();
-		TestingAuthenticationToken authentication = new TestingAuthenticationToken(jwt, null);
+		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(
+			USER_ID,
+			"명로 사용자",
+			"kakao",
+			"12345"
+		);
+		TestingAuthenticationToken authentication = new TestingAuthenticationToken(
+			principal,
+			null
+		);
 		authentication.setAuthenticated(true);
 		return authentication;
 	}

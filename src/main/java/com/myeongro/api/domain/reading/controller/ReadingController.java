@@ -6,7 +6,6 @@ import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -27,6 +26,7 @@ import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
+import com.myeongro.api.global.auth.session.SessionPrincipal;
 import com.myeongro.api.global.cookie.CookieService;
 import com.myeongro.api.global.guest.GuestSession;
 import com.myeongro.api.global.guest.GuestSessionSigner;
@@ -108,7 +108,7 @@ public class ReadingController {
 	private boolean isAuthenticatedUser(Authentication authentication) {
 		return authentication != null
 			&& authentication.isAuthenticated()
-			&& authentication.getPrincipal() instanceof Jwt;
+			&& authentication.getPrincipal() instanceof SessionPrincipal;
 	}
 
 	@GetMapping("/{readingId}")
