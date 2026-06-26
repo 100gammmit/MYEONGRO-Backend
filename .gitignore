@@ -37,7 +37,7 @@ out/
 .vscode/
 
 ### secret ###
-applicaiton-secret.yaml
+application-secret.yaml
 
 ### local ###
 application-dev.yaml
