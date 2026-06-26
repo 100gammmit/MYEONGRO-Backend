@@ -1,0 +1,31 @@
+alter table public.profiles
+  drop constraint if exists profiles_id_fkey;
+
+do $$
+begin
+  if to_regclass('auth.users') is not null then
+    drop trigger if exists auth_user_created on auth.users;
+  end if;
+end
+$$;
+
+drop function if exists public.create_profile_for_new_user();
+
+create table if not exists public.oauth_accounts (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  provider text not null check (length(btrim(provider)) > 0),
+  provider_user_id text not null check (length(btrim(provider_user_id)) > 0),
+  email text,
+  display_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (provider, provider_user_id)
+);
+
+create index if not exists oauth_accounts_profile_id_idx
+  on public.oauth_accounts (profile_id);
+
+drop trigger if exists oauth_accounts_set_updated_at on public.oauth_accounts;
+create trigger oauth_accounts_set_updated_at before update on public.oauth_accounts
+for each row execute function public.set_updated_at();
