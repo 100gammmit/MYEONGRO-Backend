@@ -15,13 +15,14 @@ class OpenApiConfigTests {
 	}
 
 	@Test
-	void exposesBearerAuthSchemeForSwaggerAuthorize() {
+	void doesNotExposeLegacyBearerAuthScheme() {
 		OpenApiConfig config = new OpenApiConfig();
 
-		assertThat(config.myeongroOpenApi()
-			.getComponents()
-			.getSecuritySchemes())
-			.containsKey("bearerAuth");
+		assertThat(config.myeongroOpenApi().getComponents())
+			.satisfiesAnyOf(
+				components -> assertThat(components).isNull(),
+				components -> assertThat(components.getSecuritySchemes()).isNullOrEmpty()
+			);
 	}
 
 	@Test

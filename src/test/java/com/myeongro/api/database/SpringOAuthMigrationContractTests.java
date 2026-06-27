@@ -31,4 +31,24 @@ class SpringOAuthMigrationContractTests {
 			.contains("profile_id uuid not null references public.profiles(id)")
 			.contains("unique (provider, provider_user_id)");
 	}
+
+	@Test
+	void v4RemovesSupabaseAuthPoliciesAndDisablesApplicationRls() throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V4__remove_supabase_auth_rls"))
+			.findFirst()
+			.orElseThrow();
+
+		String sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("drop policy if exists profiles_select_own on public.profiles")
+			.contains("drop policy if exists readings_select_own on public.readings")
+			.contains("drop policy if exists consents_insert_own on public.consents")
+			.contains("alter table public.profiles disable row level security")
+			.contains("alter table public.readings disable row level security")
+			.contains("alter table public.consents disable row level security")
+			.doesNotContain("auth.uid()");
+	}
 }
