@@ -16,7 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/auth")
 public class AuthController {
 
 	private final AuthenticatedUserResolver userResolver;
@@ -51,7 +51,7 @@ public class AuthController {
 		}
 	}
 
-	@PostMapping("/auth/logout")
+	@PostMapping("/logout")
 	public ResponseEntity<Void> logout(HttpServletRequest request) {
 		HttpSession session = request.getSession(false);
 		if (session != null) {

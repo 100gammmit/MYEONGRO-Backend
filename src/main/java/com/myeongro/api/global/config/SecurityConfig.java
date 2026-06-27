@@ -54,8 +54,8 @@ public class SecurityConfig {
 					"/oauth2/authorization/**",
 					"/login/oauth2/code/**"
 				).permitAll()
-				.requestMatchers(HttpMethod.GET, "/api/me").permitAll()
-				.requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
+				.requestMatchers(HttpMethod.GET, "/auth/me").permitAll()
+				.requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/consents").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/consents").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/readings").permitAll()
