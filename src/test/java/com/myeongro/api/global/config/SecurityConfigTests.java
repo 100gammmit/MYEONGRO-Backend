@@ -66,13 +66,13 @@ class SecurityConfigTests {
 
 	@Test
 	void allowsCurrentUserEndpointWithoutSession() throws Exception {
-		mockMvc.perform(get("/auth/me"))
+		mockMvc.perform(get("/api/auth/me"))
 			.andExpect(status().isOk());
 	}
 
 	@Test
 	void allowsLogoutEndpointWithoutSession() throws Exception {
-		mockMvc.perform(post("/auth/logout"))
+		mockMvc.perform(post("/api/auth/logout"))
 			.andExpect(status().isNoContent());
 	}
 }

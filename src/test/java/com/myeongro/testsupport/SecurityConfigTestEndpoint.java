@@ -18,12 +18,12 @@ public class SecurityConfigTestEndpoint {
 		return "records";
 	}
 
-	@GetMapping("/auth/me")
+	@GetMapping("/api/auth/me")
 	String me() {
 		return "me";
 	}
 
-	@PostMapping("/auth/logout")
+	@PostMapping("/api/auth/logout")
 	ResponseEntity<Void> logout() {
 		return ResponseEntity.noContent().build();
 	}

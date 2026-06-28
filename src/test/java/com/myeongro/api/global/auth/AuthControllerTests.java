@@ -36,7 +36,7 @@ class AuthControllerTests {
 
 	@Test
 	void meReturnsGuestShapeWhenSessionPrincipalIsMissing() throws Exception {
-		mockMvc.perform(get("/auth/me"))
+		mockMvc.perform(get("/api/auth/me"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.authenticated").value(false));
 	}
@@ -46,7 +46,7 @@ class AuthControllerTests {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
 
-		mockMvc.perform(get("/auth/me").principal(authentication))
+		mockMvc.perform(get("/api/auth/me").principal(authentication))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.authenticated").value(true))
 			.andExpect(jsonPath("$.user.id").value(USER_ID.toString()))
@@ -57,7 +57,7 @@ class AuthControllerTests {
 	void logoutInvalidatesSession() throws Exception {
 		MockHttpSession session = new MockHttpSession();
 
-		mockMvc.perform(post("/auth/logout").session(session))
+		mockMvc.perform(post("/api/auth/logout").session(session))
 			.andExpect(status().isNoContent());
 
 		assertThat(session.isInvalid()).isTrue();
