@@ -29,4 +29,22 @@ class AccountWithdrawalMigrationContractTests {
 			.contains("profiles_active_idx")
 			.contains("where deleted_at is null");
 	}
+
+	@Test
+	void v6AddsAccountRetentionPurgeColumns() throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V6__account_retention_purge_policy"))
+			.findFirst()
+			.orElseThrow();
+
+		String sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("add column if not exists purge_after timestamptz")
+			.contains("add column if not exists purged_at timestamptz")
+			.contains("profiles_purge_due_idx")
+			.contains("purge_after")
+			.contains("purged_at is null");
+	}
 }

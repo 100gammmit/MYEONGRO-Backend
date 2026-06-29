@@ -1,5 +1,6 @@
 package com.myeongro.api.domain.profile.repository;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,7 +22,9 @@ public class JdbcAccountWithdrawalRepository implements AccountWithdrawalReposit
 		""";
 	private static final String SOFT_DELETE_PROFILE = """
 		update public.profiles
-		set deleted_at = coalesce(deleted_at, now())
+		set deleted_at = coalesce(deleted_at, now()),
+			purge_after = coalesce(purge_after, ?),
+			updated_at = now()
 		where id = ?
 		""";
 
@@ -33,9 +36,9 @@ public class JdbcAccountWithdrawalRepository implements AccountWithdrawalReposit
 
 	@Override
 	@Transactional
-	public void withdraw(UUID userId) {
+	public void withdraw(UUID userId, Instant purgeAfter) {
 		jdbcTemplate.update(SOFT_DELETE_READINGS, userId);
 		jdbcTemplate.update(DELETE_OAUTH_ACCOUNTS, userId);
-		jdbcTemplate.update(SOFT_DELETE_PROFILE, userId);
+		jdbcTemplate.update(SOFT_DELETE_PROFILE, purgeAfter, userId);
 	}
 }

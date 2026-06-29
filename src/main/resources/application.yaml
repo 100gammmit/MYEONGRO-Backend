@@ -59,6 +59,12 @@ app:
       terms: 2026-06-10
       privacy: 2026-06-10
       sensitive-data: 2026-06-10
+  account:
+    retention:
+      purge-delay: 30d
+      purge-enabled: false
+      purge-batch-size: 100
+      purge-cron: "0 0 4 * * *"
 
 springdoc:
   swagger-ui:
