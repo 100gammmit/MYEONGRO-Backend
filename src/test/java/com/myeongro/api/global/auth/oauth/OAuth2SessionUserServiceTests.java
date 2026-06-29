@@ -1,6 +1,7 @@
 package com.myeongro.api.global.auth.oauth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
@@ -57,7 +59,71 @@ class OAuth2SessionUserServiceTests {
 		assertThat((Object) loaded.getAttribute("id")).isEqualTo(12345L);
 	}
 
+	@Test
+	void wrapsGoogleUserInfoAsSeparateProviderSessionPrincipal() {
+		OAuth2User googleUser = new DefaultOAuth2User(
+			List.of(new SimpleGrantedAuthority("ROLE_USER")),
+			Map.of(
+				"sub",
+				"google-user-1",
+				"name",
+				"Myeongro User",
+				"email",
+				"user@example.com"
+			),
+			"sub"
+		);
+		UUID userId = UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43");
+		OAuth2SessionUserService service = new OAuth2SessionUserService(
+			ignored -> googleUser,
+			userInfo -> new ProvisionedOAuthUser(
+				userId,
+				userInfo.displayName(),
+				userInfo.provider(),
+				userInfo.providerUserId()
+			),
+			List.of(
+				new KakaoOAuthProviderUserInfoExtractor(),
+				new GoogleOAuthProviderUserInfoExtractor()
+			)
+		);
+
+		OAuth2User loaded = service.loadUser(userRequest("google", "sub"));
+
+		SessionPrincipal principal = (SessionPrincipal) loaded;
+		assertThat(principal.userId()).isEqualTo(userId);
+		assertThat(principal.displayName()).isEqualTo("Myeongro User");
+		assertThat(principal.provider()).isEqualTo("google");
+		assertThat(principal.providerUserId()).isEqualTo("google-user-1");
+		assertThat(loaded.getName()).isEqualTo(userId.toString());
+	}
+
+	@Test
+	void rejectsUnsupportedOAuthProvider() {
+		OAuth2SessionUserService service = new OAuth2SessionUserService(
+			ignored -> {
+				throw new AssertionError("Unsupported providers must not call the user info endpoint");
+			},
+			userInfo -> {
+				throw new AssertionError("Unsupported providers must not be provisioned");
+			},
+			List.of(new KakaoOAuthProviderUserInfoExtractor())
+		);
+
+		OAuth2AuthenticationException exception = catchThrowableOfType(
+			() -> service.loadUser(userRequest("unknown")),
+			OAuth2AuthenticationException.class
+		);
+
+		assertThat(exception.getError().getDescription())
+			.isEqualTo("Unsupported OAuth provider: unknown");
+	}
+
 	private OAuth2UserRequest userRequest(String registrationId) {
+		return userRequest(registrationId, "id");
+	}
+
+	private OAuth2UserRequest userRequest(String registrationId, String userNameAttributeName) {
 		ClientRegistration registration = ClientRegistration
 			.withRegistrationId(registrationId)
 			.clientId("client-id")
@@ -67,7 +133,7 @@ class OAuth2SessionUserServiceTests {
 			.authorizationUri("https://example.com/oauth/authorize")
 			.tokenUri("https://example.com/oauth/token")
 			.userInfoUri("https://example.com/userinfo")
-			.userNameAttributeName("id")
+			.userNameAttributeName(userNameAttributeName)
 			.build();
 		return new OAuth2UserRequest(registration, accessToken());
 	}

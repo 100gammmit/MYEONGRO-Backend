@@ -7,6 +7,7 @@ import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserServ
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
 
@@ -37,17 +38,17 @@ public class OAuth2SessionUserService implements OAuth2UserService<OAuth2UserReq
 
 	@Override
 	public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-		OAuth2User oauthUser = delegate.loadUser(userRequest);
-		String registrationId = userRequest == null
-			? "kakao"
-			: userRequest.getClientRegistration().getRegistrationId();
-		OAuthProviderUserInfo userInfo = extractors.stream()
+		String registrationId = userRequest.getClientRegistration().getRegistrationId();
+		OAuthProviderUserInfoExtractor selectedExtractor = extractors.stream()
 			.filter(extractor -> extractor.supports(registrationId))
 			.findFirst()
-			.orElseThrow(() -> new OAuth2AuthenticationException(
-				"Unsupported OAuth provider: " + registrationId
-			))
-			.extract(oauthUser.getAttributes());
+			.orElseThrow(() -> new OAuth2AuthenticationException(new OAuth2Error(
+				"unsupported_oauth_provider",
+				"Unsupported OAuth provider: " + registrationId,
+				null
+			)));
+		OAuth2User oauthUser = delegate.loadUser(userRequest);
+		OAuthProviderUserInfo userInfo = selectedExtractor.extract(oauthUser.getAttributes());
 		ProvisionedOAuthUser provisionedUser = provisioner.provision(userInfo);
 		return new SessionOAuth2User(
 			provisionedUser,
