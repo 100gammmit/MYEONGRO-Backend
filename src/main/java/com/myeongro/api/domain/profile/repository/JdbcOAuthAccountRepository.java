@@ -1,6 +1,5 @@
 package com.myeongro.api.domain.profile.repository;
 
-import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -25,6 +24,7 @@ public class JdbcOAuthAccountRepository implements OAuthAccountRepository {
 		join public.profiles on profiles.id = oauth_accounts.profile_id
 		where oauth_accounts.provider = ?
 			and oauth_accounts.provider_user_id = ?
+			and profiles.deleted_at is null
 		""";
 	private static final String INSERT_PROFILE = """
 		insert into public.profiles (id, display_name)
@@ -61,7 +61,7 @@ public class JdbcOAuthAccountRepository implements OAuthAccountRepository {
 			return existing;
 		}
 
-		UUID userId = deterministicUserId(userInfo);
+		UUID userId = UUID.randomUUID();
 		jdbcTemplate.update(INSERT_PROFILE, userId, userInfo.displayName());
 		jdbcTemplate.update(
 			INSERT_ACCOUNT,
@@ -96,8 +96,4 @@ public class JdbcOAuthAccountRepository implements OAuthAccountRepository {
 		);
 	}
 
-	private UUID deterministicUserId(OAuthProviderUserInfo userInfo) {
-		String key = "oauth:%s:%s".formatted(userInfo.provider(), userInfo.providerUserId());
-		return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8));
-	}
 }

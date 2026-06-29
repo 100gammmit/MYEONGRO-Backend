@@ -1,6 +1,7 @@
 package com.myeongro.api.global.config;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,6 +56,19 @@ class SecurityConfigTests {
 	void requiresAuthenticationForUnlistedEndpointByDefault() throws Exception {
 		mockMvc.perform(get("/internal/security-test"))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void requiresAuthenticationForAccountDeletionEndpoint() throws Exception {
+		mockMvc.perform(delete("/api/account"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void allowsSessionAuthenticatedAccountDeletionEndpoint() throws Exception {
+		mockMvc.perform(delete("/api/account")
+				.with(user("session-user")))
+			.andExpect(status().isNoContent());
 	}
 
 	@Test
