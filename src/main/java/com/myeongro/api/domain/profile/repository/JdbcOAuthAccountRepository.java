@@ -14,6 +14,9 @@ import com.myeongro.api.global.auth.oauth.ProvisionedOAuthUser;
 @Repository
 public class JdbcOAuthAccountRepository implements OAuthAccountRepository {
 
+	private static final String LOCK_ACCOUNT = """
+		select pg_advisory_xact_lock(hashtext(?), hashtext(?))
+		""";
 	private static final String SELECT_ACCOUNT = """
 		select
 			profiles.id as user_id,
@@ -56,6 +59,7 @@ public class JdbcOAuthAccountRepository implements OAuthAccountRepository {
 	@Override
 	@Transactional
 	public ProvisionedOAuthUser provision(OAuthProviderUserInfo userInfo) {
+		lockAccount(userInfo);
 		ProvisionedOAuthUser existing = findExisting(userInfo);
 		if (existing != null) {
 			return existing;
@@ -76,6 +80,15 @@ public class JdbcOAuthAccountRepository implements OAuthAccountRepository {
 			throw new IllegalStateException("OAuth account provisioning failed");
 		}
 		return provisioned;
+	}
+
+	private void lockAccount(OAuthProviderUserInfo userInfo) {
+		jdbcTemplate.query(
+			LOCK_ACCOUNT,
+			resultSet -> null,
+			userInfo.provider(),
+			userInfo.providerUserId()
+		);
 	}
 
 	private ProvisionedOAuthUser findExisting(OAuthProviderUserInfo userInfo) {
