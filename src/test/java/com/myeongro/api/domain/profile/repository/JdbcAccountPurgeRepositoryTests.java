@@ -33,6 +33,9 @@ class JdbcAccountPurgeRepositoryTests {
 
 		assertThat(sql.getAllValues().get(0))
 			.contains("delete from public.readings")
+			.contains("not exists")
+			.contains("from public.purchases")
+			.contains("purchases.reading_id = readings.id")
 			.contains("purged_at is null");
 		assertThat(sql.getAllValues().get(1))
 			.contains("delete from public.oauth_accounts")

@@ -20,6 +20,11 @@ public class JdbcAccountPurgeRepository implements AccountPurgeRepository {
 			order by purge_after
 			limit ?
 		)
+		  and not exists (
+			select 1
+			from public.purchases
+			where purchases.reading_id = readings.id
+		  )
 		""";
 	private static final String DELETE_DUE_OAUTH_ACCOUNTS = """
 		delete from public.oauth_accounts
