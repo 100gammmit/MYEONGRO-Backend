@@ -15,6 +15,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
+import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 import com.myeongro.testsupport.SecurityConfigTestEndpoint;
 
 @WebMvcTest(controllers = SecurityConfigTestEndpoint.class)
@@ -39,6 +40,9 @@ class SecurityConfigTests {
 
 	@MockitoBean
 	private OAuth2SessionUserService oauth2SessionUserService;
+
+	@MockitoBean
+	private OidcSessionUserService oidcSessionUserService;
 
 	@Test
 	void allowsGuestReadingCreationEndpoint() throws Exception {

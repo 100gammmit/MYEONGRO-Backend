@@ -15,6 +15,7 @@ import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OAuth2LoginSuccessHandler;
 import com.myeongro.api.global.auth.oauth.OAuth2NextRequestFilter;
+import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 
 /**
  * SecurityConfig
@@ -26,13 +27,16 @@ public class SecurityConfig {
 
 	private final String frontendOrigin;
 	private final OAuth2SessionUserService oauth2SessionUserService;
+	private final OidcSessionUserService oidcSessionUserService;
 
 	public SecurityConfig(
 		@Value("${app.frontend-origin:http://localhost:3000}") String frontendOrigin,
-		OAuth2SessionUserService oauth2SessionUserService
+		OAuth2SessionUserService oauth2SessionUserService,
+		OidcSessionUserService oidcSessionUserService
 	) {
 		this.frontendOrigin = frontendOrigin;
 		this.oauth2SessionUserService = oauth2SessionUserService;
+		this.oidcSessionUserService = oidcSessionUserService;
 	}
 
 	@Bean
@@ -64,6 +68,7 @@ public class SecurityConfig {
 			.oauth2Login(oauth2 -> oauth2
 				.userInfoEndpoint(userInfo -> userInfo
 					.userService(oauth2SessionUserService)
+					.oidcUserService(oidcSessionUserService)
 				)
 				.successHandler(new OAuth2LoginSuccessHandler(frontendOrigin))
 			)
