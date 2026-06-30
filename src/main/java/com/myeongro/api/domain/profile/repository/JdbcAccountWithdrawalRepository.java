@@ -1,5 +1,6 @@
 package com.myeongro.api.domain.profile.repository;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -39,6 +40,6 @@ public class JdbcAccountWithdrawalRepository implements AccountWithdrawalReposit
 	public void withdraw(UUID userId, Instant purgeAfter) {
 		jdbcTemplate.update(SOFT_DELETE_READINGS, userId);
 		jdbcTemplate.update(DELETE_OAUTH_ACCOUNTS, userId);
-		jdbcTemplate.update(SOFT_DELETE_PROFILE, purgeAfter, userId);
+		jdbcTemplate.update(SOFT_DELETE_PROFILE, Timestamp.from(purgeAfter), userId);
 	}
 }

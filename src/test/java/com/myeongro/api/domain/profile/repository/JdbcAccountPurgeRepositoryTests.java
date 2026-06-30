@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
@@ -45,5 +46,18 @@ class JdbcAccountPurgeRepositoryTests {
 			.contains("display_name = null")
 			.contains("purged_at = coalesce(purged_at, ?)")
 			.doesNotContain("delete from public.profiles");
+	}
+
+	@Test
+	void bindsPurgeInstantAsJdbcTimestamp() {
+		repository.purgeDueProfiles(NOW, 100);
+
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate, org.mockito.Mockito.times(3))
+			.update(org.mockito.Mockito.any(String.class), args.capture());
+
+		assertThat(args.getAllValues().get(0)).containsExactly(Timestamp.from(NOW), 100);
+		assertThat(args.getAllValues().get(1)).containsExactly(Timestamp.from(NOW), 100);
+		assertThat(args.getAllValues().get(2)).containsExactly(Timestamp.from(NOW), Timestamp.from(NOW), 100);
 	}
 }

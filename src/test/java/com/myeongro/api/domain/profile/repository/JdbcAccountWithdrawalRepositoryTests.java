@@ -3,6 +3,7 @@ package com.myeongro.api.domain.profile.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -26,7 +27,11 @@ class JdbcAccountWithdrawalRepositoryTests {
 		repository.withdraw(USER_ID, PURGE_AFTER);
 
 		ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-		verify(jdbcTemplate).update(sql.capture(), org.mockito.Mockito.eq(PURGE_AFTER), org.mockito.Mockito.eq(USER_ID));
+		verify(jdbcTemplate).update(
+			sql.capture(),
+			org.mockito.Mockito.eq(Timestamp.from(PURGE_AFTER)),
+			org.mockito.Mockito.eq(USER_ID)
+		);
 
 		assertThat(sql.getValue())
 			.contains("purge_after = coalesce(purge_after, ?)")

@@ -1,5 +1,6 @@
 package com.myeongro.api.domain.profile.repository;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -63,8 +64,9 @@ public class JdbcAccountPurgeRepository implements AccountPurgeRepository {
 	@Override
 	@Transactional
 	public int purgeDueProfiles(Instant now, int batchSize) {
-		jdbcTemplate.update(DELETE_DUE_READINGS, now, batchSize);
-		jdbcTemplate.update(DELETE_DUE_OAUTH_ACCOUNTS, now, batchSize);
-		return jdbcTemplate.update(PURGE_DUE_PROFILES, now, now, batchSize);
+		Timestamp currentTimestamp = Timestamp.from(now);
+		jdbcTemplate.update(DELETE_DUE_READINGS, currentTimestamp, batchSize);
+		jdbcTemplate.update(DELETE_DUE_OAUTH_ACCOUNTS, currentTimestamp, batchSize);
+		return jdbcTemplate.update(PURGE_DUE_PROFILES, currentTimestamp, currentTimestamp, batchSize);
 	}
 }
