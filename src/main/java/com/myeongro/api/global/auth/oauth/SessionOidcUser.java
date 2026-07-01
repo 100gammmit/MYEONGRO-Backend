@@ -2,6 +2,7 @@ package com.myeongro.api.global.auth.oauth;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -14,37 +15,47 @@ import com.myeongro.api.global.auth.session.SessionPrincipal;
 
 public class SessionOidcUser implements OidcUser, SessionPrincipal, Serializable {
 
+	private static final long serialVersionUID = 1L;
+
 	private final ProvisionedOAuthUser user;
-	private final OidcUser delegate;
+	private final Map<String, Object> claims;
+	private final OidcUserInfo userInfo;
+	private final OidcIdToken idToken;
+	private final Map<String, Object> attributes;
+	private final List<GrantedAuthority> authorities;
 
 	public SessionOidcUser(ProvisionedOAuthUser user, OidcUser delegate) {
 		this.user = user;
-		this.delegate = delegate;
+		this.claims = Map.copyOf(delegate.getClaims());
+		this.userInfo = delegate.getUserInfo();
+		this.idToken = delegate.getIdToken();
+		this.attributes = Map.copyOf(delegate.getAttributes());
+		this.authorities = List.copyOf(delegate.getAuthorities());
 	}
 
 	@Override
 	public Map<String, Object> getClaims() {
-		return delegate.getClaims();
+		return claims;
 	}
 
 	@Override
 	public OidcUserInfo getUserInfo() {
-		return delegate.getUserInfo();
+		return userInfo;
 	}
 
 	@Override
 	public OidcIdToken getIdToken() {
-		return delegate.getIdToken();
+		return idToken;
 	}
 
 	@Override
 	public Map<String, Object> getAttributes() {
-		return delegate.getAttributes();
+		return attributes;
 	}
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
-		return delegate.getAuthorities();
+		return authorities;
 	}
 
 	@Override

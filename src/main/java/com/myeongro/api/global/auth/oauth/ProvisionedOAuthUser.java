@@ -1,5 +1,6 @@
 package com.myeongro.api.global.auth.oauth;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 public record ProvisionedOAuthUser(
@@ -7,5 +8,5 @@ public record ProvisionedOAuthUser(
 	String displayName,
 	String provider,
 	String providerUserId
-) {
+) implements Serializable {
 }

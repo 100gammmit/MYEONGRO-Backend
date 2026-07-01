@@ -8,6 +8,18 @@ spring:
   config:
     import: optional:classpath:application-secret.yaml
 
+  data:
+    redis:
+      host: ${redis.host:localhost}
+      port: ${redis.port:6379}
+
+  session:
+    store-type: redis
+    redis:
+      repository-type: default
+      namespace: myeongro:session
+      flush-mode: on_save
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -83,3 +95,8 @@ springdoc:
     tags-sorter: alpha
   api-docs:
     path: /v3/api-docs
+
+server:
+  servlet:
+    session:
+      timeout: 30m

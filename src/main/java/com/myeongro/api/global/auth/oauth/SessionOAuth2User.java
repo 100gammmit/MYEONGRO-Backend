@@ -2,6 +2,7 @@ package com.myeongro.api.global.auth.oauth;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -12,9 +13,11 @@ import com.myeongro.api.global.auth.session.SessionPrincipal;
 
 public class SessionOAuth2User implements OAuth2User, SessionPrincipal, Serializable {
 
+	private static final long serialVersionUID = 1L;
+
 	private final ProvisionedOAuthUser user;
 	private final Map<String, Object> attributes;
-	private final Collection<? extends GrantedAuthority> authorities;
+	private final List<GrantedAuthority> authorities;
 
 	public SessionOAuth2User(
 		ProvisionedOAuthUser user,
@@ -23,7 +26,7 @@ public class SessionOAuth2User implements OAuth2User, SessionPrincipal, Serializ
 	) {
 		this.user = user;
 		this.attributes = Map.copyOf(attributes);
-		this.authorities = authorities;
+		this.authorities = List.copyOf(authorities);
 	}
 
 	@Override

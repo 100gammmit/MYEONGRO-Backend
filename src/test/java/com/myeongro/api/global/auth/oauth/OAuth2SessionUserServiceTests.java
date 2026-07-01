@@ -3,6 +3,8 @@ package com.myeongro.api.global.auth.oauth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -99,6 +101,24 @@ class OAuth2SessionUserServiceTests {
 	}
 
 	@Test
+	void sessionOAuth2UserCanBeSerializedForRedisSessionStorage() throws Exception {
+		SessionOAuth2User principal = new SessionOAuth2User(
+			new ProvisionedOAuthUser(
+				UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43"),
+				"Myeongro User",
+				"kakao",
+				"12345"
+			),
+			Map.of("id", 12345L),
+			List.of(new SimpleGrantedAuthority("ROLE_USER"))
+		);
+
+		byte[] serialized = serialize(principal);
+
+		assertThat(serialized).isNotEmpty();
+	}
+
+	@Test
 	void rejectsUnsupportedOAuthProvider() {
 		OAuth2SessionUserService service = new OAuth2SessionUserService(
 			ignored -> {
@@ -145,5 +165,13 @@ class OAuth2SessionUserServiceTests {
 			null,
 			null
 		);
+	}
+
+	private byte[] serialize(Object value) throws Exception {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+			output.writeObject(value);
+		}
+		return bytes.toByteArray();
 	}
 }

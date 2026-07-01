@@ -3,6 +3,8 @@ package com.myeongro.api.global.auth.oauth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -81,6 +83,32 @@ class OidcSessionUserServiceTests {
 			.isEqualTo("Unsupported OIDC provider: unknown");
 	}
 
+	@Test
+	void sessionOidcUserCanBeSerializedForRedisSessionStorage() throws Exception {
+		OidcIdToken idToken = idToken(Map.of(
+			"sub", "google-user-1",
+			"name", "Myeongro User",
+			"email", "user@example.com"
+		));
+		SessionOidcUser principal = new SessionOidcUser(
+			new ProvisionedOAuthUser(
+				UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43"),
+				"Myeongro User",
+				"google",
+				"google-user-1"
+			),
+			new DefaultOidcUser(
+				List.of(new SimpleGrantedAuthority("ROLE_USER")),
+				idToken,
+				"sub"
+			)
+		);
+
+		byte[] serialized = serialize(principal);
+
+		assertThat(serialized).isNotEmpty();
+	}
+
 	private OidcUserRequest userRequest(String registrationId) {
 		ClientRegistration registration = ClientRegistration
 			.withRegistrationId(registrationId)
@@ -115,5 +143,13 @@ class OidcSessionUserServiceTests {
 			Instant.parse("2026-06-30T01:00:00Z"),
 			claims
 		);
+	}
+
+	private byte[] serialize(Object value) throws Exception {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+			output.writeObject(value);
+		}
+		return bytes.toByteArray();
 	}
 }
