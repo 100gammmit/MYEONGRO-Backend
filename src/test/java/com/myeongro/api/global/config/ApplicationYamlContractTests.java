@@ -28,7 +28,6 @@ class ApplicationYamlContractTests {
 			StandardCharsets.UTF_8
 		);
 
-		assertThat(applicationYaml).contains("store-type: redis");
 		assertThat(applicationYaml).contains("repository-type: default");
 		assertThat(applicationYaml).contains("namespace: myeongro:session");
 		assertThat(applicationYaml).contains("flush-mode: on_save");

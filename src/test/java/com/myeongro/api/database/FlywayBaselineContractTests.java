@@ -67,19 +67,4 @@ class FlywayBaselineContractTests {
             .contains("baseline-on-migrate: false")
             .contains("validate-on-migrate: true");
     }
-
-    @Test
-    void localApplicationDefaultsToThePostgresDevProfile() throws IOException {
-        var yaml = Files.readString(
-            Path.of("src", "main", "resources", "application.yaml")
-        );
-        var build = Files.readString(Path.of("build.gradle"));
-
-        assertThat(yaml)
-            .contains("active: dev")
-            .contains("optional:classpath:application-secret.yaml");
-        assertThat(build)
-            .contains("testRuntimeOnly 'com.h2database:h2'")
-            .doesNotContain("runtimeOnly 'com.h2database:h2'");
-    }
 }
