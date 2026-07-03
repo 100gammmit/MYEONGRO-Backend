@@ -3,6 +3,7 @@ package com.myeongro.api.domain.reading.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -62,6 +63,8 @@ class JpaReadingRecordsRepositoryTests {
 		assertThat(reading.id()).isEqualTo(READING_ID);
 		assertThat(reading.errorCode()).isEqualTo("LATEST_ERROR");
 		assertThat(reading.input()).containsEntry("question", "How is today?");
+		assertThat(reading.createdAt()).isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
+		assertThat(reading.updatedAt()).isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
 	}
 
 	@Test
@@ -95,9 +98,9 @@ class JpaReadingRecordsRepositoryTests {
 			status,
 			"{\"question\":\"How is today?\"}",
 			"{\"title\":\"A title\"}",
-			deletedAt == null ? null : java.sql.Timestamp.from(Instant.parse(deletedAt)),
-			java.sql.Timestamp.from(Instant.parse("2026-06-15T00:00:00Z")),
-			java.sql.Timestamp.from(Instant.parse("2026-06-15T00:00:00Z"))
+			deletedAt == null ? null : OffsetDateTime.parse(deletedAt),
+			OffsetDateTime.parse("2026-06-15T00:00:00Z"),
+			OffsetDateTime.parse("2026-06-15T00:00:00Z")
 		);
 	}
 
@@ -109,7 +112,7 @@ class JpaReadingRecordsRepositoryTests {
 			""",
 			readingId,
 			errorCode,
-			java.sql.Timestamp.from(Instant.parse(createdAt))
+			OffsetDateTime.parse(createdAt)
 		);
 	}
 }

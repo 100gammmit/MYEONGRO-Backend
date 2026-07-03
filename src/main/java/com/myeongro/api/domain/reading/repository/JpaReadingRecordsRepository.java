@@ -3,6 +3,10 @@ package com.myeongro.api.domain.reading.repository;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -147,8 +151,8 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 			fromJson((String) row[4]),
 			nullableJson((String) row[5]),
 			(String) row[6],
-			toInstant((Timestamp) row[7]),
-			toInstant((Timestamp) row[8])
+			toInstant(row[7]),
+			toInstant(row[8])
 		);
 	}
 
@@ -176,8 +180,25 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 		return json == null ? null : fromJson(json);
 	}
 
-	private java.time.Instant toInstant(Timestamp timestamp) {
-		return timestamp == null ? null : timestamp.toInstant();
+	private Instant toInstant(Object value) {
+		if (value == null) {
+			return null;
+		}
+		if (value instanceof Instant instant) {
+			return instant;
+		}
+		if (value instanceof Timestamp timestamp) {
+			return timestamp.toInstant();
+		}
+		if (value instanceof OffsetDateTime offsetDateTime) {
+			return offsetDateTime.toInstant();
+		}
+		if (value instanceof LocalDateTime localDateTime) {
+			return localDateTime.toInstant(ZoneOffset.UTC);
+		}
+		throw new IllegalStateException(
+			"Unsupported timestamp value type: " + value.getClass().getName()
+		);
 	}
 
 	private String findSqlState(Throwable throwable) {
