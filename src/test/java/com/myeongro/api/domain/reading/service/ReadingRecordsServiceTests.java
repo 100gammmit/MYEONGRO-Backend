@@ -26,8 +26,7 @@ class ReadingRecordsServiceTests {
 		UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
 	private static final UUID READING_ID =
 		UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
-	private static final UUID GENERATION_ID =
-		UUID.fromString("75a85049-44cb-4147-9f73-677a8d9137d7");
+	private static final Long GENERATION_ID = 42L;
 
 	@Test
 	void returnsReadingDetailOwnedByUser() {

@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -39,16 +40,24 @@ class ConsentServiceTests {
 	@Test
 	void reportsOnlyDocumentsAcceptedAtTheCurrentVersion() {
 		ConsentRepository repository = mock(ConsentRepository.class);
-		when(repository.findAllByGuestSessionId(GUEST_ID)).thenReturn(List.of(
-			consent(ConsentDocumentType.TERMS, "2026-06-10"),
-			consent(ConsentDocumentType.PRIVACY, "old")
+		when(repository.findByGuestSessionId(GUEST_ID)).thenReturn(Optional.of(
+			ConsentEntity.acceptedForGuest(
+				GUEST_ID,
+				"2026-06-10",
+				"old",
+				"2026-06-10",
+				Instant.parse("2026-06-11T00:00:00Z")
+			)
 		));
 		ConsentService service = service(repository);
 
 		ConsentStatus status = service.getStatus(GUEST_ID);
 
 		assertThat(status.acceptedDocumentTypes())
-			.containsExactly(ConsentDocumentType.TERMS);
+			.containsExactly(
+				ConsentDocumentType.TERMS,
+				ConsentDocumentType.SENSITIVE_DATA
+			);
 		assertThat(status.requiredDocumentTypes())
 			.containsExactlyElementsOf(ConsentDocumentType.required());
 		assertThat(status.hasAcceptedRequired()).isFalse();
@@ -57,17 +66,12 @@ class ConsentServiceTests {
 	@Test
 	void reportsUserDocumentsAcceptedAtTheCurrentVersion() {
 		ConsentRepository repository = mock(ConsentRepository.class);
-		when(repository.findAllByUserId(USER_ID)).thenReturn(List.of(
-			ConsentEntity.forUser(
+		when(repository.findByUserId(USER_ID)).thenReturn(Optional.of(
+			ConsentEntity.acceptedForUser(
 				USER_ID,
-				ConsentDocumentType.TERMS,
 				"2026-06-10",
-				Instant.parse("2026-06-11T00:00:00Z")
-			),
-			ConsentEntity.forUser(
-				USER_ID,
-				ConsentDocumentType.PRIVACY,
 				"old",
+				"2026-06-10",
 				Instant.parse("2026-06-11T00:00:00Z")
 			)
 		));
@@ -76,7 +80,10 @@ class ConsentServiceTests {
 		ConsentStatus status = service.getUserStatus(USER_ID);
 
 		assertThat(status.acceptedDocumentTypes())
-			.containsExactly(ConsentDocumentType.TERMS);
+			.containsExactly(
+				ConsentDocumentType.TERMS,
+				ConsentDocumentType.SENSITIVE_DATA
+			);
 		assertThat(status.hasAcceptedRequired()).isFalse();
 	}
 
@@ -98,12 +105,9 @@ class ConsentServiceTests {
 	@Test
 	void savesMissingCurrentVersionConsentsAtOneServerOwnedTimestamp() {
 		ConsentRepository repository = mock(ConsentRepository.class);
-		when(repository.findAllByGuestSessionId(GUEST_ID))
-			.thenReturn(List.of(
-				consentAt(ConsentDocumentType.TERMS, "2026-06-10", "2026-06-15T00:00:00Z"),
-				consentAt(ConsentDocumentType.PRIVACY, "2026-06-10", "2026-06-15T00:00:00Z"),
-				consentAt(ConsentDocumentType.SENSITIVE_DATA, "2026-06-10", "2026-06-15T00:00:00Z")
-			));
+		when(repository.findByGuestSessionId(GUEST_ID)).thenReturn(Optional.empty());
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
 		ConsentService service = service(repository);
 
 		List<ConsentAcceptance> saved = service.acceptRequired(
@@ -118,39 +122,16 @@ class ConsentServiceTests {
 		assertThat(saved)
 			.extracting(ConsentAcceptance::documentVersion)
 			.containsOnly("2026-06-10");
-		verify(repository, times(3)).insertGuestConsentIfAbsent(
-			org.mockito.ArgumentMatchers.eq(GUEST_ID),
-			org.mockito.ArgumentMatchers.anyString(),
-			org.mockito.ArgumentMatchers.eq("2026-06-10"),
-			org.mockito.ArgumentMatchers.eq(Instant.parse("2026-06-15T00:00:00Z"))
-		);
+		verify(repository, times(1)).save(org.mockito.ArgumentMatchers.any(ConsentEntity.class));
 		verify(repository, never()).saveAll(anyList());
 	}
 
 	@Test
 	void savesUserConsentsIdempotentlyAtOneServerOwnedTimestamp() {
 		ConsentRepository repository = mock(ConsentRepository.class);
-		when(repository.findAllByUserId(USER_ID))
-			.thenReturn(List.of(
-				ConsentEntity.forUser(
-					USER_ID,
-					ConsentDocumentType.TERMS,
-					"2026-06-10",
-					Instant.parse("2026-06-15T00:00:00Z")
-				),
-				ConsentEntity.forUser(
-					USER_ID,
-					ConsentDocumentType.PRIVACY,
-					"2026-06-10",
-					Instant.parse("2026-06-15T00:00:00Z")
-				),
-				ConsentEntity.forUser(
-					USER_ID,
-					ConsentDocumentType.SENSITIVE_DATA,
-					"2026-06-10",
-					Instant.parse("2026-06-15T00:00:00Z")
-				)
-			));
+		when(repository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
 		ConsentService service = service(repository);
 
 		List<ConsentAcceptance> saved = service.acceptRequiredForUser(
@@ -159,33 +140,23 @@ class ConsentServiceTests {
 		);
 
 		assertThat(saved).hasSize(3);
-		verify(repository, times(3)).insertUserConsentIfAbsent(
-			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.anyString(),
-			org.mockito.ArgumentMatchers.eq("2026-06-10"),
-			org.mockito.ArgumentMatchers.eq(Instant.parse("2026-06-15T00:00:00Z"))
-		);
+		verify(repository, times(1)).save(org.mockito.ArgumentMatchers.any(ConsentEntity.class));
 		verify(repository, never()).saveAll(anyList());
 	}
 
 	@Test
 	void preservesExistingAcceptanceInsteadOfSavingItAgain() {
 		ConsentRepository repository = mock(ConsentRepository.class);
-		ConsentEntity existing = ConsentEntity.forGuest(
+		ConsentEntity existing = ConsentEntity.acceptedForGuest(
 			GUEST_ID,
-			ConsentDocumentType.TERMS,
+			"2026-06-10",
+			"2026-06-10",
 			"2026-06-10",
 			Instant.parse("2026-06-11T00:00:00Z")
 		);
-		when(repository.findAllByGuestSessionId(GUEST_ID)).thenReturn(List.of(
-			existing,
-			consentAt(ConsentDocumentType.PRIVACY, "2026-06-10", "2026-06-15T00:00:00Z"),
-			consentAt(
-				ConsentDocumentType.SENSITIVE_DATA,
-				"2026-06-10",
-				"2026-06-15T00:00:00Z"
-			)
-		));
+		when(repository.findByGuestSessionId(GUEST_ID)).thenReturn(Optional.of(existing));
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
 		ConsentService service = service(repository);
 
 		List<ConsentAcceptance> saved = service.acceptRequired(
@@ -212,15 +183,48 @@ class ConsentServiceTests {
 		return consentAt(type, version, "2026-06-11T00:00:00Z");
 	}
 
+	@Test
+	void preservesCurrentDocumentTimestampsWhenRefreshingOutdatedDocuments() {
+		ConsentRepository repository = mock(ConsentRepository.class);
+		ConsentEntity existing = ConsentEntity.acceptedForGuest(
+			GUEST_ID,
+			"2026-06-10",
+			"old",
+			"2026-06-10",
+			Instant.parse("2026-06-11T00:00:00Z")
+		);
+		when(repository.findByGuestSessionId(GUEST_ID)).thenReturn(Optional.of(existing));
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
+		ConsentService service = service(repository);
+
+		List<ConsentAcceptance> saved = service.acceptRequired(
+			GUEST_ID,
+			ConsentDocumentType.required()
+		);
+
+		assertThat(saved).filteredOn(
+			acceptance -> acceptance.documentType() == ConsentDocumentType.TERMS
+		).singleElement()
+			.extracting(ConsentAcceptance::acceptedAt)
+			.isEqualTo(Instant.parse("2026-06-11T00:00:00Z"));
+		assertThat(saved).filteredOn(
+			acceptance -> acceptance.documentType() == ConsentDocumentType.PRIVACY
+		).singleElement()
+			.extracting(ConsentAcceptance::acceptedAt)
+			.isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
+	}
+
 	private ConsentEntity consentAt(
 		ConsentDocumentType type,
 		String version,
 		String acceptedAt
 	) {
-		return ConsentEntity.forGuest(
+		return ConsentEntity.acceptedForGuest(
 			GUEST_ID,
-			type,
-			version,
+			type == ConsentDocumentType.TERMS ? version : "old",
+			type == ConsentDocumentType.PRIVACY ? version : "old",
+			type == ConsentDocumentType.SENSITIVE_DATA ? version : "old",
 			Instant.parse(acceptedAt)
 		);
 	}

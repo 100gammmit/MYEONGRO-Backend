@@ -1,16 +1,18 @@
 package com.myeongro.api.domain.reading.repository;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -20,53 +22,47 @@ import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
+
+@Primary
 @Repository
-public class JdbcReadingRecordsRepository implements ReadingRecordsRepository {
+public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 
 	private static final String SELECT_ACTIVE_READING = """
 		select
 			r.id,
-			r.kind::text as kind,
-			r.status::text as status,
+			cast(r.kind as varchar) as kind,
+			cast(r.status as varchar) as status,
 			r.title,
-			r.input::text as input,
-			r.result::text as result,
-			gr.error_code,
+			cast(r.input as varchar) as input,
+			cast(r.result as varchar) as result,
+			(
+				select gr.error_code
+				from public.generation_records gr
+				where gr.reading_id = r.id
+				order by gr.created_at desc
+				limit 1
+			) as error_code,
 			r.created_at,
 			r.updated_at
 		from public.readings r
-		left join lateral (
-			select error_code
-			from public.generation_records
-			where reading_id = r.id
-			order by created_at desc
-			limit 1
-		) gr on true
-		where r.user_id = ?
+		where r.user_id = :userId
 		  and r.deleted_at is null
-		""";
-	private static final String LIST_BY_USER = SELECT_ACTIVE_READING + """
-		order by r.created_at desc
-		""";
-	private static final String FIND_BY_USER_AND_ID = SELECT_ACTIVE_READING + """
-		  and r.id = ?
-		""";
-	private static final String SOFT_DELETE = """
-		update public.readings
-		set deleted_at = now()
-		where user_id = ?
-		  and id = ?
-		  and deleted_at is null
 		""";
 	private static final String START_FAILED_RETRY = """
 		select generation_id
 		from public.start_failed_reading_retry(?, ?, ?, ?, ?)
 		""";
 
+	@PersistenceContext
+	private EntityManager entityManager;
+
 	private final JdbcTemplate jdbcTemplate;
 	private final ObjectMapper objectMapper;
 
-	public JdbcReadingRecordsRepository(
+	public JpaReadingRecordsRepository(
 		JdbcTemplate jdbcTemplate,
 		ObjectMapper objectMapper
 	) {
@@ -75,24 +71,44 @@ public class JdbcReadingRecordsRepository implements ReadingRecordsRepository {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public List<CreatedReadingResponse> listByUser(UUID userId) {
-		return jdbcTemplate.query(LIST_BY_USER, this::toResponse, userId);
+		Query query = entityManager.createNativeQuery(SELECT_ACTIVE_READING + """
+			order by r.created_at desc
+			""");
+		query.setParameter("userId", userId);
+		return query.getResultList().stream()
+			.map(row -> toResponse((Object[]) row))
+			.toList();
 	}
 
 	@Override
+	@Transactional(readOnly = true)
 	public Optional<CreatedReadingResponse> findByUserAndId(UUID userId, UUID readingId) {
-		List<CreatedReadingResponse> readings = jdbcTemplate.query(
-			FIND_BY_USER_AND_ID,
-			this::toResponse,
-			userId,
-			readingId
-		);
-		return readings.stream().findFirst();
+		Query query = entityManager.createNativeQuery(SELECT_ACTIVE_READING + """
+			  and r.id = :readingId
+			""");
+		query.setParameter("userId", userId);
+		query.setParameter("readingId", readingId);
+		return query.getResultList().stream()
+			.findFirst()
+			.map(row -> toResponse((Object[]) row));
 	}
 
 	@Override
+	@Transactional
 	public boolean softDeleteByUserAndId(UUID userId, UUID readingId) {
-		return jdbcTemplate.update(SOFT_DELETE, userId, readingId) > 0;
+		int updated = entityManager.createNativeQuery("""
+			update public.readings
+			set deleted_at = current_timestamp
+			where user_id = :userId
+			  and id = :readingId
+			  and deleted_at is null
+			""")
+			.setParameter("userId", userId)
+			.setParameter("readingId", readingId)
+			.executeUpdate();
+		return updated > 0;
 	}
 
 	@Override
@@ -122,21 +138,29 @@ public class JdbcReadingRecordsRepository implements ReadingRecordsRepository {
 		}
 	}
 
-	private CreatedReadingResponse toResponse(
-		ResultSet resultSet,
-		int rowNumber
-	) throws SQLException {
+	private CreatedReadingResponse toResponse(Object[] row) {
 		return new CreatedReadingResponse(
-			resultSet.getObject("id", UUID.class),
-			ReadingKind.fromValue(resultSet.getString("kind")),
-			resultSet.getString("status"),
-			resultSet.getString("title"),
-			fromJson(resultSet.getString("input")),
-			nullableJson(resultSet.getString("result")),
-			resultSet.getString("error_code"),
-			toInstant(resultSet.getTimestamp("created_at")),
-			toInstant(resultSet.getTimestamp("updated_at"))
+			toUuid(row[0]),
+			ReadingKind.fromValue((String) row[1]),
+			(String) row[2],
+			(String) row[3],
+			fromJson((String) row[4]),
+			nullableJson((String) row[5]),
+			(String) row[6],
+			toInstant((Timestamp) row[7]),
+			toInstant((Timestamp) row[8])
 		);
+	}
+
+	private UUID toUuid(Object value) {
+		if (value instanceof UUID uuid) {
+			return uuid;
+		}
+		if (value instanceof byte[] bytes) {
+			ByteBuffer buffer = ByteBuffer.wrap(bytes);
+			return new UUID(buffer.getLong(), buffer.getLong());
+		}
+		return UUID.fromString(value.toString());
 	}
 
 	private Map<String, Object> fromJson(String json) {

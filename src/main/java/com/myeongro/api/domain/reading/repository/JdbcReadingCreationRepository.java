@@ -66,7 +66,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 				CREATE_PENDING,
 				(resultSet, rowNumber) -> new PendingIds(
 					resultSet.getObject("reading_id", UUID.class),
-					resultSet.getObject("generation_id", UUID.class)
+					resultSet.getObject("generation_id", Long.class)
 				),
 				command.userId(),
 				command.guestSessionId(),
@@ -207,6 +207,6 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		return null;
 	}
 
-	private record PendingIds(UUID readingId, UUID generationId) {
+	private record PendingIds(UUID readingId, Long generationId) {
 	}
 }

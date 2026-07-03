@@ -6,7 +6,7 @@ import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 
 public record PendingReadingCreation(
 	UUID readingId,
-	UUID generationId,
+	Long generationId,
 	CreatedReadingResponse reading
 ) {
 }

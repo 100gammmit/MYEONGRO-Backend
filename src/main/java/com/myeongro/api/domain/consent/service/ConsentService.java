@@ -2,9 +2,9 @@ package com.myeongro.api.domain.consent.service;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,22 +55,21 @@ public class ConsentService {
 
 	@Transactional(readOnly = true)
 	public ConsentStatus getStatus(UUID guestSessionId) {
-		List<ConsentEntity> stored = repository.findAllByGuestSessionId(guestSessionId);
+		Optional<ConsentEntity> stored = repository.findByGuestSessionId(guestSessionId);
 		return toStatus(stored);
 	}
 
 	@Transactional(readOnly = true)
 	public ConsentStatus getUserStatus(UUID userId) {
-		List<ConsentEntity> stored = repository.findAllByUserId(userId);
+		Optional<ConsentEntity> stored = repository.findByUserId(userId);
 		return toStatus(stored);
 	}
 
-	private ConsentStatus toStatus(List<ConsentEntity> stored) {
+	private ConsentStatus toStatus(Optional<ConsentEntity> stored) {
 		List<ConsentDocumentType> accepted = ConsentDocumentType.required().stream()
-			.filter(type -> stored.stream().anyMatch(consent ->
-				consent.getDocumentType() == type
-					&& versions.get(type).equals(consent.getDocumentVersion())
-			))
+			.filter(type -> stored
+				.map(consent -> versions.get(type).equals(consent.versionOf(type)))
+				.orElse(false))
 			.toList();
 		return new ConsentStatus(
 			accepted,
@@ -86,21 +85,19 @@ public class ConsentService {
 	) {
 		validateAcceptedRequired(acceptedDocumentTypes);
 		Instant acceptedAt = clock.instant();
-		ConsentDocumentType.required().forEach(type ->
-			repository.insertGuestConsentIfAbsent(
+		ConsentEntity stored = repository.findByGuestSessionId(guestSessionId)
+			.map(consent -> acceptCurrentVersions(consent, acceptedAt))
+			.orElseGet(() -> ConsentEntity.acceptedForGuest(
 				guestSessionId,
-				type.value(),
-				versions.get(type),
+				termsVersion(),
+				privacyVersion(),
+				sensitiveDataVersion(),
 				acceptedAt
-			)
-		);
-
-		List<ConsentEntity> stored = repository.findAllByGuestSessionId(guestSessionId);
-		Map<ConsentDocumentType, ConsentEntity> current = currentVersionByType(stored);
+			));
+		ConsentEntity saved = repository.save(stored);
 
 		return ConsentDocumentType.required().stream()
-			.map(current::get)
-			.map(ConsentAcceptance::from)
+			.map(type -> ConsentAcceptance.from(saved, type))
 			.toList();
 	}
 
@@ -111,21 +108,19 @@ public class ConsentService {
 	) {
 		validateAcceptedRequired(acceptedDocumentTypes);
 		Instant acceptedAt = clock.instant();
-		ConsentDocumentType.required().forEach(type ->
-			repository.insertUserConsentIfAbsent(
+		ConsentEntity stored = repository.findByUserId(userId)
+			.map(consent -> acceptCurrentVersions(consent, acceptedAt))
+			.orElseGet(() -> ConsentEntity.acceptedForUser(
 				userId,
-				type.value(),
-				versions.get(type),
+				termsVersion(),
+				privacyVersion(),
+				sensitiveDataVersion(),
 				acceptedAt
-			)
-		);
-
-		List<ConsentEntity> stored = repository.findAllByUserId(userId);
-		Map<ConsentDocumentType, ConsentEntity> current = currentVersionByType(stored);
+			));
+		ConsentEntity saved = repository.save(stored);
 
 		return ConsentDocumentType.required().stream()
-			.map(current::get)
-			.map(ConsentAcceptance::from)
+			.map(type -> ConsentAcceptance.from(saved, type))
 			.toList();
 	}
 
@@ -145,19 +140,34 @@ public class ConsentService {
 		}
 	}
 
-	private Map<ConsentDocumentType, ConsentEntity> currentVersionByType(
-		List<ConsentEntity> stored
+	private ConsentEntity acceptCurrentVersions(
+		ConsentEntity consent,
+		Instant acceptedAt
 	) {
-		Map<ConsentDocumentType, ConsentEntity> current = new EnumMap<>(
-			ConsentDocumentType.class
-		);
-		stored.stream()
-			.filter(consent -> versions.get(consent.getDocumentType())
-				.equals(consent.getDocumentVersion()))
-			.forEach(consent -> current.putIfAbsent(
-				consent.getDocumentType(),
-				consent
-			));
-		return current;
+		if (!consent.hasAcceptedCurrentVersions(
+			termsVersion(),
+			privacyVersion(),
+			sensitiveDataVersion()
+		)) {
+			consent.acceptOutdatedVersions(
+				termsVersion(),
+				privacyVersion(),
+				sensitiveDataVersion(),
+				acceptedAt
+			);
+		}
+		return consent;
+	}
+
+	private String termsVersion() {
+		return versions.get(ConsentDocumentType.TERMS);
+	}
+
+	private String privacyVersion() {
+		return versions.get(ConsentDocumentType.PRIVACY);
+	}
+
+	private String sensitiveDataVersion() {
+		return versions.get(ConsentDocumentType.SENSITIVE_DATA);
 	}
 }

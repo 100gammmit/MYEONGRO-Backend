@@ -3,7 +3,7 @@ package com.myeongro.api.domain.consent.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.TestPropertySource;
 
-import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.entity.ConsentEntity;
 
 @DataJpaTest
@@ -32,40 +31,48 @@ class ConsentRepositoryTests {
 	private ConsentRepository repository;
 
 	@Test
-	void savesAndFindsGuestConsents() {
-		ConsentEntity consent = ConsentEntity.forGuest(
+	void savesAndFindsOneGuestConsentRowForAllRequiredDocuments() {
+		ConsentEntity consent = ConsentEntity.acceptedForGuest(
 			GUEST_ID,
-			ConsentDocumentType.TERMS,
+			"2026-06-10",
+			"2026-06-10",
 			"2026-06-10",
 			Instant.parse("2026-06-15T00:00:00Z")
 		);
 
 		repository.save(consent);
 
-		List<ConsentEntity> found = repository.findAllByGuestSessionId(GUEST_ID);
-		assertThat(found).hasSize(1);
-		assertThat(found.getFirst().getDocumentType())
-			.isEqualTo(ConsentDocumentType.TERMS);
-		assertThat(found.getFirst().getAcceptedAt())
+		Optional<ConsentEntity> found = repository.findByGuestSessionId(GUEST_ID);
+		assertThat(found).isPresent();
+		assertThat(found.get().hasAcceptedCurrentVersions(
+			"2026-06-10",
+			"2026-06-10",
+			"2026-06-10"
+		)).isTrue();
+		assertThat(found.get().getTermsAcceptedAt())
 			.isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
 	}
 
 	@Test
-	void savesAndFindsUserConsents() {
-		ConsentEntity consent = ConsentEntity.forUser(
+	void savesAndFindsOneUserConsentRowForAllRequiredDocuments() {
+		ConsentEntity consent = ConsentEntity.acceptedForUser(
 			USER_ID,
-			ConsentDocumentType.TERMS,
+			"2026-06-10",
+			"2026-06-10",
 			"2026-06-10",
 			Instant.parse("2026-06-15T00:00:00Z")
 		);
 
 		repository.save(consent);
 
-		List<ConsentEntity> found = repository.findAllByUserId(USER_ID);
-		assertThat(found).hasSize(1);
-		assertThat(found.getFirst().getDocumentType())
-			.isEqualTo(ConsentDocumentType.TERMS);
-		assertThat(found.getFirst().getAcceptedAt())
+		Optional<ConsentEntity> found = repository.findByUserId(USER_ID);
+		assertThat(found).isPresent();
+		assertThat(found.get().hasAcceptedCurrentVersions(
+			"2026-06-10",
+			"2026-06-10",
+			"2026-06-10"
+		)).isTrue();
+		assertThat(found.get().getPrivacyAcceptedAt())
 			.isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
 	}
 }

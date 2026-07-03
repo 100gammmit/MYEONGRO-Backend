@@ -4,12 +4,11 @@ import java.time.Instant;
 import java.util.UUID;
 
 import org.hibernate.annotations.ColumnDefault;
-import org.hibernate.annotations.ColumnTransformer;
-import org.hibernate.annotations.UuidGenerator;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -18,9 +17,8 @@ import jakarta.persistence.Table;
 public class ConsentEntity {
 
 	@Id
-	@GeneratedValue
-	@UuidGenerator
-	private UUID id;
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
 	@Column(name = "user_id")
 	private UUID userId;
@@ -28,23 +26,31 @@ public class ConsentEntity {
 	@Column(name = "guest_session_id")
 	private UUID guestSessionId;
 
-	@Column(
-		name = "document_type",
-		nullable = false,
-		columnDefinition = "public.consent_document_type"
-	)
-	@ColumnTransformer(write = "cast(? as public.consent_document_type)")
-	private String documentType;
+	@Column(name = "terms_version", nullable = false)
+	private String termsVersion;
 
-	@Column(name = "document_version", nullable = false)
-	private String documentVersion;
+	@Column(name = "privacy_version", nullable = false)
+	private String privacyVersion;
 
-	@Column(name = "accepted_at", nullable = false)
-	private Instant acceptedAt;
+	@Column(name = "sensitive_data_version", nullable = false)
+	private String sensitiveDataVersion;
+
+	@Column(name = "terms_accepted_at", nullable = false)
+	private Instant termsAcceptedAt;
+
+	@Column(name = "privacy_accepted_at", nullable = false)
+	private Instant privacyAcceptedAt;
+
+	@Column(name = "sensitive_data_accepted_at", nullable = false)
+	private Instant sensitiveDataAcceptedAt;
 
 	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
 	@ColumnDefault("CURRENT_TIMESTAMP")
 	private Instant createdAt;
+
+	@Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
+	@ColumnDefault("CURRENT_TIMESTAMP")
+	private Instant updatedAt;
 
 	protected ConsentEntity() {
 	}
@@ -52,48 +58,95 @@ public class ConsentEntity {
 	private ConsentEntity(
 		UUID userId,
 		UUID guestSessionId,
-		ConsentDocumentType documentType,
-		String documentVersion,
+		String termsVersion,
+		String privacyVersion,
+		String sensitiveDataVersion,
 		Instant acceptedAt
 	) {
 		this.userId = userId;
 		this.guestSessionId = guestSessionId;
-		this.documentType = documentType.value();
-		this.documentVersion = documentVersion;
-		this.acceptedAt = acceptedAt;
+		accept(termsVersion, privacyVersion, sensitiveDataVersion, acceptedAt);
 	}
 
-	public static ConsentEntity forGuest(
+	public static ConsentEntity acceptedForGuest(
 		UUID guestSessionId,
-		ConsentDocumentType documentType,
-		String documentVersion,
+		String termsVersion,
+		String privacyVersion,
+		String sensitiveDataVersion,
 		Instant acceptedAt
 	) {
 		return new ConsentEntity(
 			null,
 			guestSessionId,
-			documentType,
-			documentVersion,
+			termsVersion,
+			privacyVersion,
+			sensitiveDataVersion,
 			acceptedAt
 		);
 	}
 
-	public static ConsentEntity forUser(
+	public static ConsentEntity acceptedForUser(
 		UUID userId,
-		ConsentDocumentType documentType,
-		String documentVersion,
+		String termsVersion,
+		String privacyVersion,
+		String sensitiveDataVersion,
 		Instant acceptedAt
 	) {
 		return new ConsentEntity(
 			userId,
 			null,
-			documentType,
-			documentVersion,
+			termsVersion,
+			privacyVersion,
+			sensitiveDataVersion,
 			acceptedAt
 		);
 	}
 
-	public UUID getId() {
+	public void accept(
+		String termsVersion,
+		String privacyVersion,
+		String sensitiveDataVersion,
+		Instant acceptedAt
+	) {
+		this.termsVersion = termsVersion;
+		this.privacyVersion = privacyVersion;
+		this.sensitiveDataVersion = sensitiveDataVersion;
+		this.termsAcceptedAt = acceptedAt;
+		this.privacyAcceptedAt = acceptedAt;
+		this.sensitiveDataAcceptedAt = acceptedAt;
+	}
+
+	public boolean hasAcceptedCurrentVersions(
+		String termsVersion,
+		String privacyVersion,
+		String sensitiveDataVersion
+	) {
+		return termsVersion.equals(this.termsVersion)
+			&& privacyVersion.equals(this.privacyVersion)
+			&& sensitiveDataVersion.equals(this.sensitiveDataVersion);
+	}
+
+	public void acceptOutdatedVersions(
+		String termsVersion,
+		String privacyVersion,
+		String sensitiveDataVersion,
+		Instant acceptedAt
+	) {
+		if (!termsVersion.equals(this.termsVersion)) {
+			this.termsVersion = termsVersion;
+			this.termsAcceptedAt = acceptedAt;
+		}
+		if (!privacyVersion.equals(this.privacyVersion)) {
+			this.privacyVersion = privacyVersion;
+			this.privacyAcceptedAt = acceptedAt;
+		}
+		if (!sensitiveDataVersion.equals(this.sensitiveDataVersion)) {
+			this.sensitiveDataVersion = sensitiveDataVersion;
+			this.sensitiveDataAcceptedAt = acceptedAt;
+		}
+	}
+
+	public Long getId() {
 		return id;
 	}
 
@@ -105,19 +158,51 @@ public class ConsentEntity {
 		return guestSessionId;
 	}
 
-	public ConsentDocumentType getDocumentType() {
-		return ConsentDocumentType.fromValue(documentType);
+	public String versionOf(ConsentDocumentType documentType) {
+		return switch (documentType) {
+			case TERMS -> termsVersion;
+			case PRIVACY -> privacyVersion;
+			case SENSITIVE_DATA -> sensitiveDataVersion;
+		};
 	}
 
-	public String getDocumentVersion() {
-		return documentVersion;
+	public Instant acceptedAtOf(ConsentDocumentType documentType) {
+		return switch (documentType) {
+			case TERMS -> termsAcceptedAt;
+			case PRIVACY -> privacyAcceptedAt;
+			case SENSITIVE_DATA -> sensitiveDataAcceptedAt;
+		};
 	}
 
-	public Instant getAcceptedAt() {
-		return acceptedAt;
+	public String getTermsVersion() {
+		return termsVersion;
+	}
+
+	public String getPrivacyVersion() {
+		return privacyVersion;
+	}
+
+	public String getSensitiveDataVersion() {
+		return sensitiveDataVersion;
+	}
+
+	public Instant getTermsAcceptedAt() {
+		return termsAcceptedAt;
+	}
+
+	public Instant getPrivacyAcceptedAt() {
+		return privacyAcceptedAt;
+	}
+
+	public Instant getSensitiveDataAcceptedAt() {
+		return sensitiveDataAcceptedAt;
 	}
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public Instant getUpdatedAt() {
+		return updatedAt;
 	}
 }

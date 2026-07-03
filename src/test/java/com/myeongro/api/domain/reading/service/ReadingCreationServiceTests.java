@@ -38,8 +38,7 @@ class ReadingCreationServiceTests {
 		UUID.fromString("82ed11d5-2269-438c-9815-42e6f13735f4");
 	private static final UUID READING_ID =
 		UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
-	private static final UUID GENERATION_ID =
-		UUID.fromString("75a85049-44cb-4147-9f73-677a8d9137d7");
+	private static final Long GENERATION_ID = 42L;
 
 	@Test
 	void rejectsCreationWhenGuestHasNotAcceptedRequiredConsent() {

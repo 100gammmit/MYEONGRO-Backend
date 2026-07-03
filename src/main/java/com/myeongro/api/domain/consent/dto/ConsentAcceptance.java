@@ -13,12 +13,15 @@ public record ConsentAcceptance(
 	Instant acceptedAt
 ) {
 
-	public static ConsentAcceptance from(ConsentEntity consent) {
+	public static ConsentAcceptance from(
+		ConsentEntity consent,
+		ConsentDocumentType documentType
+	) {
 		return new ConsentAcceptance(
 			consent.getGuestSessionId(),
-			consent.getDocumentType(),
-			consent.getDocumentVersion(),
-			consent.getAcceptedAt()
+			documentType,
+			consent.versionOf(documentType),
+			consent.acceptedAtOf(documentType)
 		);
 	}
 }
