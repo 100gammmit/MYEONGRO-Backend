@@ -42,3 +42,6 @@ application-secret.yaml
 ### local ###
 application-dev.yaml
 AGENTS.md
+
+### docs ###
+/docs/
