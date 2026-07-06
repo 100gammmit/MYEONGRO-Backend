@@ -3,14 +3,12 @@ package com.myeongro.api.domain.profile.repository;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
-@Primary
 @Repository
 public class JpaAccountWithdrawalRepository implements AccountWithdrawalRepository {
 

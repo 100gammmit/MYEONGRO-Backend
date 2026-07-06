@@ -2,7 +2,6 @@ package com.myeongro.api.domain.profile.repository;
 
 import java.util.UUID;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,7 +10,6 @@ import com.myeongro.api.domain.profile.entity.ProfileEntity;
 import com.myeongro.api.global.auth.oauth.OAuthProviderUserInfo;
 import com.myeongro.api.global.auth.oauth.ProvisionedOAuthUser;
 
-@Primary
 @Repository
 public class JpaOAuthAccountRepository implements OAuthAccountRepository {
 
