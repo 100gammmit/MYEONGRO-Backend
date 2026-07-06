@@ -10,7 +10,6 @@ import java.util.UUID;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -20,7 +19,6 @@ import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 
-@Repository
 public class JdbcReadingRecordsRepository implements ReadingRecordsRepository {
 
 	private static final String SELECT_ACTIVE_READING = """
