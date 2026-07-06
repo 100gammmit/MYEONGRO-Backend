@@ -14,6 +14,41 @@
 
 create extension if not exists pgcrypto;
 
+-- Compatibility shim for replaying the legacy Supabase-origin baseline on a
+-- fresh local PostgreSQL database. Supabase already provides these objects, but
+-- Docker Postgres does not. Later migrations remove the application dependency
+-- on Supabase Auth/RLS; these objects only let the historical V1 SQL replay.
+create schema if not exists auth;
+
+create table if not exists auth.users (
+  id uuid primary key,
+  raw_user_meta_data jsonb not null default '{}'::jsonb
+);
+
+do $$
+begin
+  if to_regprocedure('auth.uid()') is null then
+    create function auth.uid()
+    returns uuid
+    language sql
+    stable
+    as $function$
+      select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+    $function$;
+  end if;
+
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon noinherit nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated noinherit nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role noinherit nologin;
+  end if;
+end
+$$;
+
 create type public.reading_kind as enum ('tarot', 'saju');
 create type public.reading_tier as enum ('free', 'paid');
 create type public.reading_status as enum ('draft', 'generating', 'completed', 'failed');

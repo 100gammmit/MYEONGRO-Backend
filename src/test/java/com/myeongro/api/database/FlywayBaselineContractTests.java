@@ -63,6 +63,25 @@ class FlywayBaselineContractTests {
     }
 
     @Test
+    void v1CanReplayLegacySupabaseSqlOnFreshPostgres() throws IOException {
+        var migration = Files.list(MIGRATION_DIRECTORY)
+            .filter(path -> path.getFileName().toString().startsWith("V1__"))
+            .findFirst()
+            .orElseThrow();
+
+        var sql = Files.readString(migration);
+
+        assertThat(sql)
+            .contains("create schema if not exists auth")
+            .contains("create table if not exists auth.users")
+            .contains("if to_regprocedure('auth.uid()') is null")
+            .contains("create function auth.uid()")
+            .contains("where rolname = 'anon'")
+            .contains("where rolname = 'authenticated'")
+            .contains("where rolname = 'service_role'");
+    }
+
+    @Test
     void v2MovesGuestReadingResultsIntoTemporaryCache() throws IOException {
         var migration = Files.list(MIGRATION_DIRECTORY)
             .filter(path -> path.getFileName().toString().startsWith("V2__guest_reading_cache"))
