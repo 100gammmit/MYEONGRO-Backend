@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
 class ReadingRecordsRepositoryWiringContractTests {
 
 	@Test
-	void onlyJpaReadingRecordsRepositoryIsTheSpringBean() throws IOException {
-		String jdbcRepository = Files.readString(Path.of(
+	void onlyJpaReadingRecordsRepositoryRemainsAsTheRuntimeAdapter() throws IOException {
+		Path repositoryPackage = Path.of(
 			"src",
 			"main",
 			"java",
@@ -21,23 +21,17 @@ class ReadingRecordsRepositoryWiringContractTests {
 			"api",
 			"domain",
 			"reading",
-			"repository",
-			"JdbcReadingRecordsRepository.java"
-		));
-		String jpaRepository = Files.readString(Path.of(
-			"src",
-			"main",
-			"java",
-			"com",
-			"myeongro",
-			"api",
-			"domain",
-			"reading",
-			"repository",
-			"JpaReadingRecordsRepository.java"
-		));
+			"repository"
+		);
+		String jpaRepository = Files.readString(
+			repositoryPackage.resolve("JpaReadingRecordsRepository.java")
+		);
 
-		assertThat(jdbcRepository).doesNotContain("@Repository");
-		assertThat(jpaRepository).contains("@Repository");
+		assertThat(repositoryPackage.resolve("JdbcReadingRecordsRepository.java")).doesNotExist();
+		assertThat(jpaRepository)
+			.contains("@Repository")
+			.doesNotContain("@Primary")
+			.contains("JdbcTemplate")
+			.contains("public.start_failed_reading_retry");
 	}
 }

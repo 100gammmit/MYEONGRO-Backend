@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -30,7 +29,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
-@Primary
 @Repository
 public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 
