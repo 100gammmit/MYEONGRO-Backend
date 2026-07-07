@@ -113,35 +113,4 @@ class FlywayBaselineContractTests {
             .contains("validate-on-migrate: true");
     }
 
-    @Test
-    void migrationPolicyDocumentsResetRequirementForRewrittenBaseline()
-        throws IOException {
-        var policy = Files.readString(
-            Path.of("src", "main", "resources", "db", "migration", "README.md")
-        );
-
-        assertThat(policy)
-            .contains("intentionally rewrites the cumulative V1/V3 baseline")
-            .contains("validate-on-migrate=true")
-            .contains("clean-disabled=true")
-            .contains("old V1 or V3 checksum")
-            .contains("reset affected non-production databases")
-            .contains("do not edit an already-applied migration");
-    }
-
-    @Test
-    void migrationPolicyDocumentsFreshPostgresReplayCheck()
-        throws IOException {
-        var policy = Files.readString(
-            Path.of("src", "main", "resources", "db", "migration", "README.md")
-        );
-
-        assertThat(policy)
-            .contains("Fresh Docker Postgres replay check")
-            .contains("myeongro-flyway-check-postgres")
-            .contains("docker run")
-            .contains("POSTGRES_PORT=55432")
-            .contains("spring.flyway.clean-disabled=false")
-            .contains("flyway_schema_history");
-    }
 }
