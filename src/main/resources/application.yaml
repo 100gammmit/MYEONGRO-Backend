@@ -73,11 +73,13 @@ app:
   frontend-origin: ${frontend.origin:http://localhost:3000}
 
   reading:
-    generator: demo
-    prompt-version: mvp-2026-06-16
     openai:
       model: ${openai.free-model:gpt-5.4-mini}
       max-output-tokens: 1200
+    prompts:
+      tarot: classpath:prompts/tarot/major-arcana-3card-ko-v1.md
+      saju: classpath:prompts/saju/birth-profile-free-ko-v1.md
+
 
   guest:
     signing-secret: ${guest.secret}
