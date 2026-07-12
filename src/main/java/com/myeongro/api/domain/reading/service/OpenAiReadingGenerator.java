@@ -1,5 +1,7 @@
 package com.myeongro.api.domain.reading.service;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +14,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.ResponseFormat;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -24,28 +27,27 @@ import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationExceptio
 @ConditionalOnProperty(prefix = "app.reading", name = "generator", havingValue = "openai")
 public class OpenAiReadingGenerator implements ReadingGenerator {
 
-	private static final String SYSTEM_PROMPT = String.join(" ",
-		"You create Korean tarot and saju readings for entertainment and self-reflection.",
-		"Never present predictions as certain facts.",
-		"Do not provide medical, legal, investment, or crisis instructions.",
-		"Return valid JSON that exactly matches the requested schema."
-	);
-
 	private final ChatModel chatModel;
 	private final ObjectMapper objectMapper;
 	private final String model;
 	private final int maxOutputTokens;
+	private final String systemPrompt;
+	private final TarotReadingResultValidator resultValidator;
 
 	public OpenAiReadingGenerator(
 		ChatModel chatModel,
 		ObjectMapper objectMapper,
 		@Value("${app.reading.openai.model:gpt-5.4-mini}") String model,
-		@Value("${app.reading.openai.max-output-tokens:1200}") int maxOutputTokens
+		@Value("${app.reading.openai.max-output-tokens:1200}") int maxOutputTokens,
+		@Value("${app.reading.prompts.tarot}") Resource promptResource,
+		TarotReadingResultValidator resultValidator
 	) {
 		this.chatModel = chatModel;
 		this.objectMapper = objectMapper;
 		this.model = model;
 		this.maxOutputTokens = maxOutputTokens;
+		this.systemPrompt = readPrompt(promptResource);
+		this.resultValidator = resultValidator;
 	}
 
 	@Override
@@ -57,15 +59,29 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 		try {
 			ChatResponse response = chatModel.call(new Prompt(
 				List.of(
-					new SystemMessage(SYSTEM_PROMPT),
+					new SystemMessage(systemPrompt),
 					new UserMessage(toPromptInput(kind, question, input))
 				),
 				options()
 			));
 			String content = response.getResult().getOutput().getText();
-			return objectMapper.readValue(content, ReadingResult.class);
+			ReadingResult result = objectMapper.readValue(content, ReadingResult.class);
+			resultValidator.validate(result);
+			return result;
 		} catch (RuntimeException | JsonProcessingException exception) {
 			throw new OpenAiReadingGenerationException();
+		}
+	}
+
+	private String readPrompt(Resource promptResource) {
+		try {
+			String prompt = promptResource.getContentAsString(StandardCharsets.UTF_8);
+			if (prompt.isBlank()) {
+				throw new IllegalArgumentException("Tarot prompt is empty");
+			}
+			return prompt;
+		} catch (IOException exception) {
+			throw new IllegalStateException("Cannot read tarot prompt", exception);
 		}
 	}
 
@@ -115,7 +131,8 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 				"summary", Map.of("type", "string", "minLength", 1),
 				"sections", Map.of(
 					"type", "array",
-					"minItems", 1,
+					"minItems", 3,
+					"maxItems", 3,
 					"items", Map.of(
 						"type", "object",
 						"additionalProperties", false,
@@ -128,7 +145,8 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 				),
 				"guidance", Map.of(
 					"type", "array",
-					"minItems", 1,
+					"minItems", 2,
+					"maxItems", 3,
 					"items", Map.of("type", "string", "minLength", 1)
 				),
 				"disclaimer", Map.of("type", "string", "minLength", 1)

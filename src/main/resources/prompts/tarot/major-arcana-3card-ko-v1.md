@@ -32,9 +32,11 @@ Output rules:
   "title": "string",
   "summary": "string",
   "sections": [
-    { "heading": "string", "body": "string" }
+    { "heading": "과거 - 카드 이름", "body": "string" },
+    { "heading": "현재 - 카드 이름", "body": "string" },
+    { "heading": "조언 - 카드 이름", "body": "string" }
   ],
-  "guidance": ["string"],
+  "guidance": ["string", "string"],
   "disclaimer": "string"
 }
 
