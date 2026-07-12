@@ -3,6 +3,7 @@ package com.myeongro.api.domain.reading.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -60,7 +61,7 @@ class OpenAiReadingGeneratorTests {
 			new ObjectMapper(),
 			"gpt-test",
 			1200,
-			new ByteArrayResource(SYSTEM_PROMPT.getBytes()),
+			new ByteArrayResource(SYSTEM_PROMPT.getBytes(StandardCharsets.UTF_8)),
 			new TarotReadingResultValidator()
 		);
 
@@ -137,7 +138,7 @@ class OpenAiReadingGeneratorTests {
 			new ObjectMapper(),
 			"gpt-test",
 			1200,
-			new ByteArrayResource(SYSTEM_PROMPT.getBytes()),
+			new ByteArrayResource(SYSTEM_PROMPT.getBytes(StandardCharsets.UTF_8)),
 			new TarotReadingResultValidator()
 		);
 
@@ -159,7 +160,7 @@ class OpenAiReadingGeneratorTests {
 			new ObjectMapper(),
 			"gpt-test",
 			1200,
-			new ByteArrayResource(SYSTEM_PROMPT.getBytes()),
+			new ByteArrayResource(SYSTEM_PROMPT.getBytes(StandardCharsets.UTF_8)),
 			new TarotReadingResultValidator()
 		);
 

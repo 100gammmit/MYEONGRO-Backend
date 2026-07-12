@@ -104,9 +104,9 @@ class ReadingCreationServiceTests {
 		verify(guestCacheRepository).createPending(command.capture());
 		assertThat(command.getValue().userId()).isNull();
 		assertThat(command.getValue().guestSessionId()).isEqualTo(GUEST_ID);
-		assertThat(command.getValue().provider()).isEqualTo("demo");
-		assertThat(command.getValue().model()).isEqualTo("deterministic-demo");
-		assertThat(command.getValue().promptVersion()).isEqualTo("mvp-test");
+		assertThat(command.getValue().provider()).isEqualTo("openai");
+		assertThat(command.getValue().model()).isEqualTo("gpt-test");
+		assertThat(command.getValue().promptVersion()).isEqualTo("tarot-prompt-v1");
 		verify(repository, never()).createPending(any());
 		verify(guestCacheRepository).completePending(any(), any());
 	}
@@ -270,7 +270,7 @@ class ReadingCreationServiceTests {
 			failingGenerator,
 			new ObjectMapper(),
 			"test-signing-secret",
-			new ReadingGenerationMetadata("demo", "deterministic-demo", "mvp-test")
+			metadataResolver()
 		);
 
 		assertThatThrownBy(() -> service.createGuestReading(
@@ -297,8 +297,12 @@ class ReadingCreationServiceTests {
 			new DemoReadingGenerator(),
 			new ObjectMapper(),
 			"test-signing-secret",
-			new ReadingGenerationMetadata("demo", "deterministic-demo", "mvp-test")
+			metadataResolver()
 		);
+	}
+
+	private ReadingGenerationMetadataResolver metadataResolver() {
+		return new ReadingGenerationMetadataResolver("gpt-test", "tarot-prompt-v1");
 	}
 
 	private CreatedReadingResponse completedReading() {

@@ -15,65 +15,54 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.reading.entity.ReadingKind;
 
 class ReadingGeneratorBeanSelectionTests {
 
 	private final ApplicationContextRunner contextRunner =
 		new ApplicationContextRunner()
+			.withPropertyValues(
+				"app.reading.openai.model=gpt-test",
+				"app.reading.prompts.tarot=classpath:prompts/tarot/major-arcana-3card-ko-v1.md",
+				"app.reading.prompts.tarot-version=tarot-prompt-v1"
+			)
 			.withBean(ObjectMapper.class, ObjectMapper::new)
+			.withBean(TarotReadingResultValidator.class)
 			.withUserConfiguration(TestChatModelConfig.class)
-			.withUserConfiguration(ReadingGenerationMetadataConfig.class)
 			.withUserConfiguration(DemoReadingGenerator.class)
-			.withUserConfiguration(OpenAiReadingGenerator.class);
+			.withUserConfiguration(OpenAiReadingGenerator.class)
+			.withUserConfiguration(ReadingGeneratorRouter.class)
+			.withUserConfiguration(ReadingGenerationMetadataResolver.class);
 
 	@Test
-	void usesDemoGeneratorWhenGeneratorPropertyIsMissing() {
+	void exposesRouterAsPrimaryReadingGenerator() {
 		contextRunner.run(context -> {
-			assertThat(context).hasSingleBean(ReadingGenerator.class);
+			assertThat(context).hasNotFailed();
+			assertThat(context.getBeansOfType(ReadingGenerator.class)).hasSize(3);
 			assertThat(context.getBean(ReadingGenerator.class))
-				.isInstanceOf(DemoReadingGenerator.class);
+				.isInstanceOf(ReadingGeneratorRouter.class);
 		});
 	}
 
 	@Test
-	void usesOpenAiGeneratorWhenOpenAiGeneratorIsConfigured() {
-		contextRunner
-			.withPropertyValues("app.reading.generator=openai")
-			.run(context -> {
-				assertThat(context).hasSingleBean(ReadingGenerator.class);
-				assertThat(context.getBean(ReadingGenerator.class))
-					.isInstanceOf(OpenAiReadingGenerator.class);
-			});
-	}
-
-	@Test
-	void exposesDemoGenerationMetadataByDefault() {
+	void exposesKindSpecificGenerationMetadata() {
 		contextRunner.run(context -> {
-			assertThat(context.getBean(ReadingGenerationMetadata.class))
+			ReadingGenerationMetadataResolver resolver =
+				context.getBean(ReadingGenerationMetadataResolver.class);
+
+			assertThat(resolver.resolve(ReadingKind.TAROT))
+				.isEqualTo(new ReadingGenerationMetadata(
+					"openai",
+					"gpt-test",
+					"tarot-prompt-v1"
+				));
+			assertThat(resolver.resolve(ReadingKind.SAJU))
 				.isEqualTo(new ReadingGenerationMetadata(
 					"demo",
 					"deterministic-demo",
-					"mvp-2026-06-16"
+					"demo-saju-v1"
 				));
 		});
-	}
-
-	@Test
-	void exposesOpenAiGenerationMetadataWhenOpenAiGeneratorIsConfigured() {
-		contextRunner
-			.withPropertyValues(
-				"app.reading.generator=openai",
-				"app.reading.openai.model=gpt-test",
-				"app.reading.prompt-version=mvp-test"
-			)
-			.run(context -> {
-				assertThat(context.getBean(ReadingGenerationMetadata.class))
-					.isEqualTo(new ReadingGenerationMetadata(
-						"openai",
-						"gpt-test",
-						"mvp-test"
-					));
-			});
 	}
 
 	@Configuration(proxyBeanMethods = false)

@@ -64,7 +64,7 @@ public class ReadingCreationService {
 	private final ReadingGenerator generator;
 	private final ObjectMapper objectMapper;
 	private final String signingSecret;
-	private final ReadingGenerationMetadata generationMetadata;
+	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 
 	public ReadingCreationService(
 		ConsentService consentService,
@@ -73,7 +73,7 @@ public class ReadingCreationService {
 		ReadingGenerator generator,
 		ObjectMapper objectMapper,
 		@Value("${app.guest.signing-secret}") String signingSecret,
-		ReadingGenerationMetadata generationMetadata
+		ReadingGenerationMetadataResolver generationMetadataResolver
 	) {
 		this.consentService = consentService;
 		this.repository = repository;
@@ -81,7 +81,7 @@ public class ReadingCreationService {
 		this.generator = generator;
 		this.objectMapper = objectMapper;
 		this.signingSecret = signingSecret;
-		this.generationMetadata = generationMetadata;
+		this.generationMetadataResolver = generationMetadataResolver;
 	}
 
 	public CreatedReadingResponse createGuestReading(
@@ -99,6 +99,7 @@ public class ReadingCreationService {
 
 		ReadingKind kind = ReadingKind.fromValue(request.kind());
 		Map<String, Object> input = toStorageInput(kind, request);
+		ReadingGenerationMetadata generationMetadata = generationMetadataResolver.resolve(kind);
 		PendingGuestReadingCache pending = guestCacheRepository.createPending(PendingReadingCommand.builder()
 			.userId(null)
 			.guestSessionId(guestSessionId)
@@ -135,6 +136,7 @@ public class ReadingCreationService {
 
 		ReadingKind kind = ReadingKind.fromValue(request.kind());
 		Map<String, Object> input = toStorageInput(kind, request);
+		ReadingGenerationMetadata generationMetadata = generationMetadataResolver.resolve(kind);
 		PendingReadingCreation pending = repository.createPending(PendingReadingCommand.builder()
 			.userId(userId)
 			.guestSessionId(null)

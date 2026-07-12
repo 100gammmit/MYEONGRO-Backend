@@ -78,6 +78,7 @@ app:
       max-output-tokens: 1200
     prompts:
       tarot: classpath:prompts/tarot/major-arcana-3card-ko-v1.md
+      tarot-version: major-arcana-3card-ko-v1
       saju: classpath:prompts/saju/birth-profile-free-ko-v1.md
 
 

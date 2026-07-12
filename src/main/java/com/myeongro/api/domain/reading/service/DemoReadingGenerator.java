@@ -4,19 +4,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.dto.ReadingSection;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 
 @Component
-@ConditionalOnProperty(
-	prefix = "app.reading",
-	name = "generator",
-	havingValue = "demo",
-	matchIfMissing = true
-)
 public class DemoReadingGenerator implements ReadingGenerator {
 
 	@Override
