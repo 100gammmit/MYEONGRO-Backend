@@ -100,7 +100,7 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 	private OpenAiChatOptions options() {
 		return OpenAiChatOptions.builder()
 			.model(model)
-			.maxTokens(maxOutputTokens)
+			.maxCompletionTokens(maxOutputTokens)
 			.temperature(0.7d)
 			.responseFormat(ResponseFormat.builder()
 				.type(ResponseFormat.Type.JSON_SCHEMA)

@@ -94,7 +94,8 @@ class OpenAiReadingGeneratorTests {
 		assertThat(chatModel.prompt.getOptions()).isInstanceOf(OpenAiChatOptions.class);
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
 		assertThat(options.getModel()).isEqualTo("gpt-test");
-		assertThat(options.getMaxTokens()).isEqualTo(1200);
+		assertThat(options.getMaxTokens()).isNull();
+		assertThat(options.getMaxCompletionTokens()).isEqualTo(1200);
 		assertThat(options.getTemperature()).isEqualTo(0.7d);
 		assertThat(options.getResponseFormat().getType())
 			.isEqualTo(ResponseFormat.Type.JSON_SCHEMA);
