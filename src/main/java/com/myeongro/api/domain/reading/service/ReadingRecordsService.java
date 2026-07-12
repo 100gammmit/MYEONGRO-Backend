@@ -16,16 +16,16 @@ public class ReadingRecordsService {
 
 	private final ReadingRecordsRepository repository;
 	private final ReadingCreationService creationService;
-	private final ReadingGenerationMetadata generationMetadata;
+	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 
 	public ReadingRecordsService(
 		ReadingRecordsRepository repository,
 		ReadingCreationService creationService,
-		ReadingGenerationMetadata generationMetadata
+		ReadingGenerationMetadataResolver generationMetadataResolver
 	) {
 		this.repository = repository;
 		this.creationService = creationService;
-		this.generationMetadata = generationMetadata;
+		this.generationMetadataResolver = generationMetadataResolver;
 	}
 
 	public List<CreatedReadingResponse> listByUser(UUID userId) {
@@ -44,6 +44,9 @@ public class ReadingRecordsService {
 	}
 
 	public CreatedReadingResponse retry(UUID userId, UUID readingId) {
+		CreatedReadingResponse currentReading = getByUserAndId(userId, readingId);
+		ReadingGenerationMetadata generationMetadata =
+			generationMetadataResolver.resolve(currentReading.kind());
 		PendingReadingCreation pending = repository.startFailedRetry(
 			userId,
 			readingId,

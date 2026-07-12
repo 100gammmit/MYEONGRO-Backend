@@ -27,6 +27,13 @@ spring:
             user-name-attribute: id
 
 app:
+  reading:
+    openai:
+      model: gpt-test
+      max-output-tokens: 1200
+    prompts:
+      tarot: classpath:prompts/tarot/major-arcana-3card-ko-v1.md
+      tarot-version: tarot-prompt-v1
   guest:
     signing-secret: 0123456789abcdef0123456789abcdef
     ttl: 30d

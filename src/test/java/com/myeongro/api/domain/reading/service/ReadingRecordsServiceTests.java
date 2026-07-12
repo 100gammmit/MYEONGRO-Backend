@@ -69,6 +69,8 @@ class ReadingRecordsServiceTests {
 			GENERATION_ID,
 			reading()
 		);
+		when(repository.findByUserAndId(USER_ID, READING_ID))
+			.thenReturn(Optional.of(reading()));
 		when(repository.startFailedRetry(USER_ID, READING_ID, metadata())).thenReturn(pending);
 		when(creationService.generatePending(
 			ReadingKind.TAROT,
@@ -92,11 +94,15 @@ class ReadingRecordsServiceTests {
 		ReadingRecordsRepository repository,
 		ReadingCreationService creationService
 	) {
-		return new ReadingRecordsService(repository, creationService, metadata());
+		return new ReadingRecordsService(
+			repository,
+			creationService,
+			new ReadingGenerationMetadataResolver("gpt-test", "tarot-prompt-v1")
+		);
 	}
 
 	private ReadingGenerationMetadata metadata() {
-		return new ReadingGenerationMetadata("demo", "deterministic-demo", "mvp-test");
+		return new ReadingGenerationMetadata("openai", "gpt-test", "tarot-prompt-v1");
 	}
 
 	private CreatedReadingResponse reading() {
