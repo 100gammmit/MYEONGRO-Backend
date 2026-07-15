@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class ApplicationYamlContractTests {
 
 	@Test
-	void defaultDemoModeDoesNotRequireOpenAiApiKeyPlaceholder() throws Exception {
+	void tarotOpenAiConfigurationKeepsModelAndApiKeyExternalized() throws Exception {
 		String applicationYaml = Files.readString(
 			Path.of("src/main/resources/application.yaml"),
 			StandardCharsets.UTF_8

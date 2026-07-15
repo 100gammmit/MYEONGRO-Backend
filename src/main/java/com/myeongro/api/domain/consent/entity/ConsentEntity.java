@@ -20,11 +20,8 @@ public class ConsentEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private UUID userId;
-
-	@Column(name = "guest_session_id")
-	private UUID guestSessionId;
 
 	@Column(name = "terms_version", nullable = false)
 	private String termsVersion;
@@ -57,32 +54,13 @@ public class ConsentEntity {
 
 	private ConsentEntity(
 		UUID userId,
-		UUID guestSessionId,
 		String termsVersion,
 		String privacyVersion,
 		String sensitiveDataVersion,
 		Instant acceptedAt
 	) {
 		this.userId = userId;
-		this.guestSessionId = guestSessionId;
 		accept(termsVersion, privacyVersion, sensitiveDataVersion, acceptedAt);
-	}
-
-	public static ConsentEntity acceptedForGuest(
-		UUID guestSessionId,
-		String termsVersion,
-		String privacyVersion,
-		String sensitiveDataVersion,
-		Instant acceptedAt
-	) {
-		return new ConsentEntity(
-			null,
-			guestSessionId,
-			termsVersion,
-			privacyVersion,
-			sensitiveDataVersion,
-			acceptedAt
-		);
 	}
 
 	public static ConsentEntity acceptedForUser(
@@ -94,7 +72,6 @@ public class ConsentEntity {
 	) {
 		return new ConsentEntity(
 			userId,
-			null,
 			termsVersion,
 			privacyVersion,
 			sensitiveDataVersion,
@@ -152,10 +129,6 @@ public class ConsentEntity {
 
 	public UUID getUserId() {
 		return userId;
-	}
-
-	public UUID getGuestSessionId() {
-		return guestSessionId;
 	}
 
 	public String versionOf(ConsentDocumentType documentType) {

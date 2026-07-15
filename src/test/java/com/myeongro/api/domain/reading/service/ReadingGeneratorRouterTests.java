@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 
 class ReadingGeneratorRouterTests {
 
@@ -26,27 +27,33 @@ class ReadingGeneratorRouterTests {
 	void routesTarotOnlyToOpenAiGenerator() {
 		Map<String, Object> input = Map.of("cards", "three cards");
 		ReadingResult expected = mock(ReadingResult.class);
-		when(openAiGenerator.generate(ReadingKind.TAROT, "질문", input))
+		when(openAiGenerator.generate(ReadingKind.TAROT, TarotSpreadType.MIND_THREE_CARD, "질문", input))
 			.thenReturn(expected);
 
-		ReadingResult actual = router.generate(ReadingKind.TAROT, "질문", input);
+		ReadingResult actual = router.generate(
+			ReadingKind.TAROT, TarotSpreadType.MIND_THREE_CARD, "질문", input
+		);
 
 		assertThat(actual).isSameAs(expected);
-		verify(openAiGenerator).generate(ReadingKind.TAROT, "질문", input);
-		verify(demoGenerator, never()).generate(ReadingKind.TAROT, "질문", input);
+		verify(openAiGenerator).generate(
+			ReadingKind.TAROT, TarotSpreadType.MIND_THREE_CARD, "질문", input
+		);
+		verify(demoGenerator, never()).generate(
+			ReadingKind.TAROT, TarotSpreadType.MIND_THREE_CARD, "질문", input
+		);
 	}
 
 	@Test
 	void routesSajuOnlyToDemoGenerator() {
 		Map<String, Object> input = Map.of("profile", "birth profile");
 		ReadingResult expected = mock(ReadingResult.class);
-		when(demoGenerator.generate(ReadingKind.SAJU, "질문", input))
+		when(demoGenerator.generate(ReadingKind.SAJU, null, "질문", input))
 			.thenReturn(expected);
 
-		ReadingResult actual = router.generate(ReadingKind.SAJU, "질문", input);
+		ReadingResult actual = router.generate(ReadingKind.SAJU, null, "질문", input);
 
 		assertThat(actual).isSameAs(expected);
-		verify(demoGenerator).generate(ReadingKind.SAJU, "질문", input);
-		verify(openAiGenerator, never()).generate(ReadingKind.SAJU, "질문", input);
+		verify(demoGenerator).generate(ReadingKind.SAJU, null, "질문", input);
+		verify(openAiGenerator, never()).generate(ReadingKind.SAJU, null, "질문", input);
 	}
 }

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 
 @Primary
 @Component
@@ -26,12 +27,13 @@ public class ReadingGeneratorRouter implements ReadingGenerator {
 	@Override
 	public ReadingResult generate(
 		ReadingKind kind,
+		TarotSpreadType spreadType,
 		String question,
 		Map<String, Object> input
 	) {
 		if (kind == ReadingKind.TAROT) {
-			return openAiGenerator.generate(kind, question, input);
+			return openAiGenerator.generate(kind, spreadType, question, input);
 		}
-		return demoGenerator.generate(kind, question, input);
+		return demoGenerator.generate(kind, spreadType, question, input);
 	}
 }

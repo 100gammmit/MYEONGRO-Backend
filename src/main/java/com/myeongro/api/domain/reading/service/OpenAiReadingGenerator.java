@@ -1,7 +1,5 @@
 package com.myeongro.api.domain.reading.service;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -13,13 +11,13 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.ResponseFormat;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 
 @Component
@@ -28,127 +26,122 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 	private final ChatModel chatModel;
 	private final ObjectMapper objectMapper;
 	private final String model;
-	private final int maxOutputTokens;
-	private final String systemPrompt;
+	private final TarotPromptCatalog promptCatalog;
 	private final TarotReadingResultValidator resultValidator;
 
 	public OpenAiReadingGenerator(
 		ChatModel chatModel,
 		ObjectMapper objectMapper,
 		@Value("${app.reading.openai.model:gpt-5.4-mini}") String model,
-		@Value("${app.reading.openai.max-output-tokens:1200}") int maxOutputTokens,
-		@Value("${app.reading.prompts.tarot}") Resource promptResource,
+		TarotPromptCatalog promptCatalog,
 		TarotReadingResultValidator resultValidator
 	) {
 		this.chatModel = chatModel;
 		this.objectMapper = objectMapper;
 		this.model = model;
-		this.maxOutputTokens = maxOutputTokens;
-		this.systemPrompt = readPrompt(promptResource);
+		this.promptCatalog = promptCatalog;
 		this.resultValidator = resultValidator;
 	}
 
 	@Override
 	public ReadingResult generate(
 		ReadingKind kind,
+		TarotSpreadType spreadType,
 		String question,
 		Map<String, Object> input
 	) {
+		if (kind != ReadingKind.TAROT || spreadType == null) {
+			throw new IllegalArgumentException("Tarot spread input is required");
+		}
 		try {
 			ChatResponse response = chatModel.call(new Prompt(
 				List.of(
-					new SystemMessage(systemPrompt),
-					new UserMessage(toPromptInput(kind, question, input))
+					new SystemMessage(promptCatalog.prompt(spreadType)),
+					new UserMessage(toPromptInput(kind, spreadType, question, input))
 				),
-				options()
+				options(spreadType)
 			));
 			String content = response.getResult().getOutput().getText();
 			ReadingResult result = objectMapper.readValue(content, ReadingResult.class);
-			resultValidator.validate(result);
+			resultValidator.validate(spreadType, result);
 			return result;
 		} catch (RuntimeException | JsonProcessingException exception) {
 			throw new OpenAiReadingGenerationException();
 		}
 	}
 
-	private String readPrompt(Resource promptResource) {
-		try {
-			String prompt = promptResource.getContentAsString(StandardCharsets.UTF_8);
-			if (prompt.isBlank()) {
-				throw new IllegalArgumentException("Tarot prompt is empty");
-			}
-			return prompt;
-		} catch (IOException exception) {
-			throw new IllegalStateException("Cannot read tarot prompt", exception);
-		}
-	}
-
 	private String toPromptInput(
 		ReadingKind kind,
+		TarotSpreadType spreadType,
 		String question,
 		Map<String, Object> input
 	) throws JsonProcessingException {
 		return objectMapper.writeValueAsString(Map.of(
 			"kind", kind.value(),
+			"spreadType", spreadType.value(),
 			"tier", "free",
 			"locale", "ko-KR",
-			"question", question,
-			"input", input
+			"untrustedUserInput", Map.of(
+				"question", question,
+				"readingInput", input
+			)
 		));
 	}
 
-	private OpenAiChatOptions options() {
+	private OpenAiChatOptions options(TarotSpreadType spreadType) {
 		return OpenAiChatOptions.builder()
 			.model(model)
-			.maxCompletionTokens(maxOutputTokens)
+			.maxCompletionTokens(spreadType.maxOutputTokens())
 			.temperature(0.7d)
 			.responseFormat(ResponseFormat.builder()
 				.type(ResponseFormat.Type.JSON_SCHEMA)
 				.jsonSchema(ResponseFormat.JsonSchema.builder()
-					.name("fortune_reading")
+					.name("tarot_" + spreadType.value())
 					.strict(true)
-					.schema(readingResultSchema())
+					.schema(readingResultSchema(spreadType))
 					.build())
 				.build())
 			.build();
 	}
 
-	private Map<String, Object> readingResultSchema() {
+	Map<String, Object> readingResultSchema(TarotSpreadType spreadType) {
+		List<String> positionIds = spreadType.positions().stream()
+			.map(position -> position.id())
+			.toList();
 		return Map.of(
 			"type", "object",
 			"additionalProperties", false,
-			"required", List.of(
-				"title",
-				"summary",
-				"sections",
-				"guidance",
-				"disclaimer"
-			),
+			"required", List.of("title", "summary", "sections", "guidance", "disclaimer"),
 			"properties", Map.of(
-				"title", Map.of("type", "string", "minLength", 1),
-				"summary", Map.of("type", "string", "minLength", 1),
+				"title", textSchema(),
+				"summary", textSchema(),
 				"sections", Map.of(
 					"type", "array",
-					"minItems", 3,
-					"maxItems", 3,
+					"minItems", spreadType.cardCount(),
+					"maxItems", spreadType.cardCount(),
 					"items", Map.of(
 						"type", "object",
 						"additionalProperties", false,
-						"required", List.of("heading", "body"),
+						"required", List.of("position", "heading", "body"),
 						"properties", Map.of(
-							"heading", Map.of("type", "string", "minLength", 1),
-							"body", Map.of("type", "string", "minLength", 1)
+							"position", Map.of("type", "string", "enum", positionIds),
+							"heading", textSchema(),
+							"body", textSchema()
 						)
 					)
 				),
 				"guidance", Map.of(
 					"type", "array",
-					"minItems", 2,
-					"maxItems", 3,
-					"items", Map.of("type", "string", "minLength", 1)
+					"minItems", spreadType.minGuidanceItems(),
+					"maxItems", spreadType.maxGuidanceItems(),
+					"items", textSchema()
 				),
-				"disclaimer", Map.of("type", "string", "minLength", 1)
+				"disclaimer", textSchema()
 			)
 		);
+	}
+
+	private Map<String, Object> textSchema() {
+		return Map.of("type", "string", "minLength", 1);
 	}
 }

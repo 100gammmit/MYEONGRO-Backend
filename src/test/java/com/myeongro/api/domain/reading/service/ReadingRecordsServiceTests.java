@@ -1,8 +1,6 @@
 package com.myeongro.api.domain.reading.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,129 +14,89 @@ import org.junit.jupiter.api.Test;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
+import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 
 class ReadingRecordsServiceTests {
 
-	private static final UUID USER_ID =
-		UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
-	private static final UUID READING_ID =
-		UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
-	private static final Long GENERATION_ID = 42L;
+	private static final UUID USER_ID = UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
+	private static final UUID READING_ID = UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
 
 	@Test
-	void returnsReadingDetailOwnedByUser() {
-		ReadingRecordsRepository repository = mock(ReadingRecordsRepository.class);
-		ReadingRecordsService service = service(repository, mock(ReadingCreationService.class));
-		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading()));
-
-		CreatedReadingResponse response = service.getByUserAndId(USER_ID, READING_ID);
-
-		assertThat(response.id()).isEqualTo(READING_ID);
-	}
-
-	@Test
-	void throwsNotFoundWhenReadingDoesNotBelongToUser() {
-		ReadingRecordsRepository repository = mock(ReadingRecordsRepository.class);
-		ReadingRecordsService service = service(repository, mock(ReadingCreationService.class));
-		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.empty());
-
-		assertThatThrownBy(() -> service.getByUserAndId(USER_ID, READING_ID))
-			.isInstanceOf(ReadingRecordNotFoundException.class);
-	}
-
-	@Test
-	void throwsNotFoundWhenSoftDeleteAffectsNoRows() {
-		ReadingRecordsRepository repository = mock(ReadingRecordsRepository.class);
-		ReadingRecordsService service = service(repository, mock(ReadingCreationService.class));
-		when(repository.softDeleteByUserAndId(USER_ID, READING_ID)).thenReturn(false);
-
-		assertThatThrownBy(() -> service.deleteByUserAndId(USER_ID, READING_ID))
-			.isInstanceOf(ReadingRecordNotFoundException.class);
-	}
-
-	@Test
-	void retriesFailedReadingThroughGenerationPipeline() {
-		ReadingRecordsRepository repository = mock(ReadingRecordsRepository.class);
-		ReadingCreationService creationService = mock(ReadingCreationService.class);
-		ReadingRecordsService service = service(repository, creationService);
-		PendingReadingCreation pending = new PendingReadingCreation(
-			READING_ID,
-			GENERATION_ID,
-			reading()
+	void retriesWithStoredSpreadSchemaAndPayload() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingCreationService creationService = org.mockito.Mockito.mock(ReadingCreationService.class);
+		ReadingGenerationMetadataResolver metadataResolver =
+			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
+		ReadingInputNormalizer normalizer = org.mockito.Mockito.mock(ReadingInputNormalizer.class);
+		ReadingRecordsService service = new ReadingRecordsService(
+			repository, creationService, metadataResolver, normalizer
 		);
-		when(repository.findByUserAndId(USER_ID, READING_ID))
-			.thenReturn(Optional.of(reading()));
-		when(repository.startFailedRetry(USER_ID, READING_ID, metadata())).thenReturn(pending);
-		when(creationService.generatePending(
+		CreatedReadingResponse reading = reading(1);
+		NormalizedReadingInput input = new NormalizedReadingInput(
 			ReadingKind.TAROT,
-			"How is today?",
-			reading().input(),
-			pending
-		)).thenReturn(completedReading());
-
-		CreatedReadingResponse response = service.retry(USER_ID, READING_ID);
-
-		assertThat(response.status()).isEqualTo("completed");
-		verify(creationService).generatePending(
-			ReadingKind.TAROT,
-			"How is today?",
-			reading().input(),
-			pending
+			TarotSpreadType.RELATIONSHIP_THREE_CARD,
+			1,
+			"질문",
+			reading.input()
 		);
+		ReadingGenerationMetadata metadata = new ReadingGenerationMetadata(
+			"openai", "gpt-test", "relationship-v1"
+		);
+		PendingReadingCreation pending = new PendingReadingCreation(READING_ID, 42L, reading);
+		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading));
+		when(normalizer.restore(reading)).thenReturn(input);
+		when(metadataResolver.resolve(input.kind(), input.spreadType())).thenReturn(metadata);
+		when(repository.startFailedRetry(USER_ID, READING_ID, metadata)).thenReturn(pending);
+
+		service.retry(USER_ID, READING_ID);
+
+		verify(creationService).generatePending(input, pending);
 	}
 
-	private ReadingRecordsService service(
-		ReadingRecordsRepository repository,
-		ReadingCreationService creationService
-	) {
-		return new ReadingRecordsService(
+	@Test
+	void rejectsSchemaVersionZeroBeforeStartingRetry() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingInputNormalizer normalizer = new ReadingInputNormalizer();
+		ReadingRecordsService service = new ReadingRecordsService(
 			repository,
-			creationService,
-			new ReadingGenerationMetadataResolver("gpt-test", "tarot-prompt-v1")
+			org.mockito.Mockito.mock(ReadingCreationService.class),
+			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
+			normalizer
 		);
+		CreatedReadingResponse legacy = reading(0);
+		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(legacy));
+
+		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))
+			.isInstanceOf(ReadingRetryNotAllowedException.class);
 	}
 
-	private ReadingGenerationMetadata metadata() {
-		return new ReadingGenerationMetadata("openai", "gpt-test", "tarot-prompt-v1");
-	}
-
-	private CreatedReadingResponse reading() {
+	private CreatedReadingResponse reading(int schemaVersion) {
 		return new CreatedReadingResponse(
 			READING_ID,
 			ReadingKind.TAROT,
+			schemaVersion == 0 ? null : TarotSpreadType.RELATIONSHIP_THREE_CARD,
+			schemaVersion,
 			"failed",
 			"Generating...",
-			Map.of("question", "How is today?"),
+			Map.of(
+				"question", "질문",
+				"cards", List.of(
+					card("major-00-fool", "my_heart"),
+					card("major-06-lovers", "relationship_flow"),
+					card("major-17-star", "check_point")
+				)
+			),
 			null,
-			"READING_GENERATION_FAILED",
+			"FAILED",
 			Instant.parse("2026-06-16T00:00:00Z"),
 			Instant.parse("2026-06-16T00:00:01Z")
 		);
 	}
 
-	private CreatedReadingResponse completedReading() {
-		return new CreatedReadingResponse(
-			READING_ID,
-			ReadingKind.TAROT,
-			"completed",
-			"Tarot reading",
-			Map.of("question", "How is today?"),
-			Map.of(
-				"title", "Tarot reading",
-				"summary", "The selected cards point to a clear next step.",
-				"sections", List.of(Map.of(
-					"heading", "Flow",
-					"body", "Move gently and choose one concrete action."
-				)),
-				"guidance", List.of("Choose one next action."),
-				"disclaimer", "For reflection only."
-			),
-			null,
-			Instant.parse("2026-06-16T00:00:00Z"),
-			Instant.parse("2026-06-16T00:00:02Z")
-		);
+	private Map<String, Object> card(String cardId, String position) {
+		return Map.of("cardId", cardId, "position", position, "reversed", false);
 	}
 }

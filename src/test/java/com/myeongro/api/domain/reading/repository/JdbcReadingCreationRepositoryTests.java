@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.dto.ReadingSection;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.FreeReadingIdempotencyConflictException;
 import com.myeongro.api.domain.reading.exception.FreeReadingQuotaExceededException;
 
@@ -34,8 +35,6 @@ class JdbcReadingCreationRepositoryTests {
 
 	private static final UUID USER_ID =
 		UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
-	private static final UUID GUEST_SESSION_ID =
-		UUID.fromString("9775ff70-5708-45d8-85f8-cb57878bc25d");
 	private static final UUID REQUEST_ID =
 		UUID.fromString("82ed11d5-2269-438c-9815-42e6f13735f4");
 	private static final UUID READING_ID =
@@ -83,11 +82,12 @@ class JdbcReadingCreationRepositoryTests {
 			.contains("cast(? as jsonb)");
 		assertThat(args.getAllValues().get(0)).containsExactly(
 			USER_ID,
-			GUEST_SESSION_ID,
 			"ip-hash",
 			REQUEST_ID,
 			"input-hash",
 			"tarot",
+			"daily_one_card",
+			1,
 			"{\"question\":\"How is today?\"}",
 			"openai",
 			"gpt-test",
@@ -176,14 +176,27 @@ class JdbcReadingCreationRepositoryTests {
 			.isInstanceOf(FreeReadingIdempotencyConflictException.class);
 	}
 
+	@Test
+	void mapsExistingIncompleteReadingToConflict() {
+		when(jdbcTemplate.queryForObject(
+			anyString(),
+			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+			any(Object[].class)
+		)).thenThrow(sqlException("RL110"));
+
+		assertThatThrownBy(() -> repository.createPending(command()))
+			.isInstanceOf(FreeReadingIdempotencyConflictException.class);
+	}
+
 	private PendingReadingCommand command() {
 		return PendingReadingCommand.builder()
 			.userId(USER_ID)
-			.guestSessionId(GUEST_SESSION_ID)
 			.ipHash("ip-hash")
 			.requestId(REQUEST_ID)
 			.inputHash("input-hash")
 			.kind(ReadingKind.TAROT)
+			.spreadType(TarotSpreadType.DAILY_ONE_CARD)
+			.schemaVersion(1)
 			.input(Map.of("question", "How is today?"))
 			.provider("openai")
 			.model("gpt-test")
@@ -195,7 +208,7 @@ class JdbcReadingCreationRepositoryTests {
 		return new ReadingResult(
 			"Completed title",
 			"Summary",
-			List.of(new ReadingSection("Heading", "Body")),
+			List.of(new ReadingSection("today", "Heading", "Body")),
 			List.of("Guidance"),
 			"Disclaimer"
 		);
@@ -211,10 +224,13 @@ class JdbcReadingCreationRepositoryTests {
 		ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
 		when(resultSet.getObject("id", UUID.class)).thenReturn(READING_ID);
 		when(resultSet.getString("kind")).thenReturn("tarot");
+		when(resultSet.getString("spread_type")).thenReturn("daily_one_card");
+		when(resultSet.getInt("schema_version")).thenReturn(1);
 		when(resultSet.getString("status")).thenReturn("generating");
 		when(resultSet.getString("title")).thenReturn("Generating...");
-		when(resultSet.getString("input")).thenReturn("{\"question\":\"How is today?\"}");
-		when(resultSet.getString("result")).thenReturn(null);
+		when(resultSet.getString("input_payload"))
+			.thenReturn("{\"question\":\"How is today?\"}");
+		when(resultSet.getString("result_payload")).thenReturn(null);
 		when(resultSet.getTimestamp("created_at"))
 			.thenReturn(Timestamp.from(Instant.parse("2026-06-16T00:00:00Z")));
 		when(resultSet.getTimestamp("updated_at"))

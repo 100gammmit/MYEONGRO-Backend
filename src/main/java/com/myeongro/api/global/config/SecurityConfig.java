@@ -60,9 +60,6 @@ public class SecurityConfig {
 				).permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/auth/me").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
-				.requestMatchers(HttpMethod.GET, "/api/consents").permitAll()
-				.requestMatchers(HttpMethod.POST, "/api/consents").permitAll()
-				.requestMatchers(HttpMethod.POST, "/api/readings").permitAll()
 				.anyRequest().authenticated()
 			)
 			.oauth2Login(oauth2 -> oauth2

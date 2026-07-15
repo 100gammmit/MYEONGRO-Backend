@@ -8,7 +8,6 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,10 +25,6 @@ import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
-import com.myeongro.api.global.auth.session.SessionPrincipal;
-import com.myeongro.api.global.cookie.CookieService;
-import com.myeongro.api.global.guest.GuestSession;
-import com.myeongro.api.global.guest.GuestSessionSigner;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,56 +38,32 @@ public class ReadingController {
 
 	private final ReadingCreationService service;
 	private final ReadingRecordsService recordsService;
-	private final GuestSessionSigner signer;
 	private final AuthenticatedUserResolver userResolver;
 
 	public ReadingController(
 		ReadingCreationService service,
 		ReadingRecordsService recordsService,
-		GuestSessionSigner signer,
 		AuthenticatedUserResolver userResolver
 	) {
 		this.service = service;
 		this.recordsService = recordsService;
-		this.signer = signer;
 		this.userResolver = userResolver;
 	}
 
 	@PostMapping
-	@Operation(summary = "무료 게스트 리딩 생성", description = "동의 확인 후 쿼터를 예약하고 generating 상태의 리딩을 생성합니다.")
+	@Operation(summary = "무료 리딩 생성", description = "로그인 사용자의 동의 확인 후 쿼터를 예약하고 리딩을 생성합니다.")
 	public ResponseEntity<Map<String, Object>> createReading(
-		@CookieValue(
-			name = CookieService.GUEST_COOKIE_NAME,
-			required = false
-		) String token,
 		@Valid @RequestBody ReadingCreateRequest request,
 		Authentication authentication,
 		HttpServletRequest servletRequest
 	) {
-		if (isAuthenticatedUser(authentication)) {
-			UUID userId = userResolver.requireUser(authentication).id();
-			return ResponseEntity.ok(Map.of(
-				"reading",
-				service.createUserReading(
-					userId,
-					servletRequest.getRemoteAddr(),
-					request.requestId(),
-					request
-				)
-			));
-		}
-
-		GuestSession session = signer.verify(token)
-			.orElseThrow(() -> new GuestSessionRequiredException(
-				"로그인 또는 게스트 세션이 필요합니다."
-			));
-		UUID requestId = request.requestId();
+		UUID userId = userResolver.requireUser(authentication).id();
 		return ResponseEntity.ok(Map.of(
 			"reading",
-			service.createGuestReading(
-				session.sessionId(),
+			service.createUserReading(
+				userId,
 				servletRequest.getRemoteAddr(),
-				requestId,
+				request.requestId(),
 				request
 			)
 		));
@@ -103,12 +74,6 @@ public class ReadingController {
 	public ResponseEntity<Map<String, Object>> listReadings(Authentication authentication) {
 		UUID userId = userResolver.requireUser(authentication).id();
 		return ResponseEntity.ok(Map.of("items", recordsService.listByUser(userId)));
-	}
-
-	private boolean isAuthenticatedUser(Authentication authentication) {
-		return authentication != null
-			&& authentication.isAuthenticated()
-			&& authentication.getPrincipal() instanceof SessionPrincipal;
 	}
 
 	@GetMapping("/{readingId}")
@@ -146,11 +111,6 @@ public class ReadingController {
 			"reading",
 			recordsService.retry(userId, readingId)
 		));
-	}
-
-	@ExceptionHandler(GuestSessionRequiredException.class)
-	public ResponseEntity<Map<String, String>> unauthorized(Exception exception) {
-		return ResponseEntity.status(401).body(Map.of("error", exception.getMessage()));
 	}
 
 	@ExceptionHandler(RequiredConsentMissingException.class)
@@ -199,10 +159,4 @@ public class ReadingController {
 		return ResponseEntity.badRequest().body(Map.of("error", "잘못된 리딩 요청입니다."));
 	}
 
-	private static class GuestSessionRequiredException extends RuntimeException {
-
-		GuestSessionRequiredException(String message) {
-			super(message);
-		}
-	}
 }

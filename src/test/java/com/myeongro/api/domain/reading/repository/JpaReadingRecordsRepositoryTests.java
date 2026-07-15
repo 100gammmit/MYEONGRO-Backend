@@ -1,6 +1,7 @@
 package com.myeongro.api.domain.reading.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -62,6 +63,8 @@ class JpaReadingRecordsRepositoryTests {
 		CreatedReadingResponse reading = readings.getFirst();
 		assertThat(reading.id()).isEqualTo(READING_ID);
 		assertThat(reading.errorCode()).isEqualTo("LATEST_ERROR");
+		assertThat(reading.spreadType()).hasToString("DAILY_ONE_CARD");
+		assertThat(reading.schemaVersion()).isEqualTo(1);
 		assertThat(reading.input()).containsEntry("question", "How is today?");
 		assertThat(reading.createdAt()).isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
 		assertThat(reading.updatedAt()).isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
@@ -79,22 +82,43 @@ class JpaReadingRecordsRepositoryTests {
 		assertThat(repository.findByUserAndId(USER_ID, READING_ID)).isEmpty();
 	}
 
+	@Test
+	void refusesToInterpretUnknownPayloadSchemaVersion() {
+		insertReading(READING_ID, USER_ID, null, "completed", 2);
+
+		assertThatThrownBy(() -> repository.listByUser(USER_ID))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("Unsupported reading schema version");
+	}
+
 	private void insertReading(
 		UUID readingId,
 		UUID userId,
 		String deletedAt,
 		String status
 	) {
+		insertReading(readingId, userId, deletedAt, status, 1);
+	}
+
+	private void insertReading(
+		UUID readingId,
+		UUID userId,
+		String deletedAt,
+		String status,
+		int schemaVersion
+	) {
 		jdbcTemplate.update(
 			"""
 			insert into public.readings (
-				id, user_id, kind, status, title, input, result,
+				id, user_id, kind, spread_type, schema_version,
+				status, title, input_payload, result_payload,
 				deleted_at, created_at, updated_at
 			)
-			values (?, ?, 'tarot', ?, 'A title', ?, ?, ?, ?, ?)
+			values (?, ?, 'tarot', 'daily_one_card', ?, ?, 'A title', ?, ?, ?, ?, ?)
 			""",
 			readingId,
 			userId,
+			schemaVersion,
 			status,
 			"{\"question\":\"How is today?\"}",
 			"{\"title\":\"A title\"}",

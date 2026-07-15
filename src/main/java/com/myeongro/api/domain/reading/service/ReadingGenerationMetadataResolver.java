@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 
 @Component
 public class ReadingGenerationMetadataResolver {
@@ -15,23 +16,27 @@ public class ReadingGenerationMetadataResolver {
 			"demo-saju-v1"
 		);
 
-	private final ReadingGenerationMetadata tarotMetadata;
+	private final String openAiModel;
+	private final TarotPromptCatalog promptCatalog;
 
 	public ReadingGenerationMetadataResolver(
 		@Value("${app.reading.openai.model:gpt-5.4-mini}") String openAiModel,
-		@Value("${app.reading.prompts.tarot-version:major-arcana-3card-ko-v1}")
-		String tarotPromptVersion
+		TarotPromptCatalog promptCatalog
 	) {
-		this.tarotMetadata = new ReadingGenerationMetadata(
-			"openai",
-			openAiModel,
-			tarotPromptVersion
-		);
+		this.openAiModel = openAiModel;
+		this.promptCatalog = promptCatalog;
 	}
 
-	public ReadingGenerationMetadata resolve(ReadingKind kind) {
+	public ReadingGenerationMetadata resolve(
+		ReadingKind kind,
+		TarotSpreadType spreadType
+	) {
 		if (kind == ReadingKind.TAROT) {
-			return tarotMetadata;
+			return new ReadingGenerationMetadata(
+				"openai",
+				openAiModel,
+				promptCatalog.version(spreadType)
+			);
 		}
 		return SAJU_DEMO_METADATA;
 	}

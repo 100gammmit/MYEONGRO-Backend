@@ -1,13 +1,13 @@
 package com.myeongro.api.domain.reading.service;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
+import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 
@@ -17,15 +17,18 @@ public class ReadingRecordsService {
 	private final ReadingRecordsRepository repository;
 	private final ReadingCreationService creationService;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
+	private final ReadingInputNormalizer inputNormalizer;
 
 	public ReadingRecordsService(
 		ReadingRecordsRepository repository,
 		ReadingCreationService creationService,
-		ReadingGenerationMetadataResolver generationMetadataResolver
+		ReadingGenerationMetadataResolver generationMetadataResolver,
+		ReadingInputNormalizer inputNormalizer
 	) {
 		this.repository = repository;
 		this.creationService = creationService;
 		this.generationMetadataResolver = generationMetadataResolver;
+		this.inputNormalizer = inputNormalizer;
 	}
 
 	public List<CreatedReadingResponse> listByUser(UUID userId) {
@@ -45,28 +48,19 @@ public class ReadingRecordsService {
 
 	public CreatedReadingResponse retry(UUID userId, UUID readingId) {
 		CreatedReadingResponse currentReading = getByUserAndId(userId, readingId);
+		NormalizedReadingInput input;
+		try {
+			input = inputNormalizer.restore(currentReading);
+		} catch (IllegalArgumentException exception) {
+			throw new ReadingRetryNotAllowedException();
+		}
 		ReadingGenerationMetadata generationMetadata =
-			generationMetadataResolver.resolve(currentReading.kind());
+			generationMetadataResolver.resolve(input.kind(), input.spreadType());
 		PendingReadingCreation pending = repository.startFailedRetry(
 			userId,
 			readingId,
 			generationMetadata
 		);
-		CreatedReadingResponse reading = pending.reading();
-		String question = questionFrom(reading.input());
-		return creationService.generatePending(
-			reading.kind(),
-			question,
-			reading.input(),
-			pending
-		);
-	}
-
-	private String questionFrom(Map<String, Object> input) {
-		Object question = input.get("question");
-		if (question instanceof String value && !value.isBlank()) {
-			return value;
-		}
-		throw new IllegalStateException("Reading input does not contain a question");
+		return creationService.generatePending(input, pending);
 	}
 }

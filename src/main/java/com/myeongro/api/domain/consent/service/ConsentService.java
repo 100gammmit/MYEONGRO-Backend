@@ -54,12 +54,6 @@ public class ConsentService {
 	}
 
 	@Transactional(readOnly = true)
-	public ConsentStatus getStatus(UUID guestSessionId) {
-		Optional<ConsentEntity> stored = repository.findByGuestSessionId(guestSessionId);
-		return toStatus(stored);
-	}
-
-	@Transactional(readOnly = true)
 	public ConsentStatus getUserStatus(UUID userId) {
 		Optional<ConsentEntity> stored = repository.findByUserId(userId);
 		return toStatus(stored);
@@ -76,29 +70,6 @@ public class ConsentService {
 			ConsentDocumentType.required(),
 			accepted.size() == ConsentDocumentType.required().size()
 		);
-	}
-
-	@Transactional
-	public List<ConsentAcceptance> acceptRequired(
-		UUID guestSessionId,
-		List<ConsentDocumentType> acceptedDocumentTypes
-	) {
-		validateAcceptedRequired(acceptedDocumentTypes);
-		Instant acceptedAt = clock.instant();
-		ConsentEntity stored = repository.findByGuestSessionId(guestSessionId)
-			.map(consent -> acceptCurrentVersions(consent, acceptedAt))
-			.orElseGet(() -> ConsentEntity.acceptedForGuest(
-				guestSessionId,
-				termsVersion(),
-				privacyVersion(),
-				sensitiveDataVersion(),
-				acceptedAt
-			));
-		ConsentEntity saved = repository.save(stored);
-
-		return ConsentDocumentType.required().stream()
-			.map(type -> ConsentAcceptance.from(saved, type))
-			.toList();
 	}
 
 	@Transactional

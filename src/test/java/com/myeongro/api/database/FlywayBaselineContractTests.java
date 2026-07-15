@@ -101,6 +101,34 @@ class FlywayBaselineContractTests {
     }
 
     @Test
+    void v7RetiresGuestReadingsAndVersionsAuthenticatedPayloads()
+        throws IOException {
+        var migration = Files.list(MIGRATION_DIRECTORY)
+            .filter(path -> path.getFileName().toString()
+                .startsWith("V7__authenticated_reading_payload_schema"))
+            .findFirst()
+            .orElseThrow();
+
+        var sql = Files.readString(migration);
+
+        assertThat(sql)
+            .contains("drop table if exists public.guest_reading_cache")
+            .contains("drop table if exists public.guest_ownership_transfers")
+            .contains("drop column if exists guest_session_id")
+            .contains("alter table public.readings rename column input to input_payload")
+            .contains("alter table public.readings rename column result to result_payload")
+            .contains("alter table public.readings add column spread_type text")
+            .contains("alter table public.readings add column schema_version integer")
+            .contains("schema_version = 0")
+            .contains("create or replace function public.create_pending_free_reading")
+            .contains("requested_spread_type text")
+            .contains("requested_schema_version integer")
+			.contains("READING_GENERATION_IN_PROGRESS_OR_RETRY_REQUIRED")
+			.contains("errcode = 'RL110'")
+            .doesNotContain("create or replace function public.create_pending_guest_reading_cache");
+    }
+
+    @Test
     void productionConfigurationNeverAutomaticallyBaselinesAnUnknownDatabase()
         throws IOException {
         var yaml = Files.readString(

@@ -28,16 +28,19 @@ spring:
 
 app:
   reading:
+    # Test-only HMAC secret.
+    ip-hash-secret: 0123456789abcdef0123456789abcdef
     openai:
       model: gpt-test
-      max-output-tokens: 1200
     prompts:
-      tarot: classpath:prompts/tarot/major-arcana-3card-ko-v1.md
-      tarot-version: tarot-prompt-v1
-  guest:
-    signing-secret: 0123456789abcdef0123456789abcdef
-    ttl: 30d
-    cookie-secure: false
+      tarot:
+        common: classpath:prompts/tarot/common-ko-v1.md
+        cards: classpath:prompts/tarot/major-arcana-ko-v1.md
+        spreads:
+          daily-one-card: classpath:prompts/tarot/spreads/daily-one-card-ko-v1.md
+          mind-three-card: classpath:prompts/tarot/spreads/mind-three-card-ko-v1.md
+          relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card-ko-v1.md
+          choice-five-card: classpath:prompts/tarot/spreads/choice-five-card-ko-v1.md
   consent:
     versions:
       terms: 2026-06-10

@@ -9,7 +9,5 @@ import com.myeongro.api.domain.consent.entity.ConsentEntity;
 
 public interface ConsentRepository extends JpaRepository<ConsentEntity, Long> {
 
-	Optional<ConsentEntity> findByGuestSessionId(UUID guestSessionId);
-
 	Optional<ConsentEntity> findByUserId(UUID userId);
 }

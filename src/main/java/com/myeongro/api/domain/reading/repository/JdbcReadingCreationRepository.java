@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.FreeReadingIdempotencyConflictException;
 import com.myeongro.api.domain.reading.exception.FreeReadingQuotaExceededException;
 
@@ -25,17 +26,19 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	private static final String CREATE_PENDING = """
 		select reading_id, generation_id, created
 		from public.create_pending_free_reading(
-			?, ?, ?, ?, ?, cast(? as public.reading_kind), cast(? as jsonb), ?, ?, ?
+			?, ?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?
 		)
 		""";
 	private static final String SELECT_READING = """
 		select
 			id,
 			kind::text as kind,
+			spread_type,
+			schema_version,
 			status::text as status,
 			title,
-			input::text as input,
-			result::text as result,
+			input_payload::text as input_payload,
+			result_payload::text as result_payload,
 			created_at,
 			updated_at
 		from public.readings
@@ -69,11 +72,12 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 					resultSet.getObject("generation_id", Long.class)
 				),
 				command.userId(),
-				command.guestSessionId(),
 				command.ipHash(),
 				command.requestId(),
 				command.inputHash(),
 				command.kind().value(),
+				command.spreadType() == null ? null : command.spreadType().value(),
+				command.schemaVersion(),
 				toJson(command.input()),
 				command.provider(),
 				command.model(),
@@ -142,14 +146,20 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		return new CreatedReadingResponse(
 			resultSet.getObject("id", UUID.class),
 			ReadingKind.fromValue(resultSet.getString("kind")),
+			toSpreadType(resultSet.getString("spread_type")),
+			resultSet.getInt("schema_version"),
 			resultSet.getString("status"),
 			resultSet.getString("title"),
-			fromJson(resultSet.getString("input")),
-			nullableJson(resultSet.getString("result")),
+			fromJson(resultSet.getString("input_payload")),
+			nullableJson(resultSet.getString("result_payload")),
 			null,
 			toInstant(resultSet.getTimestamp("created_at")),
 			toInstant(resultSet.getTimestamp("updated_at"))
 		);
+	}
+
+	private TarotSpreadType toSpreadType(String value) {
+		return value == null ? null : TarotSpreadType.fromValue(value);
 	}
 
 	private java.time.Instant toInstant(Timestamp timestamp) {
@@ -190,7 +200,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		if ("RL101".equals(sqlState) || "RL102".equals(sqlState) || "RL103".equals(sqlState)) {
 			return new FreeReadingQuotaExceededException();
 		}
-		if ("RL104".equals(sqlState)) {
+		if ("RL104".equals(sqlState) || "RL110".equals(sqlState)) {
 			return new FreeReadingIdempotencyConflictException();
 		}
 		return exception;

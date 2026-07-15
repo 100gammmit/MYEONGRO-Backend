@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 
 class ReadingGeneratorBeanSelectionTests {
 
@@ -23,11 +24,16 @@ class ReadingGeneratorBeanSelectionTests {
 		new ApplicationContextRunner()
 			.withPropertyValues(
 				"app.reading.openai.model=gpt-test",
-				"app.reading.prompts.tarot=classpath:prompts/tarot/major-arcana-3card-ko-v1.md",
-				"app.reading.prompts.tarot-version=tarot-prompt-v1"
+				"app.reading.prompts.tarot.common=classpath:prompts/tarot/common-ko-v1.md",
+				"app.reading.prompts.tarot.cards=classpath:prompts/tarot/major-arcana-ko-v1.md",
+				"app.reading.prompts.tarot.spreads.daily-one-card=classpath:prompts/tarot/spreads/daily-one-card-ko-v1.md",
+				"app.reading.prompts.tarot.spreads.mind-three-card=classpath:prompts/tarot/spreads/mind-three-card-ko-v1.md",
+				"app.reading.prompts.tarot.spreads.relationship-three-card=classpath:prompts/tarot/spreads/relationship-three-card-ko-v1.md",
+				"app.reading.prompts.tarot.spreads.choice-five-card=classpath:prompts/tarot/spreads/choice-five-card-ko-v1.md"
 			)
 			.withBean(ObjectMapper.class, ObjectMapper::new)
 			.withBean(TarotReadingResultValidator.class)
+			.withUserConfiguration(TarotPromptCatalog.class)
 			.withUserConfiguration(TestChatModelConfig.class)
 			.withUserConfiguration(DemoReadingGenerator.class)
 			.withUserConfiguration(OpenAiReadingGenerator.class)
@@ -50,13 +56,15 @@ class ReadingGeneratorBeanSelectionTests {
 			ReadingGenerationMetadataResolver resolver =
 				context.getBean(ReadingGenerationMetadataResolver.class);
 
-			assertThat(resolver.resolve(ReadingKind.TAROT))
+			assertThat(resolver.resolve(
+				ReadingKind.TAROT, TarotSpreadType.DAILY_ONE_CARD
+			))
 				.isEqualTo(new ReadingGenerationMetadata(
 					"openai",
 					"gpt-test",
-					"tarot-prompt-v1"
+					"common-ko-v1+major-arcana-ko-v1+daily-one-card-ko-v1"
 				));
-			assertThat(resolver.resolve(ReadingKind.SAJU))
+			assertThat(resolver.resolve(ReadingKind.SAJU, null))
 				.isEqualTo(new ReadingGenerationMetadata(
 					"demo",
 					"deterministic-demo",

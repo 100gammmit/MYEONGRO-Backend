@@ -41,7 +41,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(6);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(7);
 		}
 	}
 }

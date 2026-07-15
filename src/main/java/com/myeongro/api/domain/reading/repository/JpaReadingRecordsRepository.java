@@ -22,8 +22,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
+import com.myeongro.api.domain.reading.service.NormalizedReadingInput;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -36,10 +38,12 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 		select
 			r.id,
 			cast(r.kind as varchar) as kind,
+			r.spread_type,
+			r.schema_version,
 			cast(r.status as varchar) as status,
 			r.title,
-			cast(r.input as varchar) as input,
-			cast(r.result as varchar) as result,
+			cast(r.input_payload as varchar) as input_payload,
+			cast(r.result_payload as varchar) as result_payload,
 			(
 				select gr.error_code
 				from public.generation_records gr
@@ -141,17 +145,30 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 	}
 
 	private CreatedReadingResponse toResponse(Object[] row) {
+		int schemaVersion = ((Number) row[3]).intValue();
+		if (schemaVersion != 0
+			&& schemaVersion != NormalizedReadingInput.CURRENT_SCHEMA_VERSION) {
+			throw new IllegalStateException(
+				"Unsupported reading schema version: " + schemaVersion
+			);
+		}
 		return new CreatedReadingResponse(
 			toUuid(row[0]),
 			ReadingKind.fromValue((String) row[1]),
-			(String) row[2],
-			(String) row[3],
-			fromJson((String) row[4]),
-			nullableJson((String) row[5]),
-			(String) row[6],
-			toInstant(row[7]),
-			toInstant(row[8])
+			toSpreadType((String) row[2]),
+			schemaVersion,
+			(String) row[4],
+			(String) row[5],
+			fromJson((String) row[6]),
+			nullableJson((String) row[7]),
+			(String) row[8],
+			toInstant(row[9]),
+			toInstant(row[10])
 		);
+	}
+
+	private TarotSpreadType toSpreadType(String value) {
+		return value == null ? null : TarotSpreadType.fromValue(value);
 	}
 
 	private UUID toUuid(Object value) {
