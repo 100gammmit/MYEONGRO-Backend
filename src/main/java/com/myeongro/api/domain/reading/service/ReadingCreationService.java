@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
@@ -116,9 +117,11 @@ public class ReadingCreationService {
 		return repository.completePending(pending, result);
 	}
 
-	private String inputHash(Map<String, Object> input) {
+	String inputHash(Map<String, Object> input) {
 		try {
-			byte[] json = objectMapper.writeValueAsBytes(input);
+			byte[] json = objectMapper.writer()
+				.with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+				.writeValueAsBytes(input);
 			byte[] digest = MessageDigest.getInstance("SHA-256").digest(json);
 			return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
 		} catch (GeneralSecurityException | JsonProcessingException exception) {

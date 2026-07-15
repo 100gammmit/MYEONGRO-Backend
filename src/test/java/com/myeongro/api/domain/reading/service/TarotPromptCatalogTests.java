@@ -4,7 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 
@@ -15,10 +16,9 @@ class TarotPromptCatalogTests {
 	void combinesCommonCardsAndExactSpreadPrompt(TarotSpreadType spread) {
 		TarotPromptCatalog catalog = catalog();
 
-		assertThat(catalog.prompt(spread))
-			.contains("MYEONGRO's Korean tarot reading generator")
-			.contains("Major Arcana card meanings")
-			.contains("Spread: " + spread.value());
+		assertThat(catalog.prompt(spread)).isEqualTo(
+			"common\n\ncards\n\n" + spread.value()
+		);
 		assertThat(catalog.version(spread))
 			.contains("common-ko-v1")
 			.contains("major-arcana-ko-v1")
@@ -36,12 +36,21 @@ class TarotPromptCatalogTests {
 
 	private TarotPromptCatalog catalog() {
 		return new TarotPromptCatalog(
-			new ClassPathResource("prompts/tarot/common-ko-v1.md"),
-			new ClassPathResource("prompts/tarot/major-arcana-ko-v1.md"),
-			new ClassPathResource("prompts/tarot/spreads/daily-one-card-ko-v1.md"),
-			new ClassPathResource("prompts/tarot/spreads/mind-three-card-ko-v1.md"),
-			new ClassPathResource("prompts/tarot/spreads/relationship-three-card-ko-v1.md"),
-			new ClassPathResource("prompts/tarot/spreads/choice-five-card-ko-v1.md")
+			resource("common", "common-ko-v1.md"),
+			resource("cards", "major-arcana-ko-v1.md"),
+			resource("daily_one_card", "daily-one-card-ko-v1.md"),
+			resource("mind_three_card", "mind-three-card-ko-v1.md"),
+			resource("relationship_three_card", "relationship-three-card-ko-v1.md"),
+			resource("choice_five_card", "choice-five-card-ko-v1.md")
 		);
+	}
+
+	private Resource resource(String content, String filename) {
+		return new ByteArrayResource(content.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
+			@Override
+			public String getFilename() {
+				return filename;
+			}
+		};
 	}
 }

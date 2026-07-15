@@ -79,6 +79,12 @@ class ReadingInputNormalizerTests {
 			List.of("not-a-card"),
 			null
 		))).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> normalizer.normalize(request(
+			TarotSpreadType.DAILY_ONE_CARD,
+			java.util.Arrays.asList((String) null),
+			null
+		))).isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("Tarot card is required");
 	}
 
 	static java.util.stream.Stream<Arguments> spreadRequests() {

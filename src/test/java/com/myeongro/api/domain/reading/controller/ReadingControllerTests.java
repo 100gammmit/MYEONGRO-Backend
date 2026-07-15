@@ -125,6 +125,32 @@ class ReadingControllerTests {
 			.andExpect(status().isBadRequest());
 	}
 
+	@Test
+	void returnsBadRequestWhenCardIdsContainNull() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(creationService.createUserReading(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.anyString(),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+		)).thenThrow(new IllegalArgumentException("Tarot card is required"));
+
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "kind":"tarot",
+					  "spreadType":"daily_one_card",
+					  "question":"question",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "cardIds":[null]
+					}
+					"""))
+			.andExpect(status().isBadRequest());
+	}
+
 	private CreatedReadingResponse reading() {
 		return new CreatedReadingResponse(
 			READING_ID,

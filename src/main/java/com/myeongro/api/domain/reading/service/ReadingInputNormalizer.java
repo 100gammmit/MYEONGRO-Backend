@@ -77,6 +77,9 @@ public class ReadingInputNormalizer {
 				spread.cardCount() + " tarot cards are required for " + spread.value()
 			);
 		}
+		if (cardIds.stream().anyMatch(java.util.Objects::isNull)) {
+			throw new IllegalArgumentException("Tarot card is required");
+		}
 		if (Set.copyOf(cardIds).size() != cardIds.size()) {
 			throw new IllegalArgumentException("Duplicate tarot card");
 		}
@@ -89,7 +92,7 @@ public class ReadingInputNormalizer {
 		payload.put("cards", spread.positions().stream()
 			.map(position -> {
 				int index = spread.positions().indexOf(position);
-				return Map.<String, Object>of(
+				return orderedMap(
 					"cardId", cardIds.get(index),
 					"position", position.id(),
 					"reversed", false
@@ -107,7 +110,7 @@ public class ReadingInputNormalizer {
 			if (optionA.equals(optionB)) {
 				throw new IllegalArgumentException("Choice options must be different");
 			}
-			payload.put("choiceOptions", Map.of("a", optionA, "b", optionB));
+			payload.put("choiceOptions", orderedMap("a", optionA, "b", optionB));
 		} else if (choices != null) {
 			throw new IllegalArgumentException("Choice options are only allowed for choice spread");
 		}
@@ -134,21 +137,27 @@ public class ReadingInputNormalizer {
 		if (!Set.of("female", "male", "unspecified").contains(gender)) {
 			throw new IllegalArgumentException("Invalid gender");
 		}
+		Map<String, Object> profile = orderedMap(
+			"calendarType", "solar",
+			"birthDate", birthDate,
+			"birthTime", request.birthTime() == null ? "" : request.birthTime(),
+			"gender", gender
+		);
 		return new NormalizedReadingInput(
 			ReadingKind.SAJU,
 			null,
 			NormalizedReadingInput.CURRENT_SCHEMA_VERSION,
 			question,
-			Map.of(
-				"question", question,
-				"profile", Map.of(
-					"calendarType", "solar",
-					"birthDate", birthDate,
-					"birthTime", request.birthTime() == null ? "" : request.birthTime(),
-					"gender", gender
-				)
-			)
+			orderedMap("question", question, "profile", profile)
 		);
+	}
+
+	private Map<String, Object> orderedMap(Object... entries) {
+		Map<String, Object> values = new LinkedHashMap<>();
+		for (int index = 0; index < entries.length; index += 2) {
+			values.put((String) entries[index], entries[index + 1]);
+		}
+		return Collections.unmodifiableMap(values);
 	}
 
 	private String normalizeText(String value, int maxLength, String fieldName) {

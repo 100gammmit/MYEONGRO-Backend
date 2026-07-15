@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -92,6 +93,44 @@ class ReadingCreationServiceTests {
 			org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.eq("OPENAI_READING_GENERATION_FAILED")
 		);
+	}
+
+	@Test
+	void hashesEquivalentNestedMapsIdenticallyWithoutReorderingArrays() {
+		ReadingCreationService service = service(
+			acceptedConsent(),
+			org.mockito.Mockito.mock(ReadingCreationRepository.class),
+			successfulGenerator()
+		);
+		Map<String, Object> firstCard = new LinkedHashMap<>();
+		firstCard.put("cardId", "major-00-fool");
+		firstCard.put("position", "today");
+		Map<String, Object> secondCard = new LinkedHashMap<>();
+		secondCard.put("position", "today");
+		secondCard.put("cardId", "major-00-fool");
+		Map<String, Object> first = new LinkedHashMap<>();
+		first.put("cards", List.of(firstCard));
+		first.put("question", "question");
+		Map<String, Object> second = new LinkedHashMap<>();
+		second.put("question", "question");
+		second.put("cards", List.of(secondCard));
+
+		assertThat(service.inputHash(first)).isEqualTo(service.inputHash(second));
+
+		Map<String, Object> differentArrayOrder = new LinkedHashMap<>();
+		differentArrayOrder.put("question", "question");
+		differentArrayOrder.put("cards", List.of(
+			Map.of("cardId", "major-01-magician"),
+			Map.of("cardId", "major-00-fool")
+		));
+		Map<String, Object> originalArrayOrder = new LinkedHashMap<>();
+		originalArrayOrder.put("cards", List.of(
+			Map.of("cardId", "major-00-fool"),
+			Map.of("cardId", "major-01-magician")
+		));
+		originalArrayOrder.put("question", "question");
+		assertThat(service.inputHash(originalArrayOrder))
+			.isNotEqualTo(service.inputHash(differentArrayOrder));
 	}
 
 	private ReadingCreationService service(
