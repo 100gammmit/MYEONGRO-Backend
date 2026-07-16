@@ -112,6 +112,11 @@ public class ReadingCreationService {
 			.model(metadata.model())
 			.promptVersion(metadata.promptVersion())
 			.build());
+		if (input.kind() == ReadingKind.TAROT) {
+			tarotDrawSessionService.finalizeConsumption(
+				userId, request.drawSessionId(), requestId, inputHash
+			);
+		}
 		if (pending.reading().result() != null) {
 			return pending.reading();
 		}

@@ -140,6 +140,15 @@ public class TarotDrawSessionService {
 		return new CompletedTarotDraw(state.spreadType(), state.selectedCards());
 	}
 
+	public boolean finalizeConsumption(
+		UUID userId,
+		String sessionId,
+		UUID requestId,
+		String inputHash
+	) {
+		return repository.finalizeConsumption(userId, sessionId, requestId, inputHash);
+	}
+
 	public CompletedTarotDraw resolveCompleted(
 		UUID userId,
 		String sessionId,
@@ -174,9 +183,9 @@ public class TarotDrawSessionService {
 	}
 
 	private TarotDrawSessionView toView(TarotDrawSessionState state) {
-		boolean complete = state.complete();
+		boolean complete = state.complete() || state.consumed();
 		return new TarotDrawSessionView(
-			state.id(), state.spreadType().value(), state.status(),
+			state.id(), state.spreadType().value(), complete ? "complete" : state.status(),
 			complete ? null : state.spreadType().positions().get(state.positionIndex()).id(),
 			state.selectedCards().size(), state.spreadType().cardCount(), state.expiresAt(),
 			complete ? null : state.candidates().keySet().stream()

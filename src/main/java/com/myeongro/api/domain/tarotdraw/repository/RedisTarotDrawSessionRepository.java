@@ -62,10 +62,24 @@ public class RedisTarotDrawSessionRepository implements TarotDrawSessionReposito
 		  return 'IDEMPOTENT'
 		end
 		if state.status ~= 'complete' then return 'STATE_CONFLICT' end
-		redis.call('SET', KEYS[1], ARGV[5], 'KEEPTTL')
-		if redis.call('GET', KEYS[2]) == ARGV[4] then redis.call('DEL', KEYS[2]) end
+		redis.call('SET', KEYS[1], ARGV[4], 'KEEPTTL')
 		return 'CONSUMED'
 		""", String.class);
+
+	private static final DefaultRedisScript<Long> FINALIZE_CONSUMPTION_SCRIPT =
+		new DefaultRedisScript<>("""
+			local raw = redis.call('GET', KEYS[1])
+			if not raw then return 0 end
+			local state = cjson.decode(raw)
+			if state.userId ~= ARGV[1] then return 0 end
+			if state.status ~= 'consumed' then return 0 end
+			if state.consumedRequestId ~= ARGV[2] then return 0 end
+			if state.consumedInputHash ~= ARGV[3] then return 0 end
+			if redis.call('GET', KEYS[2]) == ARGV[4] then
+			  redis.call('DEL', KEYS[2])
+			end
+			return 1
+			""", Long.class);
 
 	private static final DefaultRedisScript<Long> CLEAN_ACTIVE_SCRIPT = new DefaultRedisScript<>("""
 		if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
@@ -103,7 +117,7 @@ public class RedisTarotDrawSessionRepository implements TarotDrawSessionReposito
 			return Optional.empty();
 		}
 		Optional<TarotDrawSessionState> state = findOwned(userId, activeId);
-		if (state.isEmpty() || state.get().consumed()) {
+		if (state.isEmpty()) {
 			redis.execute(CLEAN_ACTIVE_SCRIPT, java.util.List.of(activeKey(userId)), activeId);
 			return Optional.empty();
 		}
@@ -149,9 +163,24 @@ public class RedisTarotDrawSessionRepository implements TarotDrawSessionReposito
 		String result = redis.execute(
 			CONSUME_SCRIPT,
 			java.util.List.of(sessionKey(sessionId), activeKey(userId)),
-			userId.toString(), requestId.toString(), inputHash, sessionId, consumedJson
+			userId.toString(), requestId.toString(), inputHash, consumedJson
 		);
 		return result == null ? ConsumeResult.STATE_CONFLICT : ConsumeResult.valueOf(result);
+	}
+
+	@Override
+	public boolean finalizeConsumption(
+		UUID userId,
+		String sessionId,
+		UUID requestId,
+		String inputHash
+	) {
+		Long result = redis.execute(
+			FINALIZE_CONSUMPTION_SCRIPT,
+			java.util.List.of(sessionKey(sessionId), activeKey(userId)),
+			userId.toString(), requestId.toString(), inputHash, sessionId
+		);
+		return Long.valueOf(1).equals(result);
 	}
 
 	private String selectedToken(TarotDrawSessionState expected, TarotDrawSessionState updated) {

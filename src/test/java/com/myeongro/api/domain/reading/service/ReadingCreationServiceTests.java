@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -26,6 +27,7 @@ import com.myeongro.api.domain.reading.dto.ReadingSection;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.FreeReadingQuotaExceededException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
@@ -84,6 +86,12 @@ class ReadingCreationServiceTests {
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
 			org.mockito.ArgumentMatchers.anyString()
 		);
+		verify(drawSessionService).finalizeConsumption(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq("draw-session-id"),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.anyString()
+		);
 	}
 
 	@Test
@@ -126,6 +134,41 @@ class ReadingCreationServiceTests {
 			org.mockito.ArgumentMatchers.anyString()
 		);
 		verifyNoInteractions(generator);
+	}
+
+	@Test
+	void keepsDrawClaimActiveAndAllowsSameRequestRetryWhenPendingReservationFails() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
+			.thenThrow(new FreeReadingQuotaExceededException())
+			.thenReturn(pending());
+		when(repository.completePending(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any()
+		)).thenReturn(completed());
+
+		assertThatThrownBy(() -> service(consentService, repository, successfulGenerator())
+			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request()))
+			.isInstanceOf(FreeReadingQuotaExceededException.class);
+
+		verify(drawSessionService, never()).finalizeConsumption(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.anyString(),
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.anyString()
+		);
+
+		CreatedReadingResponse retried = service(consentService, repository, successfulGenerator())
+			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request());
+
+		assertThat(retried.status()).isEqualTo("completed");
+		verify(drawSessionService).finalizeConsumption(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq("draw-session-id"),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.anyString()
+		);
 	}
 
 	@Test

@@ -122,6 +122,7 @@ class RedisTarotDrawSessionRepositoryIntegrationTests {
 		UUID requestId = UUID.randomUUID();
 
 		service.resolveAndConsume(USER_ID, created.drawSessionId(), "daily_one_card", requestId, "hash");
+		assertThat(service.getActive(USER_ID).status()).isEqualTo("complete");
 		assertThat(service.resolveAndConsume(
 			USER_ID, created.drawSessionId(), "daily_one_card", requestId, "hash"
 		).cardIds()).hasSize(1);
@@ -129,6 +130,16 @@ class RedisTarotDrawSessionRepositoryIntegrationTests {
 			USER_ID, created.drawSessionId(), "daily_one_card", UUID.randomUUID(), "hash"
 		)).isInstanceOfSatisfying(TarotDrawSessionException.class, exception ->
 			assertThat(exception.code()).isEqualTo("DRAW_SESSION_ALREADY_CONSUMED"));
+
+		assertThat(service.finalizeConsumption(
+			USER_ID, created.drawSessionId(), requestId, "hash"
+		)).isTrue();
+		assertThatThrownBy(() -> service.getActive(USER_ID))
+			.isInstanceOfSatisfying(TarotDrawSessionException.class, exception ->
+				assertThat(exception.code()).isEqualTo("DRAW_SESSION_NOT_FOUND"));
+		assertThat(service.resolveAndConsume(
+			USER_ID, created.drawSessionId(), "daily_one_card", requestId, "hash"
+		).cardIds()).hasSize(1);
 	}
 
 	private Object select(

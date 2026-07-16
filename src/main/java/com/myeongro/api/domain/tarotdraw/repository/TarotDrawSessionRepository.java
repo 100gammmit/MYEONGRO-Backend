@@ -18,6 +18,8 @@ public interface TarotDrawSessionRepository {
 
 	ConsumeResult consume(UUID userId, String sessionId, UUID requestId, String inputHash);
 
+	boolean finalizeConsumption(UUID userId, String sessionId, UUID requestId, String inputHash);
+
 	enum ConsumeResult {
 		CONSUMED,
 		IDEMPOTENT,

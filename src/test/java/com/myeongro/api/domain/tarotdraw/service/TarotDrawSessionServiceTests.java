@@ -144,10 +144,17 @@ class TarotDrawSessionServiceTests {
 		);
 
 		assertThat(repeated).isEqualTo(first);
+		assertThat(service.getActive(USER_ID).status()).isEqualTo("complete");
 		assertThatThrownBy(() -> service.resolveAndConsume(
 			USER_ID, created.drawSessionId(), "daily_one_card", UUID.randomUUID(), "hash"
 		)).isInstanceOfSatisfying(TarotDrawSessionException.class, exception ->
 			assertThat(exception.code()).isEqualTo("DRAW_SESSION_ALREADY_CONSUMED"));
+		assertThat(service.finalizeConsumption(
+			USER_ID, created.drawSessionId(), requestId, "hash"
+		)).isTrue();
+		assertThatThrownBy(() -> service.getActive(USER_ID))
+			.isInstanceOfSatisfying(TarotDrawSessionException.class, exception ->
+				assertThat(exception.code()).isEqualTo("DRAW_SESSION_NOT_FOUND"));
 	}
 
 	private TarotDrawSessionService service(InMemoryRepository repository) {
@@ -190,7 +197,7 @@ class TarotDrawSessionServiceTests {
 
 		@Override
 		public synchronized Optional<TarotDrawSessionState> findActive(UUID userId) {
-			return state != null && state.userId().equals(userId) && !state.consumed()
+			return state != null && state.userId().equals(userId)
 				? Optional.of(state) : Optional.empty();
 		}
 
@@ -231,6 +238,17 @@ class TarotDrawSessionServiceTests {
 			if (!state.complete()) return ConsumeResult.STATE_CONFLICT;
 			state = state.consumedBy(requestId, inputHash);
 			return ConsumeResult.CONSUMED;
+		}
+
+		@Override
+		public synchronized boolean finalizeConsumption(
+			UUID userId, String sessionId, UUID requestId, String inputHash
+		) {
+			if (state == null || !state.userId().equals(userId) || !state.id().equals(sessionId)
+				|| !state.consumed() || !requestId.equals(state.consumedRequestId())
+				|| !inputHash.equals(state.consumedInputHash())) return false;
+			state = null;
+			return true;
 		}
 	}
 }
