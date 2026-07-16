@@ -27,7 +27,9 @@ class ReadingInputNormalizerTests {
 		List<String> cards,
 		ChoiceOptionsRequest choices
 	) {
-		NormalizedReadingInput normalized = normalizer.normalize(request(spread, cards, choices));
+		NormalizedReadingInput normalized = normalizer.normalizeTarot(
+			request(spread, choices), spread, cards
+		);
 
 		assertThat(normalized.spreadType()).isEqualTo(spread);
 		assertThat(normalized.schemaVersion()).isEqualTo(1);
@@ -49,41 +51,42 @@ class ReadingInputNormalizerTests {
 
 	@Test
 	void acceptsChoiceOptionsOnlyForChoiceSpread() {
-		assertThatThrownBy(() -> normalizer.normalize(request(
+		assertThatThrownBy(() -> normalizer.normalizeTarot(request(
 			TarotSpreadType.DAILY_ONE_CARD,
-			List.of("major-00-fool"),
 			new ChoiceOptionsRequest("A", "B")
-		))).isInstanceOf(IllegalArgumentException.class);
+		), TarotSpreadType.DAILY_ONE_CARD, List.of("major-00-fool")))
+			.isInstanceOf(IllegalArgumentException.class);
 
-		assertThatThrownBy(() -> normalizer.normalize(request(
+		assertThatThrownBy(() -> normalizer.normalizeTarot(request(
 			TarotSpreadType.CHOICE_FIVE_CARD,
-			cards(5),
 			null
-		))).isInstanceOf(IllegalArgumentException.class);
+		), TarotSpreadType.CHOICE_FIVE_CARD, cards(5)))
+			.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
 	void rejectsWrongCardCountDuplicateAndUnknownCards() {
-		assertThatThrownBy(() -> normalizer.normalize(request(
+		assertThatThrownBy(() -> normalizer.normalizeTarot(request(
 			TarotSpreadType.MIND_THREE_CARD,
-			cards(1),
 			null
-		))).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> normalizer.normalize(request(
+		), TarotSpreadType.MIND_THREE_CARD, cards(1)))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> normalizer.normalizeTarot(request(
 			TarotSpreadType.MIND_THREE_CARD,
-			List.of("major-00-fool", "major-00-fool", "major-01-magician"),
 			null
-		))).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> normalizer.normalize(request(
+		), TarotSpreadType.MIND_THREE_CARD,
+			List.of("major-00-fool", "major-00-fool", "major-01-magician")))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> normalizer.normalizeTarot(request(
 			TarotSpreadType.DAILY_ONE_CARD,
-			List.of("not-a-card"),
 			null
-		))).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> normalizer.normalize(request(
+		), TarotSpreadType.DAILY_ONE_CARD, List.of("not-a-card")))
+			.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> normalizer.normalizeTarot(request(
 			TarotSpreadType.DAILY_ONE_CARD,
-			java.util.Arrays.asList((String) null),
 			null
-		))).isInstanceOf(IllegalArgumentException.class)
+		), TarotSpreadType.DAILY_ONE_CARD, java.util.Arrays.asList((String) null)))
+			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("Tarot card is required");
 	}
 
@@ -102,7 +105,6 @@ class ReadingInputNormalizerTests {
 
 	private ReadingCreateRequest request(
 		TarotSpreadType spread,
-		List<String> cards,
 		ChoiceOptionsRequest choices
 	) {
 		return new ReadingCreateRequest(
@@ -110,7 +112,7 @@ class ReadingInputNormalizerTests {
 			spread.value(),
 			" 질문 ",
 			UUID.randomUUID(),
-			cards,
+			"draw-session-id",
 			choices,
 			null,
 			null,

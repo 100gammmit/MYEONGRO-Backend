@@ -72,6 +72,11 @@ server:
 app:
   frontend-origin: ${frontend.origin:http://localhost:3000}
 
+  tarot:
+    draw-session:
+      namespace: myeongro:tarot-draw
+      ttl: ${tarot.draw-session.ttl:30m}
+
   reading:
     # IP HMAC secret is separate from the retired guest cookie secret.
     ip-hash-secret: ${ip.hash-secret}

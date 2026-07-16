@@ -1,10 +1,11 @@
 package com.myeongro.api.domain.reading.entity;
 
+import java.util.List;
 import java.util.Set;
 
 public final class MajorArcana {
 
-	private static final Set<String> CARD_IDS = Set.of(
+	private static final List<String> CARDS = List.of(
 		"major-00-fool",
 		"major-01-magician",
 		"major-02-high-priestess",
@@ -28,11 +29,16 @@ public final class MajorArcana {
 		"major-20-judgement",
 		"major-21-world"
 	);
+	private static final Set<String> CARD_IDS = Set.copyOf(CARDS);
 
 	private MajorArcana() {
 	}
 
 	public static boolean contains(String cardId) {
 		return CARD_IDS.contains(cardId);
+	}
+
+	public static List<String> all() {
+		return CARDS;
 	}
 }

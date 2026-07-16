@@ -27,6 +27,12 @@ spring:
             user-name-attribute: id
 
 app:
+
+  tarot:
+    draw-session:
+      namespace: myeongro:test:tarot-draw
+      ttl: 30m
+
   reading:
     # Test-only HMAC secret.
     ip-hash-secret: 0123456789abcdef0123456789abcdef

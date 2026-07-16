@@ -51,6 +51,14 @@ class SecurityConfigTests {
 	}
 
 	@Test
+	void requiresAuthenticationForTarotDrawSessionEndpoints() throws Exception {
+		mockMvc.perform(get("/api/tarot/draw-sessions/active"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/tarot/draw-sessions"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void requiresAuthenticationForConsentEndpoints() throws Exception {
 		mockMvc.perform(get("/api/consents"))
 			.andExpect(status().isUnauthorized());

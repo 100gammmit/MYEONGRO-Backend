@@ -22,9 +22,23 @@ public class ReadingInputNormalizer {
 		ReadingKind kind = ReadingKind.fromValue(request.kind());
 		String question = normalizeText(request.question(), 300, "Question");
 		if (kind == ReadingKind.TAROT) {
-			return normalizeTarot(request, question);
+			throw new IllegalArgumentException("Resolved tarot cards are required");
 		}
 		return normalizeSaju(request, question);
+	}
+
+	public NormalizedReadingInput normalizeTarot(
+		ReadingCreateRequest request,
+		TarotSpreadType spread,
+		List<String> cardIds
+	) {
+		if (ReadingKind.fromValue(request.kind()) != ReadingKind.TAROT) {
+			throw new IllegalArgumentException("Tarot reading kind is required");
+		}
+		if (spread != TarotSpreadType.fromValue(request.spreadType())) {
+			throw new IllegalArgumentException("Tarot spread does not match draw session");
+		}
+		return normalizeTarot(request, normalizeText(request.question(), 300, "Question"), spread, cardIds);
 	}
 
 	public NormalizedReadingInput restore(CreatedReadingResponse reading) {
@@ -40,17 +54,17 @@ public class ReadingInputNormalizer {
 			}
 			List<String> cardIds = storedCardIds(payload, spread);
 			ChoiceOptionsRequest choices = storedChoiceOptions(payload, spread);
-			return normalize(new ReadingCreateRequest(
+			return normalizeTarot(new ReadingCreateRequest(
 				reading.kind().value(),
 				spread.value(),
 				question,
 				java.util.UUID.randomUUID(),
-				cardIds,
+				"stored-reading",
 				choices,
 				null,
 				null,
 				null
-			));
+			), spread, cardIds);
 		}
 		Map<?, ?> profile = valueAsMap(payload.get("profile"), "Stored profile");
 		return normalize(new ReadingCreateRequest(
@@ -68,10 +82,10 @@ public class ReadingInputNormalizer {
 
 	private NormalizedReadingInput normalizeTarot(
 		ReadingCreateRequest request,
-		String question
+		String question,
+		TarotSpreadType spread,
+		List<String> cardIds
 	) {
-		TarotSpreadType spread = TarotSpreadType.fromValue(request.spreadType());
-		List<String> cardIds = request.cardIds() == null ? List.of() : request.cardIds();
 		if (cardIds.size() != spread.cardCount()) {
 			throw new IllegalArgumentException(
 				spread.cardCount() + " tarot cards are required for " + spread.value()
@@ -128,7 +142,7 @@ public class ReadingInputNormalizer {
 		ReadingCreateRequest request,
 		String question
 	) {
-		if (request.spreadType() != null || request.cardIds() != null
+		if (request.spreadType() != null || request.drawSessionId() != null
 			|| request.choiceOptions() != null) {
 			throw new IllegalArgumentException("Tarot fields are not allowed for saju");
 		}

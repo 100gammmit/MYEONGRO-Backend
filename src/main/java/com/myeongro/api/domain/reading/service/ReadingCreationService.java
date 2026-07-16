@@ -20,11 +20,14 @@ import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
+import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
+import com.myeongro.api.domain.tarotdraw.service.CompletedTarotDraw;
+import com.myeongro.api.domain.tarotdraw.service.TarotDrawSessionService;
 
 @Service
 public class ReadingCreationService {
@@ -36,6 +39,7 @@ public class ReadingCreationService {
 	private final ObjectMapper objectMapper;
 	private final String ipHashSecret;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
+	private final TarotDrawSessionService tarotDrawSessionService;
 
 	public ReadingCreationService(
 		ConsentService consentService,
@@ -44,7 +48,8 @@ public class ReadingCreationService {
 		ReadingInputNormalizer inputNormalizer,
 		ObjectMapper objectMapper,
 		@Value("${app.reading.ip-hash-secret}") String ipHashSecret,
-		ReadingGenerationMetadataResolver generationMetadataResolver
+		ReadingGenerationMetadataResolver generationMetadataResolver,
+		TarotDrawSessionService tarotDrawSessionService
 	) {
 		this.consentService = consentService;
 		this.repository = repository;
@@ -53,6 +58,7 @@ public class ReadingCreationService {
 		this.objectMapper = objectMapper;
 		this.ipHashSecret = ipHashSecret;
 		this.generationMetadataResolver = generationMetadataResolver;
+		this.tarotDrawSessionService = tarotDrawSessionService;
 	}
 
 	public CreatedReadingResponse createUserReading(
@@ -71,15 +77,32 @@ public class ReadingCreationService {
 			throw new RequiredConsentMissingException("필수 동의가 필요합니다.");
 		}
 
-		NormalizedReadingInput input = inputNormalizer.normalize(request);
+		NormalizedReadingInput input;
+		if (ReadingKind.fromValue(request.kind()) == ReadingKind.TAROT) {
+			if (request.drawSessionId() == null || request.drawSessionId().isBlank()) {
+				throw com.myeongro.api.domain.tarotdraw.exception.TarotDrawSessionException.invalidSelection();
+			}
+			CompletedTarotDraw draw = tarotDrawSessionService.resolveCompleted(
+				userId, request.drawSessionId(), request.spreadType(), requestId
+			);
+			input = inputNormalizer.normalizeTarot(request, draw.spreadType(), draw.cardIds());
+		} else {
+			input = inputNormalizer.normalize(request);
+		}
 		ReadingGenerationMetadata metadata = generationMetadataResolver.resolve(
 			input.kind(),
 			input.spreadType()
 		);
+		String inputHash = inputHash(input.hashMaterial());
+		if (input.kind() == ReadingKind.TAROT) {
+			tarotDrawSessionService.resolveAndConsume(
+				userId, request.drawSessionId(), request.spreadType(), requestId, inputHash
+			);
+		}
 		PendingReadingCreation pending = repository.createPending(PendingReadingCommand.builder()
 			.userId(userId)
 			.requestId(requestId)
-			.inputHash(inputHash(input.hashMaterial()))
+			.inputHash(inputHash)
 			.ipHash(ipHash(remoteAddress))
 			.kind(input.kind())
 			.spreadType(input.spreadType())

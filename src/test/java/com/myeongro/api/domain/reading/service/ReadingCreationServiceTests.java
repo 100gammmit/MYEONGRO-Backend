@@ -3,6 +3,7 @@ package com.myeongro.api.domain.reading.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -29,12 +30,15 @@ import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
+import com.myeongro.api.domain.tarotdraw.service.CompletedTarotDraw;
+import com.myeongro.api.domain.tarotdraw.service.TarotDrawSessionService;
 
 class ReadingCreationServiceTests {
 
 	private static final UUID USER_ID = UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
 	private static final UUID REQUEST_ID = UUID.fromString("82ed11d5-2269-438c-9815-42e6f13735f4");
 	private static final UUID READING_ID = UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
+	private TarotDrawSessionService drawSessionService;
 
 	@Test
 	void rejectsUserWithoutRequiredConsentBeforeReservation() {
@@ -73,6 +77,13 @@ class ReadingCreationServiceTests {
 			.isEqualTo(TarotSpreadType.RELATIONSHIP_THREE_CARD);
 		assertThat(command.getValue().schemaVersion()).isEqualTo(1);
 		assertThat(command.getValue().input()).containsOnlyKeys("question", "cards");
+		verify(drawSessionService).resolveAndConsume(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq("draw-session-id"),
+			org.mockito.ArgumentMatchers.eq("relationship_three_card"),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.anyString()
+		);
 	}
 
 	@Test
@@ -93,6 +104,28 @@ class ReadingCreationServiceTests {
 			org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.eq("OPENAI_READING_GENERATION_FAILED")
 		);
+	}
+
+	@Test
+	void sameRequestReturnsCompletedReadingWithoutCallingGeneratorAgain() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
+			.thenReturn(new PendingReadingCreation(READING_ID, 42L, completed()));
+
+		CreatedReadingResponse response = service(consentService, repository, generator)
+			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request());
+
+		assertThat(response.status()).isEqualTo("completed");
+		verify(drawSessionService).resolveAndConsume(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq("draw-session-id"),
+			org.mockito.ArgumentMatchers.eq("relationship_three_card"),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.anyString()
+		);
+		verifyNoInteractions(generator);
 	}
 
 	@Test
@@ -141,6 +174,23 @@ class ReadingCreationServiceTests {
 		TarotPromptCatalog catalog = org.mockito.Mockito.mock(TarotPromptCatalog.class);
 		when(catalog.version(TarotSpreadType.RELATIONSHIP_THREE_CARD))
 			.thenReturn("common+cards+relationship");
+		drawSessionService = org.mockito.Mockito.mock(
+			TarotDrawSessionService.class
+		);
+		CompletedTarotDraw draw = new CompletedTarotDraw(
+			TarotSpreadType.RELATIONSHIP_THREE_CARD,
+			List.of("major-00-fool", "major-06-lovers", "major-17-star")
+		);
+		when(drawSessionService.resolveCompleted(
+			USER_ID, "draw-session-id", "relationship_three_card", REQUEST_ID
+		)).thenReturn(draw);
+		when(drawSessionService.resolveAndConsume(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq("draw-session-id"),
+			org.mockito.ArgumentMatchers.eq("relationship_three_card"),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.anyString()
+		)).thenReturn(draw);
 		return new ReadingCreationService(
 			consentService,
 			repository,
@@ -148,7 +198,8 @@ class ReadingCreationServiceTests {
 			new ReadingInputNormalizer(),
 			new ObjectMapper(),
 			"0123456789abcdef0123456789abcdef",
-			new ReadingGenerationMetadataResolver("gpt-test", catalog)
+			new ReadingGenerationMetadataResolver("gpt-test", catalog),
+			drawSessionService
 		);
 	}
 
@@ -170,7 +221,7 @@ class ReadingCreationServiceTests {
 			"relationship_three_card",
 			"관계의 흐름이 궁금해요.",
 			REQUEST_ID,
-			List.of("major-00-fool", "major-06-lovers", "major-17-star"),
+			"draw-session-id",
 			null,
 			null,
 			null,
