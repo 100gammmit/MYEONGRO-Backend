@@ -10,7 +10,7 @@ public enum TarotSpreadType {
 
 	DAILY_ONE_CARD(
 		"daily_one_card",
-		List.of(new TarotPosition("today", "지금 살펴볼 마음")),
+		List.of(new TarotPosition("today", "오늘의 흐름")),
 		1,
 		2,
 		600

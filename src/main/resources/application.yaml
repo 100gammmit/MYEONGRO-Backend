@@ -87,10 +87,10 @@ app:
         common: classpath:prompts/tarot/common-ko-v1.md
         cards: classpath:prompts/tarot/major-arcana-ko-v1.md
         spreads:
-          daily-one-card: classpath:prompts/tarot/spreads/daily-one-card-ko-v1.md
-          mind-three-card: classpath:prompts/tarot/spreads/mind-three-card-ko-v1.md
-          relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card-ko-v1.md
-          choice-five-card: classpath:prompts/tarot/spreads/choice-five-card-ko-v1.md
+          daily-one-card: classpath:prompts/tarot/spreads/daily-one-card-ko-v2.md
+          mind-three-card: classpath:prompts/tarot/spreads/mind-three-card-ko-v2.md
+          relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card-ko-v2.md
+          choice-five-card: classpath:prompts/tarot/spreads/choice-five-card-ko-v2.md
       saju: classpath:prompts/saju/birth-profile-free-ko-v1.md
 
   consent:

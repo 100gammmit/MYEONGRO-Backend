@@ -27,10 +27,10 @@ class TarotPromptCatalogTests {
 
 	private String spreadFileVersion(TarotSpreadType spread) {
 		return switch (spread) {
-			case DAILY_ONE_CARD -> "daily-one-card-ko-v1";
-			case MIND_THREE_CARD -> "mind-three-card-ko-v1";
-			case RELATIONSHIP_THREE_CARD -> "relationship-three-card-ko-v1";
-			case CHOICE_FIVE_CARD -> "choice-five-card-ko-v1";
+			case DAILY_ONE_CARD -> "daily-one-card-ko-v2";
+			case MIND_THREE_CARD -> "mind-three-card-ko-v2";
+			case RELATIONSHIP_THREE_CARD -> "relationship-three-card-ko-v2";
+			case CHOICE_FIVE_CARD -> "choice-five-card-ko-v2";
 		};
 	}
 
@@ -38,10 +38,10 @@ class TarotPromptCatalogTests {
 		return new TarotPromptCatalog(
 			resource("common", "common-ko-v1.md"),
 			resource("cards", "major-arcana-ko-v1.md"),
-			resource("daily_one_card", "daily-one-card-ko-v1.md"),
-			resource("mind_three_card", "mind-three-card-ko-v1.md"),
-			resource("relationship_three_card", "relationship-three-card-ko-v1.md"),
-			resource("choice_five_card", "choice-five-card-ko-v1.md")
+			resource("daily_one_card", "daily-one-card-ko-v2.md"),
+			resource("mind_three_card", "mind-three-card-ko-v2.md"),
+			resource("relationship_three_card", "relationship-three-card-ko-v2.md"),
+			resource("choice_five_card", "choice-five-card-ko-v2.md")
 		);
 	}
 
