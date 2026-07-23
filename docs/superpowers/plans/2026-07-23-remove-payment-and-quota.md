@@ -99,4 +99,3 @@
 - [ ] Send one cross-repository review request to MYEONGRO Review Desk with request thread ID `019ec06b-0b08-7471-97ac-e01c5c5c3a03`.
 - [ ] Resolve any changes-requested findings on the same branches and re-request review.
 - [ ] After approval, write one milestone Notion report and present merge order, including the Front parent-branch dependency.
-

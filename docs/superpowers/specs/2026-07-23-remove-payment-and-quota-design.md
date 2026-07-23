@@ -61,4 +61,3 @@ The Front branch is stacked on `feature/tarot-route-consent-flow` because that b
 ## Risks
 
 V8 irreversibly deletes payment and quota rows. This is intentional for the current project policy. Deployments that need historical payment records must export them before applying V8; the application will no longer read or preserve those records.
-
