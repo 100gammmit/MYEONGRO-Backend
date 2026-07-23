@@ -1,16 +1,11 @@
 package com.myeongro.api.domain.reading.service;
 
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -37,7 +32,6 @@ public class ReadingCreationService {
 	private final ReadingGenerator generator;
 	private final ReadingInputNormalizer inputNormalizer;
 	private final ObjectMapper objectMapper;
-	private final String ipHashSecret;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 	private final TarotDrawSessionService tarotDrawSessionService;
 
@@ -47,7 +41,6 @@ public class ReadingCreationService {
 		ReadingGenerator generator,
 		ReadingInputNormalizer inputNormalizer,
 		ObjectMapper objectMapper,
-		@Value("${app.reading.ip-hash-secret}") String ipHashSecret,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
 		TarotDrawSessionService tarotDrawSessionService
 	) {
@@ -56,14 +49,12 @@ public class ReadingCreationService {
 		this.generator = generator;
 		this.inputNormalizer = inputNormalizer;
 		this.objectMapper = objectMapper;
-		this.ipHashSecret = ipHashSecret;
 		this.generationMetadataResolver = generationMetadataResolver;
 		this.tarotDrawSessionService = tarotDrawSessionService;
 	}
 
-	public CreatedReadingResponse createUserReading(
+	public CreatedReadingResponse createReading(
 		UUID userId,
-		String remoteAddress,
 		UUID requestId,
 		ReadingCreateRequest request
 	) {
@@ -103,7 +94,6 @@ public class ReadingCreationService {
 			.userId(userId)
 			.requestId(requestId)
 			.inputHash(inputHash)
-			.ipHash(ipHash(remoteAddress))
 			.kind(input.kind())
 			.spreadType(input.spreadType())
 			.schemaVersion(input.schemaVersion())
@@ -157,20 +147,4 @@ public class ReadingCreationService {
 		}
 	}
 
-	private String ipHash(String remoteAddress) {
-		try {
-			Mac mac = Mac.getInstance("HmacSHA256");
-			mac.init(new SecretKeySpec(
-				ipHashSecret.getBytes(StandardCharsets.UTF_8),
-				"HmacSHA256"
-			));
-			return Base64.getUrlEncoder().withoutPadding()
-				.encodeToString(mac.doFinal(
-					(remoteAddress == null ? "unknown" : remoteAddress)
-						.getBytes(StandardCharsets.UTF_8)
-				));
-		} catch (GeneralSecurityException exception) {
-			throw new IllegalStateException("Cannot hash request IP", exception);
-		}
-	}
 }

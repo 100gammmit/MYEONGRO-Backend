@@ -61,9 +61,8 @@ class ReadingControllerTests {
 	void createsAuthenticatedRelationshipReading() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(creationService.createUserReading(
+		when(creationService.createReading(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.anyString(),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
 			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
 		)).thenReturn(reading());
@@ -146,9 +145,8 @@ class ReadingControllerTests {
 	void returnsStableDrawSessionErrorFromReadingCreation() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(creationService.createUserReading(
+		when(creationService.createReading(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.anyString(),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
 			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
 		)).thenThrow(TarotDrawSessionException.alreadyConsumed());

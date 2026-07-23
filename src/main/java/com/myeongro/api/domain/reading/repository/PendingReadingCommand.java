@@ -13,7 +13,6 @@ public record PendingReadingCommand(
 	UUID userId,
 	UUID requestId,
 	String inputHash,
-	String ipHash,
 	ReadingKind kind,
 	TarotSpreadType spreadType,
 	int schemaVersion,

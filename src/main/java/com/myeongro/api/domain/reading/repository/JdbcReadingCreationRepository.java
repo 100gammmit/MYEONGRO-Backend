@@ -17,16 +17,15 @@ import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
-import com.myeongro.api.domain.reading.exception.FreeReadingIdempotencyConflictException;
-import com.myeongro.api.domain.reading.exception.FreeReadingQuotaExceededException;
+import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 
 @Repository
 public class JdbcReadingCreationRepository implements ReadingCreationRepository {
 
 	private static final String CREATE_PENDING = """
 		select reading_id, generation_id, created
-		from public.create_pending_free_reading(
-			?, ?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?
+		from public.create_pending_reading(
+			?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?
 		)
 		""";
 	private static final String SELECT_READING = """
@@ -45,10 +44,10 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		where id = ?
 		""";
 	private static final String COMPLETE_PENDING = """
-		select public.complete_free_reading_generation(?, ?, ?, cast(? as jsonb))
+		select public.complete_reading_generation(?, ?, ?, cast(? as jsonb))
 		""";
 	private static final String FAIL_PENDING = """
-		select public.fail_free_reading_generation(?, ?, ?)
+		select public.fail_reading_generation(?, ?, ?)
 		""";
 
 	private final JdbcTemplate jdbcTemplate;
@@ -72,7 +71,6 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 					resultSet.getObject("generation_id", Long.class)
 				),
 				command.userId(),
-				command.ipHash(),
 				command.requestId(),
 				command.inputHash(),
 				command.kind().value(),
@@ -197,11 +195,8 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 
 	private RuntimeException mapDatabaseException(DataAccessException exception) {
 		String sqlState = findSqlState(exception);
-		if ("RL101".equals(sqlState) || "RL102".equals(sqlState) || "RL103".equals(sqlState)) {
-			return new FreeReadingQuotaExceededException();
-		}
 		if ("RL104".equals(sqlState) || "RL110".equals(sqlState)) {
-			return new FreeReadingIdempotencyConflictException();
+			return new ReadingIdempotencyConflictException();
 		}
 		return exception;
 	}

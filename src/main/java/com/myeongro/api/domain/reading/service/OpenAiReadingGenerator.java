@@ -79,7 +79,6 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 		return objectMapper.writeValueAsString(Map.of(
 			"kind", kind.value(),
 			"spreadType", spreadType.value(),
-			"tier", "free",
 			"locale", "ko-KR",
 			"untrustedUserInput", Map.of(
 				"question", question,

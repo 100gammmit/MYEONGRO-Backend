@@ -35,7 +35,6 @@ app:
 
   reading:
     # Test-only HMAC secret.
-    ip-hash-secret: 0123456789abcdef0123456789abcdef
     openai:
       model: gpt-test
     prompts:

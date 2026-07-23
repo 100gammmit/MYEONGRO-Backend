@@ -16,8 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.myeongro.api.domain.reading.exception.FreeReadingIdempotencyConflictException;
-import com.myeongro.api.domain.reading.exception.FreeReadingQuotaExceededException;
+import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.service.ReadingCreationService;
@@ -29,7 +28,6 @@ import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/readings")
@@ -51,18 +49,16 @@ public class ReadingController {
 	}
 
 	@PostMapping
-	@Operation(summary = "무료 리딩 생성", description = "로그인 사용자의 동의 확인 후 쿼터를 예약하고 리딩을 생성합니다.")
+	@Operation(summary = "리딩 생성", description = "로그인 사용자의 동의 확인 후 리딩을 생성합니다.")
 	public ResponseEntity<Map<String, Object>> createReading(
 		@Valid @RequestBody ReadingCreateRequest request,
-		Authentication authentication,
-		HttpServletRequest servletRequest
+		Authentication authentication
 	) {
 		UUID userId = userResolver.requireUser(authentication).id();
 		return ResponseEntity.ok(Map.of(
 			"reading",
-			service.createUserReading(
+			service.createReading(
 				userId,
-				servletRequest.getRemoteAddr(),
 				request.requestId(),
 				request
 			)
@@ -118,12 +114,7 @@ public class ReadingController {
 		return ResponseEntity.status(403).body(Map.of("error", exception.getMessage()));
 	}
 
-	@ExceptionHandler(FreeReadingQuotaExceededException.class)
-	public ResponseEntity<Map<String, String>> quotaExceeded(Exception exception) {
-		return ResponseEntity.status(429).body(Map.of("error", exception.getMessage()));
-	}
-
-	@ExceptionHandler(FreeReadingIdempotencyConflictException.class)
+	@ExceptionHandler(ReadingIdempotencyConflictException.class)
 	public ResponseEntity<Map<String, String>> idempotencyConflict(Exception exception) {
 		return ResponseEntity.status(409).body(Map.of("error", exception.getMessage()));
 	}

@@ -41,7 +41,39 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(7);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(8);
+		}
+
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var statement = connection.createStatement();
+			 var resultSet = statement.executeQuery("""
+				 select
+				   to_regclass('public.free_reading_quota_events') is null,
+				   to_regclass('public.payment_webhook_events') is null,
+				   to_regclass('public.purchases') is null,
+				   to_regtype('public.reading_tier') is null,
+				   to_regtype('public.purchase_status') is null,
+				   not exists (
+				     select 1
+				     from information_schema.columns
+				     where table_schema = 'public'
+				       and table_name = 'readings'
+				       and column_name = 'tier'
+				   ),
+				   to_regprocedure(
+				     'public.create_pending_reading(uuid,uuid,text,public.reading_kind,text,integer,jsonb,text,text,text)'
+				   ) is not null,
+				   to_regprocedure(
+				     'public.complete_reading_generation(uuid,bigint,text,jsonb)'
+				   ) is not null,
+				   to_regprocedure(
+				     'public.fail_reading_generation(uuid,bigint,text)'
+				   ) is not null
+				 """)) {
+			assertThat(resultSet.next()).isTrue();
+			for (int column = 1; column <= 9; column++) {
+				assertThat(resultSet.getBoolean(column)).isTrue();
+			}
 		}
 	}
 }

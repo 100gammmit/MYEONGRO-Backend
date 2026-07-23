@@ -27,7 +27,6 @@ import com.myeongro.api.domain.reading.dto.ReadingSection;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
-import com.myeongro.api.domain.reading.exception.FreeReadingQuotaExceededException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
@@ -51,7 +50,7 @@ class ReadingCreationServiceTests {
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 
 		assertThatThrownBy(() -> service(consentService, repository, successfulGenerator())
-			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request()))
+			.createReading(USER_ID, REQUEST_ID, request()))
 			.isInstanceOf(RequiredConsentMissingException.class);
 
 		org.mockito.Mockito.verifyNoInteractions(repository);
@@ -69,7 +68,7 @@ class ReadingCreationServiceTests {
 		)).thenReturn(completed());
 
 		service(consentService, repository, successfulGenerator())
-			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request());
+			.createReading(USER_ID, REQUEST_ID, request());
 
 		ArgumentCaptor<PendingReadingCommand> command =
 			ArgumentCaptor.forClass(PendingReadingCommand.class);
@@ -105,7 +104,7 @@ class ReadingCreationServiceTests {
 		};
 
 		assertThatThrownBy(() -> service(consentService, repository, failing)
-			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request()))
+			.createReading(USER_ID, REQUEST_ID, request()))
 			.isInstanceOf(OpenAiReadingGenerationException.class);
 
 		verify(repository).failPending(
@@ -123,7 +122,7 @@ class ReadingCreationServiceTests {
 			.thenReturn(new PendingReadingCreation(READING_ID, 42L, completed()));
 
 		CreatedReadingResponse response = service(consentService, repository, generator)
-			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request());
+			.createReading(USER_ID, REQUEST_ID, request());
 
 		assertThat(response.status()).isEqualTo("completed");
 		verify(drawSessionService).resolveAndConsume(
@@ -137,11 +136,11 @@ class ReadingCreationServiceTests {
 	}
 
 	@Test
-	void keepsDrawClaimActiveAndAllowsSameRequestRetryWhenPendingReservationFails() {
+	void keepsDrawClaimActiveAndAllowsSameRequestRetryWhenPendingCreationFails() {
 		ConsentService consentService = acceptedConsent();
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
-			.thenThrow(new FreeReadingQuotaExceededException())
+			.thenThrow(new IllegalStateException("database unavailable"))
 			.thenReturn(pending());
 		when(repository.completePending(
 			org.mockito.ArgumentMatchers.any(),
@@ -149,8 +148,8 @@ class ReadingCreationServiceTests {
 		)).thenReturn(completed());
 
 		assertThatThrownBy(() -> service(consentService, repository, successfulGenerator())
-			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request()))
-			.isInstanceOf(FreeReadingQuotaExceededException.class);
+			.createReading(USER_ID, REQUEST_ID, request()))
+			.isInstanceOf(IllegalStateException.class);
 
 		verify(drawSessionService, never()).finalizeConsumption(
 			org.mockito.ArgumentMatchers.any(),
@@ -160,7 +159,7 @@ class ReadingCreationServiceTests {
 		);
 
 		CreatedReadingResponse retried = service(consentService, repository, successfulGenerator())
-			.createUserReading(USER_ID, "127.0.0.1", REQUEST_ID, request());
+			.createReading(USER_ID, REQUEST_ID, request());
 
 		assertThat(retried.status()).isEqualTo("completed");
 		verify(drawSessionService).finalizeConsumption(
@@ -240,7 +239,6 @@ class ReadingCreationServiceTests {
 			generator,
 			new ReadingInputNormalizer(),
 			new ObjectMapper(),
-			"0123456789abcdef0123456789abcdef",
 			new ReadingGenerationMetadataResolver("gpt-test", catalog),
 			drawSessionService
 		);

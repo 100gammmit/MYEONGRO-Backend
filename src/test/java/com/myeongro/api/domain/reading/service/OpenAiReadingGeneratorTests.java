@@ -58,7 +58,9 @@ class OpenAiReadingGeneratorTests {
 			chatModel.prompt.getUserMessage().getText(),
 			Map.class
 		);
-		assertThat(userMessage).containsKey("untrustedUserInput");
+		assertThat(userMessage)
+			.containsKey("untrustedUserInput")
+			.doesNotContainKey("tier");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> untrustedInput =
 			(Map<String, Object>) userMessage.get("untrustedUserInput");

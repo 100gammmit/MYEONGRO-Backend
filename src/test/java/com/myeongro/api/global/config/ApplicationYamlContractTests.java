@@ -18,7 +18,7 @@ class ApplicationYamlContractTests {
 		);
 
 		assertThat(applicationYaml).contains("api-key: ${openai.api-key:}");
-		assertThat(applicationYaml).contains("model: ${openai.free-model:");
+		assertThat(applicationYaml).contains("model: ${openai.model:");
 	}
 
 	@Test

@@ -129,6 +129,35 @@ class FlywayBaselineContractTests {
     }
 
     @Test
+    void v8RemovesPaymentTierAndQuotaContracts() throws IOException {
+        var migration = Files.list(MIGRATION_DIRECTORY)
+            .filter(path -> path.getFileName().toString()
+                .startsWith("V8__remove_payment_and_reading_quota"))
+            .findFirst()
+            .orElseThrow();
+
+        var sql = Files.readString(migration);
+
+        assertThat(sql)
+            .contains("drop table public.payment_webhook_events")
+            .contains("drop table public.purchases")
+            .contains("drop table public.free_reading_quota_events")
+            .contains("drop type public.purchase_status")
+            .contains("drop type public.reading_tier")
+            .contains("drop column tier")
+            .contains("create or replace function public.create_pending_reading")
+            .contains("pg_advisory_xact_lock")
+            .contains("'reading:' || requested_user_id::text || ':' || requested_request_id::text")
+            .contains("create or replace function public.complete_reading_generation")
+            .contains("create or replace function public.fail_reading_generation")
+            .contains("'reading:' || inserted_reading.id::text")
+            .contains("'reading-retry:' || owned_reading.id::text")
+            .doesNotContain("create or replace function public.reserve_free_reading_quota")
+            .doesNotContain("from public.reserve_free_reading_quota(")
+            .doesNotContain("'free-reading:");
+    }
+
+    @Test
     void productionConfigurationNeverAutomaticallyBaselinesAnUnknownDatabase()
         throws IOException {
         var yaml = Files.readString(
@@ -138,7 +167,8 @@ class FlywayBaselineContractTests {
         assertThat(yaml)
             .contains("ddl-auto: validate")
             .contains("baseline-on-migrate: false")
-            .contains("validate-on-migrate: true");
+            .contains("validate-on-migrate: true")
+            .doesNotContain("ip-hash-secret");
     }
 
 }

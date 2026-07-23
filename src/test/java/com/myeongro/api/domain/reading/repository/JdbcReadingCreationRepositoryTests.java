@@ -28,8 +28,7 @@ import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.dto.ReadingSection;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
-import com.myeongro.api.domain.reading.exception.FreeReadingIdempotencyConflictException;
-import com.myeongro.api.domain.reading.exception.FreeReadingQuotaExceededException;
+import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 
 class JdbcReadingCreationRepositoryTests {
 
@@ -77,12 +76,11 @@ class JdbcReadingCreationRepositoryTests {
 			);
 
 		assertThat(sql.getAllValues().get(0))
-			.contains("public.create_pending_free_reading")
+			.contains("public.create_pending_reading")
 			.contains("cast(? as public.reading_kind)")
 			.contains("cast(? as jsonb)");
 		assertThat(args.getAllValues().get(0)).containsExactly(
 			USER_ID,
-			"ip-hash",
 			REQUEST_ID,
 			"input-hash",
 			"tarot",
@@ -118,7 +116,7 @@ class JdbcReadingCreationRepositoryTests {
 		verify(jdbcTemplate)
 			.queryForObject(sql.capture(), eq(Object.class), args.capture());
 		assertThat(sql.getValue())
-			.contains("public.complete_free_reading_generation")
+			.contains("public.complete_reading_generation")
 			.contains("cast(? as jsonb)");
 		assertThat(args.getValue()[0]).isEqualTo(READING_ID);
 		assertThat(args.getValue()[1]).isEqualTo(GENERATION_ID);
@@ -144,24 +142,12 @@ class JdbcReadingCreationRepositoryTests {
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate)
 			.queryForObject(sql.capture(), eq(Object.class), args.capture());
-		assertThat(sql.getValue()).contains("public.fail_free_reading_generation");
+		assertThat(sql.getValue()).contains("public.fail_reading_generation");
 		assertThat(args.getValue()).containsExactly(
 			READING_ID,
 			GENERATION_ID,
 			"READING_GENERATION_FAILED"
 		);
-	}
-
-	@Test
-	void mapsQuotaSqlStateToDomainException() {
-		when(jdbcTemplate.queryForObject(
-			anyString(),
-			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
-			any(Object[].class)
-		)).thenThrow(sqlException("RL101"));
-
-		assertThatThrownBy(() -> repository.createPending(command()))
-			.isInstanceOf(FreeReadingQuotaExceededException.class);
 	}
 
 	@Test
@@ -173,7 +159,7 @@ class JdbcReadingCreationRepositoryTests {
 		)).thenThrow(sqlException("RL104"));
 
 		assertThatThrownBy(() -> repository.createPending(command()))
-			.isInstanceOf(FreeReadingIdempotencyConflictException.class);
+			.isInstanceOf(ReadingIdempotencyConflictException.class);
 	}
 
 	@Test
@@ -185,13 +171,12 @@ class JdbcReadingCreationRepositoryTests {
 		)).thenThrow(sqlException("RL110"));
 
 		assertThatThrownBy(() -> repository.createPending(command()))
-			.isInstanceOf(FreeReadingIdempotencyConflictException.class);
+			.isInstanceOf(ReadingIdempotencyConflictException.class);
 	}
 
 	private PendingReadingCommand command() {
 		return PendingReadingCommand.builder()
 			.userId(USER_ID)
-			.ipHash("ip-hash")
 			.requestId(REQUEST_ID)
 			.inputHash("input-hash")
 			.kind(ReadingKind.TAROT)
@@ -215,7 +200,7 @@ class JdbcReadingCreationRepositoryTests {
 	}
 
 	private ResultSet resultSetFor(String sql) throws SQLException {
-		if (sql.contains("create_pending_free_reading")) {
+		if (sql.contains("create_pending_reading")) {
 			ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
 			when(resultSet.getObject("reading_id", UUID.class)).thenReturn(READING_ID);
 			when(resultSet.getObject("generation_id", Long.class)).thenReturn(GENERATION_ID);

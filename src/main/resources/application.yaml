@@ -75,10 +75,8 @@ app:
       ttl: ${tarot.draw-session.ttl:30m}
 
   reading:
-    # IP HMAC secret is separate from the retired guest cookie secret.
-    ip-hash-secret: ${ip.hash-secret}
     openai:
-      model: ${openai.free-model:gpt-5.6-luna}
+      model: ${openai.model:gpt-5.6-luna}
     prompts:
       tarot:
         common: classpath:prompts/tarot/common-ko-v1.md
@@ -88,7 +86,7 @@ app:
           mind-three-card: classpath:prompts/tarot/spreads/mind-three-card-ko-v2.md
           relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card-ko-v2.md
           choice-five-card: classpath:prompts/tarot/spreads/choice-five-card-ko-v2.md
-      saju: classpath:prompts/saju/birth-profile-free-ko-v1.md
+      saju: classpath:prompts/saju/birth-profile-ko-v1.md
 
   consent:
     versions:
