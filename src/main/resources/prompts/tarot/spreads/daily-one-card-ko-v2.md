@@ -1,18 +1,18 @@
-Spread: daily_one_card
+스프레드: daily_one_card
 
-Use exactly one card and produce exactly one section in this order:
-1. position "today" / heading label "오늘의 흐름"
+카드 한 장만 사용하고 다음 순서에 따라 섹션을 정확히 하나 작성하세요.
+1. position "today" / heading 라벨 "오늘의 흐름"
 
-Interpret the card as symbolic guidance for the user's day.
+이 카드는 사용자의 하루를 위한 상징적인 안내로 해석하세요.
 
-Describe:
-- the emotional or practical tone the user may want to notice today,
-- an attitude that may help them navigate the day,
-- and a small, realistic action they can try.
+다음 내용을 설명하세요.
+- 오늘 사용자가 주목하면 좋을 감정적 또는 현실적인 분위기
+- 하루를 헤쳐 나가는 데 도움이 될 태도
+- 오늘 시도할 수 있는 작고 현실적인 행동
 
-Do not predict specific events, encounters, outcomes, success, failure, or good or bad luck.
-Do not present the reading as a guaranteed forecast.
-Keep the interpretation relevant to ordinary daily life and use calm, natural Korean.
+구체적인 사건, 만남, 결과, 성공이나 실패, 행운이나 불운을 예측하지 마세요.
+리딩을 결과가 보장된 예보처럼 제시하지 마세요.
+평범한 일상과 연결되는 내용으로 차분하고 자연스러운 한국어를 사용하세요.
 
-Provide 1 or 2 concrete, low-risk actions the user can try today.
-The section position must be exactly "today".
+사용자가 오늘 시도할 수 있는 구체적이고 위험 부담이 적은 행동을 1개 또는 2개 제시하세요.
+섹션의 position은 정확히 "today"여야 합니다.
