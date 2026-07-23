@@ -20,7 +20,7 @@ public class ReadingGenerationMetadataResolver {
 	private final TarotPromptCatalog promptCatalog;
 
 	public ReadingGenerationMetadataResolver(
-		@Value("${app.reading.openai.model:gpt-5.4-mini}") String openAiModel,
+		@Value("${app.reading.openai.model}") String openAiModel,
 		TarotPromptCatalog promptCatalog
 	) {
 		this.openAiModel = openAiModel;

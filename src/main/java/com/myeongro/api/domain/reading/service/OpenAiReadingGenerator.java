@@ -32,7 +32,7 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 	public OpenAiReadingGenerator(
 		ChatModel chatModel,
 		ObjectMapper objectMapper,
-		@Value("${app.reading.openai.model:gpt-5.4-mini}") String model,
+		@Value("${app.reading.openai.model}") String model,
 		TarotPromptCatalog promptCatalog,
 		TarotReadingResultValidator resultValidator
 	) {
@@ -92,7 +92,7 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 		return OpenAiChatOptions.builder()
 			.model(model)
 			.maxCompletionTokens(spreadType.maxOutputTokens())
-			.temperature(0.7d)
+			.temperature(1d)
 			.responseFormat(ResponseFormat.builder()
 				.type(ResponseFormat.Type.JSON_SCHEMA)
 				.jsonSchema(ResponseFormat.JsonSchema.builder()

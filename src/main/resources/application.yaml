@@ -32,9 +32,6 @@ spring:
   ai:
     openai:
       api-key: ${openai.api-key:}
-      chat:
-        options:
-          model: ${openai.free-model:gpt-5.4-mini}
 
   security:
     oauth2:
@@ -81,7 +78,7 @@ app:
     # IP HMAC secret is separate from the retired guest cookie secret.
     ip-hash-secret: ${ip.hash-secret}
     openai:
-      model: ${openai.free-model:gpt-5.4-mini}
+      model: ${openai.free-model:gpt-5.6-luna}
     prompts:
       tarot:
         common: classpath:prompts/tarot/common-ko-v1.md
