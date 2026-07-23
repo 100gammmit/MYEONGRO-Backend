@@ -1,4 +1,4 @@
-Major Arcana card meanings:
+메이저 아르카나 카드 의미:
 - major-00-fool / 바보: 새로운 시작, 자유, 순수한 가능성. 첫걸음과 가능성을 살피고 충동과 준비 부족을 점검한다.
 - major-01-magician / 마법사: 의지, 창조, 실행력. 자원 집중과 실현, 의도 분산과 말-행동 불일치를 살핀다.
 - major-02-high-priestess / 여사제: 직관, 내면, 숨은 지혜. 내면의 목소리와 불안·선입견을 구분한다.
@@ -22,4 +22,4 @@ Major Arcana card meanings:
 - major-20-judgement / 심판: 각성, 성찰, 새로운 부름. 과거 성찰 후 결정하고 과도한 자기비판을 완화한다.
 - major-21-world / 세계: 완성, 통합, 성취. 완성과 통합, 남은 마무리를 살핀다.
 
-All cards are upright in this MVP. The stored reversed value is always false.
+이 MVP에서는 모든 카드가 정방향입니다. 저장되는 `reversed` 값은 항상 `false`입니다.

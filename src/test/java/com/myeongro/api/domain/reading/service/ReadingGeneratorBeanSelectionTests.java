@@ -24,12 +24,12 @@ class ReadingGeneratorBeanSelectionTests {
 		new ApplicationContextRunner()
 			.withPropertyValues(
 				"app.reading.openai.model=gpt-test",
-				"app.reading.prompts.tarot.common=classpath:prompts/tarot/common-ko-v1.md",
-				"app.reading.prompts.tarot.cards=classpath:prompts/tarot/major-arcana-ko-v1.md",
-				"app.reading.prompts.tarot.spreads.daily-one-card=classpath:prompts/tarot/spreads/daily-one-card-ko-v2.md",
-				"app.reading.prompts.tarot.spreads.mind-three-card=classpath:prompts/tarot/spreads/mind-three-card-ko-v2.md",
-				"app.reading.prompts.tarot.spreads.relationship-three-card=classpath:prompts/tarot/spreads/relationship-three-card-ko-v2.md",
-				"app.reading.prompts.tarot.spreads.choice-five-card=classpath:prompts/tarot/spreads/choice-five-card-ko-v2.md"
+				"app.reading.prompts.tarot.common=classpath:prompts/tarot/common-ko-v2.md",
+				"app.reading.prompts.tarot.cards=classpath:prompts/tarot/major-arcana-ko-v2.md",
+				"app.reading.prompts.tarot.spreads.daily-one-card=classpath:prompts/tarot/spreads/daily-one-card-ko-v3.md",
+				"app.reading.prompts.tarot.spreads.mind-three-card=classpath:prompts/tarot/spreads/mind-three-card-ko-v3.md",
+				"app.reading.prompts.tarot.spreads.relationship-three-card=classpath:prompts/tarot/spreads/relationship-three-card-ko-v3.md",
+				"app.reading.prompts.tarot.spreads.choice-five-card=classpath:prompts/tarot/spreads/choice-five-card-ko-v3.md"
 			)
 			.withBean(ObjectMapper.class, ObjectMapper::new)
 			.withBean(TarotReadingResultValidator.class)
@@ -62,7 +62,7 @@ class ReadingGeneratorBeanSelectionTests {
 				.isEqualTo(new ReadingGenerationMetadata(
 					"openai",
 					"gpt-test",
-					"common-ko-v1+major-arcana-ko-v1+daily-one-card-ko-v2"
+					"common-ko-v2+major-arcana-ko-v2+daily-one-card-ko-v3"
 				));
 			assertThat(resolver.resolve(ReadingKind.SAJU, null))
 				.isEqualTo(new ReadingGenerationMetadata(
