@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -18,6 +19,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.core.io.ClassPathResource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.reading.entity.MajorArcana;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
@@ -52,7 +54,11 @@ class OpenAiReadingGeneratorTests {
 		assertThat(position.get("enum")).isEqualTo(spread.positions().stream()
 			.map(item -> item.id())
 			.toList());
-		assertThat(chatModel.prompt.getSystemMessage().getText()).isNotBlank();
+		String systemMessage = chatModel.prompt.getSystemMessage().getText();
+		assertThat(systemMessage).isNotBlank();
+		assertThat(MajorArcana.all().subList(0, spread.cardCount()))
+			.allSatisfy(cardId -> assertThat(systemMessage).contains(cardId));
+		assertThat(systemMessage).doesNotContain("major-21-world");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> userMessage = new ObjectMapper().readValue(
 			chatModel.prompt.getUserMessage().getText(),
@@ -68,6 +74,12 @@ class OpenAiReadingGeneratorTests {
 			.containsEntry("question", "질문")
 			.containsKey("readingInput");
 		assertThat(untrustedInput.get("readingInput")).isInstanceOf(Map.class);
+		@SuppressWarnings("unchecked")
+		Map<String, Object> readingInput =
+			(Map<String, Object>) untrustedInput.get("readingInput");
+		assertThat(readingInput)
+			.containsKey("cards")
+			.doesNotContainKey("question");
 	}
 
 	@Test
@@ -99,22 +111,22 @@ class OpenAiReadingGeneratorTests {
 
 	private TarotPromptCatalog catalog() {
 		return new TarotPromptCatalog(
-			new ClassPathResource("prompts/tarot/common-ko-v3.md"),
+			new ClassPathResource("prompts/tarot/common-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/major-arcana-ko-v2.md"),
-			new ClassPathResource("prompts/tarot/spreads/daily-one-card-ko-v3.md"),
-			new ClassPathResource("prompts/tarot/spreads/mind-three-card-ko-v3.md"),
-			new ClassPathResource("prompts/tarot/spreads/relationship-three-card-ko-v3.md"),
-			new ClassPathResource("prompts/tarot/spreads/choice-five-card-ko-v3.md")
+			new ClassPathResource("prompts/tarot/spreads/daily-one-card-ko-v4.md"),
+			new ClassPathResource("prompts/tarot/spreads/mind-three-card-ko-v4.md"),
+			new ClassPathResource("prompts/tarot/spreads/relationship-three-card-ko-v4.md"),
+			new ClassPathResource("prompts/tarot/spreads/choice-five-card-ko-v4.md")
 		);
 	}
 
 	private Map<String, Object> input(TarotSpreadType spread) {
 		return Map.of(
 			"question", "질문",
-			"cards", spread.positions().stream()
-				.map(position -> Map.of(
-					"cardId", "major-00-fool",
-					"position", position.id(),
+			"cards", IntStream.range(0, spread.cardCount())
+				.mapToObj(index -> Map.of(
+					"cardId", MajorArcana.all().get(index),
+					"position", spread.positions().get(index).id(),
 					"reversed", false
 				))
 				.toList()

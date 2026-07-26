@@ -79,13 +79,13 @@ app:
       model: ${openai.model:gpt-5.6-luna}
     prompts:
       tarot:
-        common: classpath:prompts/tarot/common-ko-v3.md
+        common: classpath:prompts/tarot/common-ko-v4.md
         cards: classpath:prompts/tarot/major-arcana-ko-v2.md
         spreads:
-          daily-one-card: classpath:prompts/tarot/spreads/daily-one-card-ko-v3.md
-          mind-three-card: classpath:prompts/tarot/spreads/mind-three-card-ko-v3.md
-          relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card-ko-v3.md
-          choice-five-card: classpath:prompts/tarot/spreads/choice-five-card-ko-v3.md
+          daily-one-card: classpath:prompts/tarot/spreads/daily-one-card-ko-v4.md
+          mind-three-card: classpath:prompts/tarot/spreads/mind-three-card-ko-v4.md
+          relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card-ko-v4.md
+          choice-five-card: classpath:prompts/tarot/spreads/choice-five-card-ko-v4.md
       saju: classpath:prompts/saju/birth-profile-ko-v1.md
 
   consent:

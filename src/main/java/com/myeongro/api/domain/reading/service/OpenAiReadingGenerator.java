@@ -1,5 +1,6 @@
 package com.myeongro.api.domain.reading.service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,9 +55,10 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 			throw new IllegalArgumentException("Tarot spread input is required");
 		}
 		try {
+			List<String> cardIds = selectedCardIds(spreadType, input);
 			ChatResponse response = chatModel.call(new Prompt(
 				List.of(
-					new SystemMessage(promptCatalog.prompt(spreadType)),
+					new SystemMessage(promptCatalog.prompt(spreadType, cardIds)),
 					new UserMessage(toPromptInput(kind, spreadType, question, input))
 				),
 				options(spreadType)
@@ -76,15 +78,37 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 		String question,
 		Map<String, Object> input
 	) throws JsonProcessingException {
+		Map<String, Object> readingInput = new LinkedHashMap<>(input);
+		readingInput.remove("question");
 		return objectMapper.writeValueAsString(Map.of(
 			"kind", kind.value(),
 			"spreadType", spreadType.value(),
 			"locale", "ko-KR",
 			"untrustedUserInput", Map.of(
 				"question", question,
-				"readingInput", input
+				"readingInput", readingInput
 			)
 		));
+	}
+
+	private List<String> selectedCardIds(
+		TarotSpreadType spreadType,
+		Map<String, Object> input
+	) {
+		Object value = input.get("cards");
+		if (!(value instanceof List<?> cards) || cards.size() != spreadType.cardCount()) {
+			throw new IllegalArgumentException("Selected tarot cards do not match spread");
+		}
+		return cards.stream()
+			.map(this::selectedCardId)
+			.toList();
+	}
+
+	private String selectedCardId(Object value) {
+		if (!(value instanceof Map<?, ?> card) || !(card.get("cardId") instanceof String cardId)) {
+			throw new IllegalArgumentException("Selected tarot card ID is required");
+		}
+		return cardId;
 	}
 
 	private OpenAiChatOptions options(TarotSpreadType spreadType) {
