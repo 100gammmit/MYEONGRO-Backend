@@ -39,7 +39,7 @@ app:
       model: gpt-test
     prompts:
       tarot:
-        common: classpath:prompts/tarot/common-ko-v2.md
+        common: classpath:prompts/tarot/common-ko-v3.md
         cards: classpath:prompts/tarot/major-arcana-ko-v2.md
         spreads:
           daily-one-card: classpath:prompts/tarot/spreads/daily-one-card-ko-v3.md

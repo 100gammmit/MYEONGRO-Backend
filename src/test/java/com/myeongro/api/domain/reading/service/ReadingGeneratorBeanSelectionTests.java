@@ -24,7 +24,7 @@ class ReadingGeneratorBeanSelectionTests {
 		new ApplicationContextRunner()
 			.withPropertyValues(
 				"app.reading.openai.model=gpt-test",
-				"app.reading.prompts.tarot.common=classpath:prompts/tarot/common-ko-v2.md",
+				"app.reading.prompts.tarot.common=classpath:prompts/tarot/common-ko-v3.md",
 				"app.reading.prompts.tarot.cards=classpath:prompts/tarot/major-arcana-ko-v2.md",
 				"app.reading.prompts.tarot.spreads.daily-one-card=classpath:prompts/tarot/spreads/daily-one-card-ko-v3.md",
 				"app.reading.prompts.tarot.spreads.mind-three-card=classpath:prompts/tarot/spreads/mind-three-card-ko-v3.md",
@@ -62,7 +62,7 @@ class ReadingGeneratorBeanSelectionTests {
 				.isEqualTo(new ReadingGenerationMetadata(
 					"openai",
 					"gpt-test",
-					"common-ko-v2+major-arcana-ko-v2+daily-one-card-ko-v3"
+					"common-ko-v3+major-arcana-ko-v2+daily-one-card-ko-v3"
 				));
 			assertThat(resolver.resolve(ReadingKind.SAJU, null))
 				.isEqualTo(new ReadingGenerationMetadata(
