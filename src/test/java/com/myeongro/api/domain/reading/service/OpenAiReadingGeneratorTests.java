@@ -111,8 +111,8 @@ class OpenAiReadingGeneratorTests {
 
 	private TarotPromptCatalog catalog() {
 		return new TarotPromptCatalog(
-			new ClassPathResource("prompts/tarot/common-ko-v4.md"),
-			new ClassPathResource("prompts/tarot/major-arcana-ko-v2.md"),
+			new ClassPathResource("prompts/tarot/common-ko-v5.md"),
+			new ClassPathResource("prompts/tarot/major-arcana-ko-v3.md"),
 			new ClassPathResource("prompts/tarot/spreads/daily-one-card-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/spreads/mind-three-card-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/spreads/relationship-three-card-ko-v4.md"),
