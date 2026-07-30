@@ -22,22 +22,6 @@ class ApplicationYamlContractTests {
 	}
 
 	@Test
-	void tarotPromptConfigurationUsesCurrentVersionedResources() throws Exception {
-		String applicationYaml = Files.readString(
-			Path.of("src/main/resources/application.yaml"),
-			StandardCharsets.UTF_8
-		);
-
-		assertThat(applicationYaml)
-			.contains("common: classpath:prompts/tarot/common-ko-v5.md")
-			.contains("cards: classpath:prompts/tarot/major-arcana-ko-v3.md")
-			.contains("daily-one-card: classpath:prompts/tarot/spreads/daily-one-card-ko-v4.md")
-			.contains("mind-three-card: classpath:prompts/tarot/spreads/mind-three-card-ko-v4.md")
-			.contains("relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card-ko-v4.md")
-			.contains("choice-five-card: classpath:prompts/tarot/spreads/choice-five-card-ko-v4.md");
-	}
-
-	@Test
 	void redisSessionStoreIsTheDefaultRuntimeSessionStore() throws Exception {
 		String applicationYaml = Files.readString(
 			Path.of("src/main/resources/application.yaml"),

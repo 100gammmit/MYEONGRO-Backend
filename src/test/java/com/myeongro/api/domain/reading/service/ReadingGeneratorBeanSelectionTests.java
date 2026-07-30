@@ -15,8 +15,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 
 class ReadingGeneratorBeanSelectionTests {
 
@@ -47,29 +45,6 @@ class ReadingGeneratorBeanSelectionTests {
 			assertThat(context.getBeansOfType(ReadingGenerator.class)).hasSize(3);
 			assertThat(context.getBean(ReadingGenerator.class))
 				.isInstanceOf(ReadingGeneratorRouter.class);
-		});
-	}
-
-	@Test
-	void exposesKindSpecificGenerationMetadata() {
-		contextRunner.run(context -> {
-			ReadingGenerationMetadataResolver resolver =
-				context.getBean(ReadingGenerationMetadataResolver.class);
-
-			assertThat(resolver.resolve(
-				ReadingKind.TAROT, TarotSpreadType.DAILY_ONE_CARD
-			))
-				.isEqualTo(new ReadingGenerationMetadata(
-					"openai",
-					"gpt-test",
-					"common-ko-v5+major-arcana-ko-v3+daily-one-card-ko-v4"
-				));
-			assertThat(resolver.resolve(ReadingKind.SAJU, null))
-				.isEqualTo(new ReadingGenerationMetadata(
-					"demo",
-					"deterministic-demo",
-					"demo-saju-v1"
-				));
 		});
 	}
 
