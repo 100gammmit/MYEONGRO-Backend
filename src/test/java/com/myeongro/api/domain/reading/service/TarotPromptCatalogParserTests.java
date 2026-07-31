@@ -27,7 +27,9 @@ class TarotPromptCatalogParserTests {
 
 		assertThat(prompt)
 			.contains("synthetic-preamble")
+			.contains(heading("major-02-high-priestess"))
 			.contains("synthetic-body-major-02-high-priestess")
+			.contains("synthetic-detail-major-02-high-priestess")
 			.contains("synthetic-body-major-00-fool")
 			.contains("synthetic-postamble")
 			.doesNotContain("synthetic-body-major-01-magician");
