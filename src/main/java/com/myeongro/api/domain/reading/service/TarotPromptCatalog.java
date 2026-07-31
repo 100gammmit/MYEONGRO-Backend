@@ -82,35 +82,59 @@ public class TarotPromptCatalog {
 	private CardPromptParts parseCards(String content) {
 		List<String> lines = content.lines().toList();
 		Map<String, String> meanings = new LinkedHashMap<>();
-		int firstMeaning = -1;
-		int lastMeaning = -1;
+		int firstCard = -1;
+		int currentCard = -1;
+		int postamble = lines.size();
 		for (int index = 0; index < lines.size(); index++) {
 			String line = lines.get(index);
-			if (!line.startsWith("- major-")) {
+			if (line.equals("## 카드 공통 안내")) {
+				addCardSection(lines, currentCard, index, meanings);
+				currentCard = -1;
+				postamble = index;
+				break;
+			}
+			if (!line.startsWith("## major-")) {
 				continue;
 			}
-			int separator = line.indexOf(" / ");
-			if (separator < 0) {
-				throw new IllegalArgumentException("Tarot card prompt entry is invalid");
+			addCardSection(lines, currentCard, index, meanings);
+			if (firstCard < 0) {
+				firstCard = index;
 			}
-			String cardId = line.substring(2, separator);
-			if (!MajorArcana.contains(cardId) || meanings.put(cardId, line) != null) {
-				throw new IllegalArgumentException("Tarot card prompt entry is invalid");
-			}
-			if (firstMeaning < 0) {
-				firstMeaning = index;
-			}
-			lastMeaning = index;
+			currentCard = index;
 		}
+		addCardSection(lines, currentCard, postamble, meanings);
 		if (meanings.size() != MajorArcana.all().size()
 			|| !meanings.keySet().containsAll(MajorArcana.all())) {
 			throw new IllegalArgumentException("All major arcana prompt entries are required");
 		}
 		return new CardPromptParts(
-			String.join("\n", lines.subList(0, firstMeaning)).strip(),
+			String.join("\n", lines.subList(0, firstCard)).strip(),
 			Map.copyOf(meanings),
-			String.join("\n", lines.subList(lastMeaning + 1, lines.size())).strip()
+			String.join("\n", lines.subList(postamble, lines.size())).strip()
 		);
+	}
+
+	private void addCardSection(
+		List<String> lines,
+		int start,
+		int end,
+		Map<String, String> meanings
+	) {
+		if (start < 0) {
+			return;
+		}
+		String heading = lines.get(start);
+		int separator = heading.indexOf(" / ");
+		if (separator < 0) {
+			throw new IllegalArgumentException("Tarot card prompt entry is invalid");
+		}
+		String cardId = heading.substring("## ".length(), separator);
+		String body = String.join("\n", lines.subList(start + 1, end)).strip();
+		String section = String.join("\n", lines.subList(start, end)).strip();
+		if (!MajorArcana.contains(cardId) || body.isBlank()
+			|| meanings.put(cardId, section) != null) {
+			throw new IllegalArgumentException("Tarot card prompt entry is invalid");
+		}
 	}
 
 	private record PromptPart(String version, String content) {

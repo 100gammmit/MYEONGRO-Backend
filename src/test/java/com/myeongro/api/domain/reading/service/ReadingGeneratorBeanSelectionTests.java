@@ -22,8 +22,8 @@ class ReadingGeneratorBeanSelectionTests {
 		new ApplicationContextRunner()
 			.withPropertyValues(
 				"app.reading.openai.model=gpt-test",
-				"app.reading.prompts.tarot.common=classpath:prompts/tarot/common-ko-v5.md",
-				"app.reading.prompts.tarot.cards=classpath:prompts/tarot/arcana/major/major-arcana-ko-v3.md",
+				"app.reading.prompts.tarot.common=classpath:prompts/tarot/common-ko-v6.md",
+				"app.reading.prompts.tarot.cards=classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md",
 				"app.reading.prompts.tarot.spreads.daily-one-card=classpath:prompts/tarot/spreads/daily-one-card/daily-one-card-ko-v4.md",
 				"app.reading.prompts.tarot.spreads.mind-three-card=classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v4.md",
 				"app.reading.prompts.tarot.spreads.relationship-three-card=classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v4.md",
