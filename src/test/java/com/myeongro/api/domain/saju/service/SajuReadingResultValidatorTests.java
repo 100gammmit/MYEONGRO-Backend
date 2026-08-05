@@ -37,6 +37,30 @@ class SajuReadingResultValidatorTests {
 	}
 
 	@Test
+	void rejectsDuplicateEvidenceKeysOutsideTheOpenAiSchema() {
+		SajuReadingResult valid = result("차분히 가능성을 살펴보세요", "annualFlow");
+		SajuReadingSection core = valid.natalSections().getFirst();
+		SajuReadingSection duplicateCore = new SajuReadingSection(
+			core.id(), core.heading(), core.body(), List.of("dayMaster", "dayMaster")
+		);
+		SajuReadingResult duplicate = new SajuReadingResult(
+			valid.title(), valid.summary(),
+			List.of(
+				duplicateCore,
+				valid.natalSections().get(1),
+				valid.natalSections().get(2),
+				valid.natalSections().get(3)
+			),
+			valid.annualReading(), valid.questionReading(), valid.guidance(), valid.disclaimer()
+		);
+
+		assertThatThrownBy(() -> validator.validate(
+			duplicate, 2026, "career", trusted("exact")
+		)).isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("evidence");
+	}
+
+	@Test
 	void rejectsWrongSectionOrderYearOrFocusArea() {
 		SajuReadingResult valid = result("차분히 가능성을 살펴보세요", "annualFlow");
 		SajuReadingResult wrongOrder = new SajuReadingResult(

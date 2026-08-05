@@ -105,6 +105,7 @@ public class SajuReadingResultValidator {
 
 	private void validateEvidence(List<String> evidenceKeys, Set<String> availableEvidence) {
 		if (evidenceKeys == null || evidenceKeys.isEmpty()
+			|| new HashSet<>(evidenceKeys).size() != evidenceKeys.size()
 			|| evidenceKeys.stream().anyMatch(key -> !availableEvidence.contains(key))) {
 			throw new IllegalArgumentException("Saju evidence key is invalid");
 		}

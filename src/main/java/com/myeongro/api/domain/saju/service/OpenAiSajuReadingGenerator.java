@@ -222,7 +222,6 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 		Map<String, Object> evidence = Map.of(
 			"type", "array",
 			"minItems", 1,
-			"uniqueItems", true,
 			"items", Map.of("type", "string", "enum", evidenceKeys)
 		);
 		Map<String, Object> section = Map.of(

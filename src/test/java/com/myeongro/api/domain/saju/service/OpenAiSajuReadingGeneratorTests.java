@@ -86,7 +86,7 @@ class OpenAiSajuReadingGeneratorTests {
 		Map<String, Object> schema = options.getResponseFormat().getJsonSchema().getSchema();
 		assertThat(schema).containsEntry("additionalProperties", false);
 		assertThat(schema.toString())
-			.doesNotContain("currentLuckCycle", "calculationVersion");
+			.doesNotContain("currentLuckCycle", "calculationVersion", "uniqueItems");
 	}
 
 	@Test
