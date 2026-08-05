@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
-import com.myeongro.api.domain.reading.dto.ReadingResult;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
@@ -156,7 +156,7 @@ public class ReadingCreationService {
 		NormalizedReadingInput input,
 		PendingReadingCreation pending
 	) {
-		ReadingResult result;
+		GeneratedReading result;
 		try {
 			result = generator.generate(
 				input.kind(),

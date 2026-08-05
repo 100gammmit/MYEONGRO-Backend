@@ -15,7 +15,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
@@ -45,7 +47,7 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 	}
 
 	@Override
-	public ReadingResult generate(
+	public GeneratedReading generate(
 		ReadingKind kind,
 		TarotSpreadType spreadType,
 		String question,
@@ -66,7 +68,11 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 			String content = response.getResult().getOutput().getText();
 			ReadingResult result = objectMapper.readValue(content, ReadingResult.class);
 			resultValidator.validate(spreadType, result);
-			return result;
+			return new GeneratedReading(
+				result.title(),
+				objectMapper.convertValue(result, new TypeReference<>() {
+				})
+			);
 		} catch (RuntimeException | JsonProcessingException exception) {
 			throw new OpenAiReadingGenerationException();
 		}

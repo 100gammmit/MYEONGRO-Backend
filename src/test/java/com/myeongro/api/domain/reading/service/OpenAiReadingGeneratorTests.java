@@ -19,6 +19,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.core.io.ClassPathResource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.MajorArcana;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
@@ -32,7 +33,12 @@ class OpenAiReadingGeneratorTests {
 		CapturingChatModel chatModel = new CapturingChatModel(response(spread));
 		OpenAiReadingGenerator generator = generator(chatModel);
 
-		generator.generate(ReadingKind.TAROT, spread, "질문", input(spread));
+		GeneratedReading generated = generator.generate(
+			ReadingKind.TAROT, spread, "질문", input(spread)
+		);
+		assertThat(generated.payload()).containsOnlyKeys(
+			"title", "summary", "sections", "guidance", "disclaimer"
+		);
 
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
 		assertThat(options.getMaxCompletionTokens()).isEqualTo(spread.maxOutputTokens());

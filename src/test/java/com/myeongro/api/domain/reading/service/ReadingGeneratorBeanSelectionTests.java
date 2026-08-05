@@ -15,6 +15,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.saju.service.OpenAiSajuReadingGenerator;
+import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 
 class ReadingGeneratorBeanSelectionTests {
 
@@ -27,14 +29,20 @@ class ReadingGeneratorBeanSelectionTests {
 				"app.reading.prompts.tarot.spreads.daily-one-card=classpath:prompts/tarot/spreads/daily-one-card/daily-one-card-ko-v4.md",
 				"app.reading.prompts.tarot.spreads.mind-three-card=classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v4.md",
 				"app.reading.prompts.tarot.spreads.relationship-three-card=classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v4.md",
-				"app.reading.prompts.tarot.spreads.choice-five-card=classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v4.md"
+				"app.reading.prompts.tarot.spreads.choice-five-card=classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v4.md",
+				"app.reading.prompts.saju.common=classpath:prompts/saju/common-ko-v1.md",
+				"app.reading.prompts.saju.interpretation=classpath:prompts/saju/interpretation/interpretation-guide-ko-v1.md",
+				"app.reading.prompts.saju.reports.birth-annual-question=classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md"
 			)
 			.withBean(ObjectMapper.class, ObjectMapper::new)
 			.withBean(TarotReadingResultValidator.class)
+			.withBean(SajuReadingResultValidator.class)
 			.withUserConfiguration(TarotPromptCatalog.class)
+			.withUserConfiguration(SajuPromptCatalog.class)
 			.withUserConfiguration(TestChatModelConfig.class)
 			.withUserConfiguration(DemoReadingGenerator.class)
 			.withUserConfiguration(OpenAiReadingGenerator.class)
+			.withUserConfiguration(OpenAiSajuReadingGenerator.class)
 			.withUserConfiguration(ReadingGeneratorRouter.class)
 			.withUserConfiguration(ReadingGenerationMetadataResolver.class);
 
@@ -42,7 +50,7 @@ class ReadingGeneratorBeanSelectionTests {
 	void exposesRouterAsPrimaryReadingGenerator() {
 		contextRunner.run(context -> {
 			assertThat(context).hasNotFailed();
-			assertThat(context.getBeansOfType(ReadingGenerator.class)).hasSize(3);
+			assertThat(context.getBeansOfType(ReadingGenerator.class)).hasSize(4);
 			assertThat(context.getBean(ReadingGenerator.class))
 				.isInstanceOf(ReadingGeneratorRouter.class);
 		});

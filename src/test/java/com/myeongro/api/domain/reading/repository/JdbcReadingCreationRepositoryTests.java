@@ -24,8 +24,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.myeongro.api.domain.reading.dto.ReadingResult;
-import com.myeongro.api.domain.reading.dto.ReadingSection;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
@@ -223,14 +222,16 @@ class JdbcReadingCreationRepositoryTests {
 			.build();
 	}
 
-	private ReadingResult result() {
-		return new ReadingResult(
-			"Completed title",
-			"Summary",
-			List.of(new ReadingSection("today", "Heading", "Body")),
-			List.of("Guidance"),
-			"Disclaimer"
-		);
+	private GeneratedReading result() {
+		return new GeneratedReading("Completed title", Map.of(
+			"title", "Completed title",
+			"summary", "Summary",
+			"sections", List.of(Map.of(
+				"position", "today", "heading", "Heading", "body", "Body"
+			)),
+			"guidance", List.of("Guidance"),
+			"disclaimer", "Disclaimer"
+		));
 	}
 
 	private ResultSet resultSetFor(String sql) throws SQLException {

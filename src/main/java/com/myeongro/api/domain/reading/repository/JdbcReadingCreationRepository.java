@@ -16,7 +16,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
-import com.myeongro.api.domain.reading.dto.ReadingResult;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
@@ -141,7 +141,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	@Override
 	public CreatedReadingResponse completePending(
 		PendingReadingCreation pending,
-		ReadingResult result
+		GeneratedReading result
 	) {
 		try {
 			jdbcTemplate.queryForObject(
@@ -150,7 +150,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 				pending.readingId(),
 				pending.generationId(),
 				result.title(),
-				toJson(result)
+				toJson(result.payload())
 			);
 			return findCreatedReading(pending.readingId());
 		} catch (DataAccessException exception) {
@@ -213,14 +213,6 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 			return objectMapper.writeValueAsString(input);
 		} catch (JsonProcessingException exception) {
 			throw new IllegalArgumentException("Invalid reading input", exception);
-		}
-	}
-
-	private String toJson(ReadingResult result) {
-		try {
-			return objectMapper.writeValueAsString(result);
-		} catch (JsonProcessingException exception) {
-			throw new IllegalArgumentException("Invalid reading result", exception);
 		}
 	}
 

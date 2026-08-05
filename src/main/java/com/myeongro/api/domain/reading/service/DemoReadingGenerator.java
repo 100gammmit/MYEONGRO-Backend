@@ -5,6 +5,9 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.dto.ReadingSection;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
@@ -12,18 +15,25 @@ import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 
 @Component
 public class DemoReadingGenerator implements ReadingGenerator {
+	private final ObjectMapper objectMapper;
+
+	public DemoReadingGenerator(ObjectMapper objectMapper) {
+		this.objectMapper = objectMapper;
+	}
 
 	@Override
-	public ReadingResult generate(
+	public GeneratedReading generate(
 		ReadingKind kind,
 		TarotSpreadType spreadType,
 		String question,
 		Map<String, Object> input
 	) {
-		if (kind == ReadingKind.TAROT) {
-			return tarot(question);
-		}
-		return saju(question);
+		ReadingResult result = kind == ReadingKind.TAROT ? tarot(question) : saju(question);
+		return new GeneratedReading(
+			result.title(),
+			objectMapper.convertValue(result, new TypeReference<>() {
+			})
+		);
 	}
 
 	private ReadingResult tarot(String question) {

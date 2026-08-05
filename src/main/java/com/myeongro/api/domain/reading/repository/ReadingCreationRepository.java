@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
-import com.myeongro.api.domain.reading.dto.ReadingResult;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 
 public interface ReadingCreationRepository {
 
@@ -18,7 +18,7 @@ public interface ReadingCreationRepository {
 
 	CreatedReadingResponse completePending(
 		PendingReadingCreation pending,
-		ReadingResult result
+		GeneratedReading result
 	);
 
 	void failPending(PendingReadingCreation pending, String errorCode);

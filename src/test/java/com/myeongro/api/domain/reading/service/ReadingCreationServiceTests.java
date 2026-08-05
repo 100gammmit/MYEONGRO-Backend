@@ -25,6 +25,7 @@ import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.dto.ReadingSection;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
@@ -305,6 +306,7 @@ class ReadingCreationServiceTests {
 		ReadingGenerator generator
 	) {
 		TarotPromptCatalog catalog = org.mockito.Mockito.mock(TarotPromptCatalog.class);
+		SajuPromptCatalog sajuCatalog = org.mockito.Mockito.mock(SajuPromptCatalog.class);
 		when(catalog.version(TarotSpreadType.RELATIONSHIP_THREE_CARD))
 			.thenReturn("common+cards+relationship");
 		drawSessionService = org.mockito.Mockito.mock(
@@ -348,7 +350,7 @@ class ReadingCreationServiceTests {
 				new ClassPathResource("saju/birth-places/kr-admin-v1.json")
 			)),
 			new ObjectMapper(),
-			new ReadingGenerationMetadataResolver("gpt-test", catalog),
+			new ReadingGenerationMetadataResolver("gpt-test", catalog, sajuCatalog),
 			drawSessionService,
 			sajuInputAssembler,
 			Clock.fixed(Instant.parse("2026-08-05T00:00:00Z"), ZoneOffset.UTC)
@@ -364,7 +366,11 @@ class ReadingCreationServiceTests {
 	}
 
 	private ReadingGenerator successfulGenerator() {
-		return (kind, spread, question, input) -> result();
+		return (kind, spread, question, input) -> new GeneratedReading(
+			result().title(),
+			new ObjectMapper().convertValue(result(), new com.fasterxml.jackson.core.type.TypeReference<>() {
+			})
+		);
 	}
 
 	private ReadingCreateRequest request() {

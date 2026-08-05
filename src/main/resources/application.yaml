@@ -86,7 +86,11 @@ app:
           mind-three-card: classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v4.md
           relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v4.md
           choice-five-card: classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v4.md
-      saju: classpath:prompts/saju/birth-profile-ko-v1.md
+      saju:
+        common: classpath:prompts/saju/common-ko-v1.md
+        interpretation: classpath:prompts/saju/interpretation/interpretation-guide-ko-v1.md
+        reports:
+          birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md
 
   consent:
     versions:

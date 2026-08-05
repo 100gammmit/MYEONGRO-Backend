@@ -10,27 +10,28 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import com.myeongro.api.domain.reading.dto.ReadingResult;
+import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
+import com.myeongro.api.domain.saju.service.OpenAiSajuReadingGenerator;
 
 class ReadingGeneratorRouterTests {
 
 	private final OpenAiReadingGenerator openAiGenerator = mock(OpenAiReadingGenerator.class);
-	private final DemoReadingGenerator demoGenerator = mock(DemoReadingGenerator.class);
+	private final OpenAiSajuReadingGenerator sajuGenerator = mock(OpenAiSajuReadingGenerator.class);
 	private final ReadingGeneratorRouter router = new ReadingGeneratorRouter(
 		openAiGenerator,
-		demoGenerator
+		sajuGenerator
 	);
 
 	@Test
 	void routesTarotOnlyToOpenAiGenerator() {
 		Map<String, Object> input = Map.of("cards", "three cards");
-		ReadingResult expected = mock(ReadingResult.class);
+		GeneratedReading expected = mock(GeneratedReading.class);
 		when(openAiGenerator.generate(ReadingKind.TAROT, TarotSpreadType.MIND_THREE_CARD, "질문", input))
 			.thenReturn(expected);
 
-		ReadingResult actual = router.generate(
+		GeneratedReading actual = router.generate(
 			ReadingKind.TAROT, TarotSpreadType.MIND_THREE_CARD, "질문", input
 		);
 
@@ -38,22 +39,22 @@ class ReadingGeneratorRouterTests {
 		verify(openAiGenerator).generate(
 			ReadingKind.TAROT, TarotSpreadType.MIND_THREE_CARD, "질문", input
 		);
-		verify(demoGenerator, never()).generate(
+		verify(sajuGenerator, never()).generate(
 			ReadingKind.TAROT, TarotSpreadType.MIND_THREE_CARD, "질문", input
 		);
 	}
 
 	@Test
-	void routesSajuOnlyToDemoGenerator() {
+	void routesSajuOnlyToOpenAiSajuGenerator() {
 		Map<String, Object> input = Map.of("profile", "birth profile");
-		ReadingResult expected = mock(ReadingResult.class);
-		when(demoGenerator.generate(ReadingKind.SAJU, null, "질문", input))
+		GeneratedReading expected = mock(GeneratedReading.class);
+		when(sajuGenerator.generate(ReadingKind.SAJU, null, "질문", input))
 			.thenReturn(expected);
 
-		ReadingResult actual = router.generate(ReadingKind.SAJU, null, "질문", input);
+		GeneratedReading actual = router.generate(ReadingKind.SAJU, null, "질문", input);
 
 		assertThat(actual).isSameAs(expected);
-		verify(demoGenerator).generate(ReadingKind.SAJU, null, "질문", input);
+		verify(sajuGenerator).generate(ReadingKind.SAJU, null, "질문", input);
 		verify(openAiGenerator, never()).generate(ReadingKind.SAJU, null, "질문", input);
 	}
 }

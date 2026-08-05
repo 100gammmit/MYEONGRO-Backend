@@ -9,22 +9,18 @@ import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 @Component
 public class ReadingGenerationMetadataResolver {
 
-	private static final ReadingGenerationMetadata SAJU_DEMO_METADATA =
-		new ReadingGenerationMetadata(
-			"demo",
-			"deterministic-demo",
-			"demo-saju-v1"
-		);
-
 	private final String openAiModel;
-	private final TarotPromptCatalog promptCatalog;
+	private final TarotPromptCatalog tarotPromptCatalog;
+	private final SajuPromptCatalog sajuPromptCatalog;
 
 	public ReadingGenerationMetadataResolver(
 		@Value("${app.reading.openai.model}") String openAiModel,
-		TarotPromptCatalog promptCatalog
+		TarotPromptCatalog tarotPromptCatalog,
+		SajuPromptCatalog sajuPromptCatalog
 	) {
 		this.openAiModel = openAiModel;
-		this.promptCatalog = promptCatalog;
+		this.tarotPromptCatalog = tarotPromptCatalog;
+		this.sajuPromptCatalog = sajuPromptCatalog;
 	}
 
 	public ReadingGenerationMetadata resolve(
@@ -35,9 +31,13 @@ public class ReadingGenerationMetadataResolver {
 			return new ReadingGenerationMetadata(
 				"openai",
 				openAiModel,
-				promptCatalog.version(spreadType)
+				tarotPromptCatalog.version(spreadType)
 			);
 		}
-		return SAJU_DEMO_METADATA;
+		return new ReadingGenerationMetadata(
+			"openai",
+			openAiModel,
+			sajuPromptCatalog.version()
+		);
 	}
 }
