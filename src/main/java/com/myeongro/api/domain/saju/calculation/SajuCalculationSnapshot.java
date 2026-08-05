@@ -29,6 +29,7 @@ public record SajuCalculationSnapshot(
 	public record TimeCorrection(
 		String civilTime,
 		String trueSolarTime,
+		String engineCivilTime,
 		String zoneOffset,
 		double longitudeCorrectionMinutes,
 		double equationOfTimeMinutes
@@ -86,10 +87,12 @@ public record SajuCalculationSnapshot(
 		int candidateCount,
 		String rangeStart,
 		String rangeEnd,
-		List<String> varyingFields
+		List<String> varyingFields,
+		List<String> candidateZoneOffsets
 	) {
 		public Uncertainty {
 			varyingFields = List.copyOf(varyingFields);
+			candidateZoneOffsets = List.copyOf(candidateZoneOffsets);
 		}
 	}
 }

@@ -26,12 +26,15 @@ class ApproximateBirthTimeResolverTests {
 	void evaluatesEveryMinuteAndKeepsOnlyFactsSharedByAllCandidates() {
 		TrueSolarTimeCorrector corrector = org.mockito.Mockito.mock(TrueSolarTimeCorrector.class);
 		LunarJavaFourPillarsAdapter adapter = org.mockito.Mockito.mock(LunarJavaFourPillarsAdapter.class);
-		when(corrector.correct(any(), anyDouble())).thenAnswer(invocation -> {
+		when(corrector.correctCandidates(any(), anyDouble())).thenAnswer(invocation -> {
 			LocalDateTime value = invocation.getArgument(0);
-			return new TrueSolarTimeCorrector.Correction(value, value, "+09:00", 0, 0, 0);
+			return List.of(new TrueSolarTimeCorrector.Correction(
+				value, value, value.minusHours(1), "+09:00", 0, 0, 0
+			));
 		});
-		when(adapter.calculate(any(), org.mockito.ArgumentMatchers.eq(true), any(), anyInt()))
-			.thenAnswer(invocation -> candidate(invocation.<LocalDateTime>getArgument(0).getMinute()));
+		when(adapter.calculate(
+			any(), any(), org.mockito.ArgumentMatchers.eq(true), any(), anyInt()
+		)).thenAnswer(invocation -> candidate(invocation.<LocalDateTime>getArgument(0).getMinute()));
 
 		var resolution = new ApproximateBirthTimeResolver(corrector, adapter).resolve(
 			LocalDateTime.parse("1992-08-17T12:00"),
@@ -44,7 +47,9 @@ class ApproximateBirthTimeResolverTests {
 		assertThat(resolution.trusted().pillars().year().ganZhi()).isEqualTo("壬申");
 		assertThat(resolution.trusted().pillars().time()).isNull();
 		assertThat(resolution.uncertainty().varyingFields()).contains("pillars.time");
-		verify(adapter, times(121)).calculate(any(), org.mockito.ArgumentMatchers.eq(true), any(), anyInt());
+		verify(adapter, times(121)).calculate(
+			any(), any(), org.mockito.ArgumentMatchers.eq(true), any(), anyInt()
+		);
 	}
 
 	private Candidate candidate(int minute) {

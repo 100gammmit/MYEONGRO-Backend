@@ -17,31 +17,29 @@ import com.myeongro.api.domain.saju.model.BirthTimePrecision;
 import com.myeongro.api.domain.saju.model.LuckDirectionBasis;
 import com.myeongro.api.domain.saju.place.SajuBirthPlace;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
+import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 
 @Service
 public class SajuCalculationService {
 
 	private final SajuBirthPlaceCatalog birthPlaceCatalog;
 	private final TrueSolarTimeCorrector corrector;
-	private final LunarJavaFourPillarsAdapter adapter;
 	private final ApproximateBirthTimeResolver approximateResolver;
 
 	public SajuCalculationService(
 		SajuBirthPlaceCatalog birthPlaceCatalog,
 		TrueSolarTimeCorrector corrector,
-		LunarJavaFourPillarsAdapter adapter,
 		ApproximateBirthTimeResolver approximateResolver
 	) {
 		this.birthPlaceCatalog = birthPlaceCatalog;
 		this.corrector = corrector;
-		this.adapter = adapter;
 		this.approximateResolver = approximateResolver;
 	}
 
 	public SajuCalculationSnapshot calculate(Map<String, Object> birthProfile, int targetYear) {
 		try {
 			return doCalculate(birthProfile, targetYear);
-		} catch (SajuCalculationException exception) {
+		} catch (SajuCalculationException | InvalidReadingRequestException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
 			throw new SajuCalculationException(exception);
@@ -83,33 +81,36 @@ public class SajuCalculationService {
 			uncertainty = new Uncertainty(
 				"unknown", resolution.uncertainty().candidateCount(),
 				resolution.uncertainty().rangeStart(), resolution.uncertainty().rangeEnd(),
-				varying.stream().distinct().toList()
+				varying.stream().distinct().toList(),
+				resolution.uncertainty().candidateZoneOffsets()
 			);
 		} else {
 			LocalTime birthTime = LocalTime.parse(requiredString(birthProfile, "birthTime"));
 			LocalDateTime civilTime = birthDate.atTime(birthTime);
 			if (precision == BirthTimePrecision.APPROXIMATE) {
-				var corrected = corrector.correct(civilTime, place.longitude());
+				var centerCorrections = corrector.correctCandidates(civilTime, place.longitude());
 				Resolution resolution = approximateResolver.resolve(
 					civilTime, place.longitude(), luckBasis, targetYear
 				);
 				candidate = resolution.trusted();
-				correction = new TimeCorrection(
-					corrected.civilTime().toString(), corrected.trueSolarTime().toString(),
-					corrected.zoneOffset(), corrected.longitudeCorrectionMinutes(),
-					corrected.equationOfTimeMinutes()
-				);
+				correction = timeCorrection(centerCorrections);
 				limitations.addAll(resolution.limitations());
 				uncertainty = resolution.uncertainty();
 			} else {
-				var corrected = corrector.correct(civilTime, place.longitude());
-				candidate = adapter.calculate(corrected.trueSolarTime(), true, luckBasis, targetYear);
-				correction = new TimeCorrection(
-					corrected.civilTime().toString(), corrected.trueSolarTime().toString(),
-					corrected.zoneOffset(), corrected.longitudeCorrectionMinutes(),
-					corrected.equationOfTimeMinutes()
+				var corrections = corrector.correctCandidates(civilTime, place.longitude());
+				if (corrections.isEmpty()) {
+					throw new InvalidReadingRequestException(
+						"INVALID_BIRTH_TIME", "birthProfile.birthTime",
+						"해당 출생시각은 당시 표준시 변경으로 존재하지 않습니다."
+					);
+				}
+				Resolution resolution = approximateResolver.resolveExact(
+					corrections, luckBasis, targetYear
 				);
-				uncertainty = new Uncertainty("exact", 1, civilTime.toString(), civilTime.toString(), List.of());
+				candidate = resolution.trusted();
+				correction = timeCorrection(corrections);
+				limitations.addAll(resolution.limitations());
+				uncertainty = resolution.uncertainty();
 			}
 		}
 		if (luckBasis == LuckDirectionBasis.UNSPECIFIED) {
@@ -131,6 +132,20 @@ public class SajuCalculationService {
 			candidate.annualFortune(),
 			limitations.stream().distinct().map(Enum::name).toList(),
 			uncertainty
+		);
+	}
+
+	private TimeCorrection timeCorrection(
+		List<TrueSolarTimeCorrector.Correction> corrections
+	) {
+		if (corrections.size() != 1) {
+			return null;
+		}
+		var corrected = corrections.getFirst();
+		return new TimeCorrection(
+			corrected.civilTime().toString(), corrected.trueSolarTime().toString(),
+			corrected.engineCivilTime().toString(), corrected.zoneOffset(),
+			corrected.longitudeCorrectionMinutes(), corrected.equationOfTimeMinutes()
 		);
 	}
 

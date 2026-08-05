@@ -2,6 +2,7 @@ package com.myeongro.api.domain.saju.calculation;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import org.springframework.stereotype.Component;
 
@@ -9,7 +10,24 @@ import org.springframework.stereotype.Component;
 public class TrueSolarTimeCorrector {
 
 	public Correction correct(LocalDateTime civilTime, double longitude) {
-		ZoneOffset offset = civilTime.atZone(SajuCalculationRules.BIRTH_ZONE).getOffset();
+		List<Correction> candidates = correctCandidates(civilTime, longitude);
+		if (candidates.size() != 1) {
+			throw new IllegalArgumentException("Civil time is missing or ambiguous");
+		}
+		return candidates.getFirst();
+	}
+
+	public List<Correction> correctCandidates(LocalDateTime civilTime, double longitude) {
+		return SajuCalculationRules.BIRTH_ZONE.getRules().getValidOffsets(civilTime).stream()
+			.map(offset -> correct(civilTime, longitude, offset))
+			.toList();
+	}
+
+	private Correction correct(
+		LocalDateTime civilTime,
+		double longitude,
+		ZoneOffset offset
+	) {
 		double standardMeridian = offset.getTotalSeconds() / 3600d * 15d;
 		double longitudeMinutes = (longitude - standardMeridian) * 4d;
 		double equationMinutes = equationOfTimeMinutes(civilTime.getDayOfYear());
@@ -17,6 +35,9 @@ public class TrueSolarTimeCorrector {
 		return new Correction(
 			civilTime,
 			civilTime.plusSeconds(totalSeconds),
+			civilTime.toInstant(offset)
+				.atOffset(SajuCalculationRules.ENGINE_OFFSET)
+				.toLocalDateTime(),
 			offset.toString(),
 			round(longitudeMinutes),
 			round(equationMinutes),
@@ -38,6 +59,7 @@ public class TrueSolarTimeCorrector {
 	public record Correction(
 		LocalDateTime civilTime,
 		LocalDateTime trueSolarTime,
+		LocalDateTime engineCivilTime,
 		String zoneOffset,
 		double longitudeCorrectionMinutes,
 		double equationOfTimeMinutes,

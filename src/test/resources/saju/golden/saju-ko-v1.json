@@ -12,15 +12,27 @@
     },
     {
       "id": "lichun-before-female",
-      "profile": {"birthDate":"2020-02-04","birthTime":"16:30","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"female"},
+      "profile": {"birthDate":"2020-02-04","birthTime":"18:00","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"female"},
       "targetYear": 2026,
-      "expectedSummary": "己亥/丁丑/丁丑/戊申/丁/丙午/forward"
+      "expectedSummary": "己亥/丁丑/丁丑/己酉/丁/丙午/forward"
     },
     {
       "id": "lichun-after-female",
-      "profile": {"birthDate":"2020-02-04","birthTime":"18:00","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"female"},
+      "profile": {"birthDate":"2020-02-04","birthTime":"18:10","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"female"},
       "targetYear": 2026,
       "expectedSummary": "庚子/戊寅/丁丑/己酉/丁/丙午/backward"
+    },
+    {
+      "id": "monthly-jie-before",
+      "profile": {"birthDate":"2020-03-05","birthTime":"11:55","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "庚子/戊寅/丁未/丙午/丁/丙午/forward"
+    },
+    {
+      "id": "monthly-jie-after",
+      "profile": {"birthDate":"2020-03-05","birthTime":"11:58","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "庚子/己卯/丁未/丙午/丁/丙午/forward"
     },
     {
       "id": "historical-kst-offset",

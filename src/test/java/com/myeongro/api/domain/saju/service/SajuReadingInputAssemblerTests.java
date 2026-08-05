@@ -103,7 +103,10 @@ class SajuReadingInputAssemblerTests {
 			null, new Pillars(pillar, pillar, pillar, pillar), "乙",
 			Map.of("wood", 1), List.of(), null,
 			new AnnualFortune(2026, "丙午", "伤官"),
-			List.of(), new Uncertainty("exact", 1, "1992-08-17T12:00", "1992-08-17T12:00", List.of())
+			List.of(), new Uncertainty(
+				"exact", 1, "1992-08-17T12:00", "1992-08-17T12:00",
+				List.of(), List.of("+09:00")
+			)
 		);
 	}
 }

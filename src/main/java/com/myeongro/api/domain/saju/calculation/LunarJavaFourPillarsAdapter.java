@@ -54,38 +54,39 @@ public class LunarJavaFourPillarsAdapter {
 
 	public Candidate calculate(
 		LocalDateTime trueSolarTime,
+		LocalDateTime engineCivilTime,
 		boolean includeTime,
 		LuckDirectionBasis luckDirectionBasis,
 		int targetYear
 	) {
-		Solar solar = Solar.fromYmdHms(
+		Solar trueSolar = Solar.fromYmdHms(
 			trueSolarTime.getYear(), trueSolarTime.getMonthValue(), trueSolarTime.getDayOfMonth(),
 			trueSolarTime.getHour(), trueSolarTime.getMinute(), trueSolarTime.getSecond()
 		);
-		Lunar lunar = solar.getLunar();
-		EightChar eightChar = lunar.getEightChar();
-		eightChar.setSect(SajuCalculationRules.DAY_BOUNDARY_SECT);
+		Solar engineSolar = Solar.fromYmdHms(
+			engineCivilTime.getYear(), engineCivilTime.getMonthValue(), engineCivilTime.getDayOfMonth(),
+			engineCivilTime.getHour(), engineCivilTime.getMinute(), engineCivilTime.getSecond()
+		);
+		EightChar solarEightChar = trueSolar.getLunar().getEightChar();
+		solarEightChar.setSect(SajuCalculationRules.DAY_BOUNDARY_SECT);
+		EightChar termEightChar = engineSolar.getLunar().getEightChar();
+		String dayMaster = solarEightChar.getDayGan();
 
 		Pillar year = pillar(
-			eightChar.getYear(), eightChar.getYearWuXing(), eightChar.getYearShiShenGan(),
-			eightChar.getYearShiShenZhi()
+			termEightChar.getYear(), termEightChar.getYearWuXing(), dayMaster
 		);
 		Pillar month = pillar(
-			eightChar.getMonth(), eightChar.getMonthWuXing(), eightChar.getMonthShiShenGan(),
-			eightChar.getMonthShiShenZhi()
+			termEightChar.getMonth(), termEightChar.getMonthWuXing(), dayMaster
 		);
 		Pillar day = pillar(
-			eightChar.getDay(), eightChar.getDayWuXing(), eightChar.getDayShiShenGan(),
-			eightChar.getDayShiShenZhi()
+			solarEightChar.getDay(), solarEightChar.getDayWuXing(), dayMaster
 		);
 		Pillar time = includeTime ? pillar(
-			eightChar.getTime(), eightChar.getTimeWuXing(), eightChar.getTimeShiShenGan(),
-			eightChar.getTimeShiShenZhi()
+			solarEightChar.getTime(), solarEightChar.getTimeWuXing(), dayMaster
 		) : null;
 		Pillars pillars = new Pillars(year, month, day, time);
-		String dayMaster = eightChar.getDayGan();
 		LuckCycle luckCycle = includeTime
-			? luckCycle(eightChar, luckDirectionBasis)
+			? luckCycle(termEightChar, luckDirectionBasis)
 			: null;
 		AnnualFortune annual = annualFortune(dayMaster, targetYear);
 		return new Candidate(
@@ -101,13 +102,20 @@ public class LunarJavaFourPillarsAdapter {
 	private Pillar pillar(
 		String ganZhi,
 		String fiveElements,
-		String stemTenGod,
-		List<String> branchTenGods
+		String dayMaster
 	) {
+		String stem = ganZhi.substring(0, 1);
+		String branch = ganZhi.substring(1, 2);
+		String stemTenGod = (String)LunarUtil.SHI_SHEN.get(dayMaster + stem);
+		@SuppressWarnings("unchecked")
+		List<String> hiddenStems = (List<String>)LunarUtil.ZHI_HIDE_GAN.get(branch);
+		List<String> branchTenGods = hiddenStems.stream()
+			.map(hidden -> (String)LunarUtil.SHI_SHEN.get(dayMaster + hidden))
+			.toList();
 		return new Pillar(
 			ganZhi,
-			ganZhi.substring(0, 1),
-			ganZhi.substring(1, 2),
+			stem,
+			branch,
 			fiveElements,
 			stemTenGod,
 			branchTenGods

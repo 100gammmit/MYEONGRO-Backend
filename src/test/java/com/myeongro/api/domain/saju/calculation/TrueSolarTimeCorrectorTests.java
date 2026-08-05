@@ -39,4 +39,24 @@ class TrueSolarTimeCorrectorTests {
 				+ correction.equationOfTimeMinutes()) * 60d)
 		);
 	}
+
+	@Test
+	void exposesNoCandidateForDstGapAndBothInstantsForOverlap() {
+		var gap = corrector.correctCandidates(
+			LocalDateTime.parse("1988-05-08T02:30"), 126.978
+		);
+		var overlap = corrector.correctCandidates(
+			LocalDateTime.parse("1988-10-09T02:30"), 126.978
+		);
+
+		assertThat(gap).isEmpty();
+		assertThat(overlap).hasSize(2);
+		assertThat(overlap).extracting(TrueSolarTimeCorrector.Correction::zoneOffset)
+			.containsExactly("+10:00", "+09:00");
+		assertThat(overlap).extracting(TrueSolarTimeCorrector.Correction::engineCivilTime)
+			.containsExactly(
+				LocalDateTime.parse("1988-10-09T00:30"),
+				LocalDateTime.parse("1988-10-09T01:30")
+			);
+	}
 }

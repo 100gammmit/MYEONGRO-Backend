@@ -5,15 +5,18 @@
 - 계산 엔진: `lunar-java` `1.7.7`
 - 출생지 카탈로그: 계산 시점의 `cityCatalogVersion`을 snapshot에 저장
 - 시간대: 생년월일 당시의 `Asia/Seoul` UTC offset
-- 진태양시: `(출생지 경도 - UTC offset 기준 자오선) × 4분 + 균시차`를 민간시각에 적용
-- 연주·월주: 엔진의 절입 시각 기준 exact API 사용
+- 절입 엔진 시각: 출생 민간시각을 instant로 확정한 뒤 UTC+8로 변환해 엔진의 절입 시각과 비교
+- 진태양시: `(출생지 경도 - 당시 UTC offset 기준 자오선) × 4분 + 균시차`를 민간시각에 적용하고 일주·시주 계산에만 사용
+- 연주·월주·대운 시작: UTC+8 엔진 시각과 엔진의 절입 시각 기준 exact API 사용
 - 일 경계: `EightChar` sect 2, 늦은 자시를 당일 일주로 처리
 - 대운 시작: 분 단위 계산인 `Yun` sect 2 사용
 - 세운: 저장된 `targetYear`의 입춘 이후 연주를 사용
 
-정확 시각은 한 번 계산한다. 근사 시각은 입력 시각 전후 60분의 121개 분 단위 후보를
+정확 시각은 유효한 instant를 계산한다. 근사 시각은 입력 시각 전후 60분의 분 단위 후보를
 계산하고 모든 후보에 공통인 사실만 snapshot에 남긴다. 미상 시각은 출생일 전체 1,440개
-분 단위 후보를 계산하며 시주와 대운은 항상 제외한다.
+분 범위를 계산하며 시주와 대운은 항상 제외한다. 한국의 과거 DST 전환으로 존재하지 않는
+민간시각은 exact 입력에서 거부하고 근사·미상 범위에서는 건너뛴다. 두 번 존재하는 민간시각은
+두 offset의 instant를 모두 후보에 포함하고 `DST_OVERLAP_AMBIGUOUS` limitation을 남긴다.
 
 저장 snapshot에는 `calculationVersion`, `engine`, `engineVersion`,
 `cityCatalogVersion`, `targetYear`를 함께 기록한다. 실패 리딩 재시도는 저장 snapshot을
