@@ -30,6 +30,7 @@ import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
 import com.myeongro.api.domain.tarotdraw.controller.TarotDrawSessionExceptionHandler;
 import com.myeongro.api.domain.tarotdraw.exception.TarotDrawSessionException;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
 
 class ReadingControllerTests {
 
@@ -140,6 +141,40 @@ class ReadingControllerTests {
 					}
 					"""))
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void returnsStableCalculationErrorWithoutExposingEngineFailure() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(creationService.createReading(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+		)).thenThrow(new SajuCalculationException(new IllegalStateException("secret engine detail")));
+
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "kind":"saju",
+					  "question":"올해 흐름이 궁금해요",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "focusArea":"career",
+					  "birthProfile":{
+					    "calendarType":"solar",
+					    "birthDate":"1992-08-17",
+					    "birthTimePrecision":"unknown",
+					    "provinceCode":"36",
+					    "cityCode":"36110",
+					    "luckDirectionBasis":"unspecified"
+					  }
+					}
+					"""))
+			.andExpect(status().isInternalServerError())
+			.andExpect(jsonPath("$.code").value("SAJU_CALCULATION_FAILED"))
+			.andExpect(jsonPath("$.error").value("사주 계산을 완료하지 못했습니다."));
 	}
 
 	@Test

@@ -1,0 +1,44 @@
+{
+  "calculationVersion": "saju-ko-v1",
+  "engine": "lunar-java",
+  "engineVersion": "1.7.7",
+  "verificationSource": "https://github.com/6tail/lunar-java/tree/v1.7.7",
+  "cases": [
+    {
+      "id": "ordinary-exact-male",
+      "profile": {"birthDate":"1992-08-17","birthTime":"12:00","birthTimePrecision":"exact","provinceCode":"36","cityCode":"36110","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "壬申/戊申/乙丑/壬午/乙/丙午/forward"
+    },
+    {
+      "id": "lichun-before-female",
+      "profile": {"birthDate":"2020-02-04","birthTime":"16:30","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"female"},
+      "targetYear": 2026,
+      "expectedSummary": "己亥/丁丑/丁丑/戊申/丁/丙午/forward"
+    },
+    {
+      "id": "lichun-after-female",
+      "profile": {"birthDate":"2020-02-04","birthTime":"18:00","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"female"},
+      "targetYear": 2026,
+      "expectedSummary": "庚子/戊寅/丁丑/己酉/丁/丙午/backward"
+    },
+    {
+      "id": "historical-kst-offset",
+      "profile": {"birthDate":"1960-01-01","birthTime":"00:10","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "己亥/丙子/戊子/壬子/戊/丙午/backward"
+    },
+    {
+      "id": "late-zi-day-boundary",
+      "profile": {"birthDate":"1990-01-01","birthTime":"23:59","birthTimePrecision":"exact","provinceCode":"11","cityCode":"11110","luckDirectionBasis":"unspecified"},
+      "targetYear": 2026,
+      "expectedSummary": "己巳/丙子/丙寅/庚子/丙/丙午/-"
+    },
+    {
+      "id": "unknown-birth-time",
+      "profile": {"birthDate":"1988-05-05","birthTimePrecision":"unknown","provinceCode":"26","cityCode":"26110","luckDirectionBasis":"unspecified"},
+      "targetYear": 2026,
+      "expectedSummary": "戊辰/-/-/-/-/-/-"
+    }
+  ]
+}

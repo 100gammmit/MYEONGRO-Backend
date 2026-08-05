@@ -10,6 +10,7 @@ import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
+import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
 
 @Service
 public class ReadingRecordsService {
@@ -18,17 +19,20 @@ public class ReadingRecordsService {
 	private final ReadingCreationService creationService;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 	private final ReadingInputNormalizer inputNormalizer;
+	private final SajuReadingInputAssembler sajuInputAssembler;
 
 	public ReadingRecordsService(
 		ReadingRecordsRepository repository,
 		ReadingCreationService creationService,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
-		ReadingInputNormalizer inputNormalizer
+		ReadingInputNormalizer inputNormalizer,
+		SajuReadingInputAssembler sajuInputAssembler
 	) {
 		this.repository = repository;
 		this.creationService = creationService;
 		this.generationMetadataResolver = generationMetadataResolver;
 		this.inputNormalizer = inputNormalizer;
+		this.sajuInputAssembler = sajuInputAssembler;
 	}
 
 	public List<CreatedReadingResponse> listByUser(UUID userId) {
@@ -50,7 +54,10 @@ public class ReadingRecordsService {
 		CreatedReadingResponse currentReading = getByUserAndId(userId, readingId);
 		NormalizedReadingInput input;
 		try {
-			input = inputNormalizer.restore(currentReading);
+			input = sajuInputAssembler.restore(
+				inputNormalizer.restore(currentReading),
+				currentReading.input()
+			);
 		} catch (IllegalArgumentException exception) {
 			throw new ReadingRetryNotAllowedException();
 		}

@@ -23,6 +23,7 @@ import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationExceptio
 import com.myeongro.api.domain.reading.service.ReadingCreationService;
 import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 
@@ -139,6 +140,16 @@ public class ReadingController {
 			exception.getMessage(),
 			"code",
 			exception.getCode()
+		));
+	}
+
+	@ExceptionHandler(SajuCalculationException.class)
+	public ResponseEntity<Map<String, String>> calculationFailed(
+		SajuCalculationException exception
+	) {
+		return ResponseEntity.internalServerError().body(Map.of(
+			"error", exception.getMessage(),
+			"code", exception.getCode()
 		));
 	}
 

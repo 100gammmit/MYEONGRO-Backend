@@ -8,9 +8,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,8 @@ import com.myeongro.api.domain.tarotdraw.service.CompletedTarotDraw;
 import com.myeongro.api.domain.tarotdraw.service.TarotDrawSessionService;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
+import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
 import org.springframework.core.io.ClassPathResource;
 
 class ReadingCreationServiceTests {
@@ -43,6 +48,7 @@ class ReadingCreationServiceTests {
 	private static final UUID REQUEST_ID = UUID.fromString("82ed11d5-2269-438c-9815-42e6f13735f4");
 	private static final UUID READING_ID = UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
 	private TarotDrawSessionService drawSessionService;
+	private SajuReadingInputAssembler sajuInputAssembler;
 
 	@Test
 	void rejectsUserWithoutRequiredConsentBeforeReservation() {
@@ -129,9 +135,53 @@ class ReadingCreationServiceTests {
 		assertThat(command.getValue().spreadType()).isNull();
 		assertThat(command.getValue().schemaVersion()).isEqualTo(ReadingSchemaVersions.SAJU);
 		assertThat(command.getValue().input()).containsOnlyKeys(
-			"question", "focusArea", "birthProfile"
+			"question", "focusArea", "birthProfile", "targetYear", "calculationSnapshot"
 		);
+		assertThat(command.getValue().input()).containsEntry("targetYear", 2026);
 		verifyNoInteractions(drawSessionService);
+	}
+
+	@Test
+	void returnsFirstSajuPayloadForSameRequestIdWithoutRecalculation() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		CreatedReadingResponse existing = sajuReading("completed");
+		when(repository.findExisting(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.anyString()
+		)).thenReturn(Optional.of(existing));
+
+		CreatedReadingResponse response = service(consentService, repository, generator)
+			.createReading(USER_ID, REQUEST_ID, sajuRequest());
+
+		assertThat(response).isSameAs(existing);
+		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
+		verify(sajuInputAssembler, never()).assemble(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+		);
+		verifyNoInteractions(generator);
+	}
+
+	@Test
+	void doesNotReservePendingReadingWhenSajuCalculationFails() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		ReadingCreationService service = service(consentService, repository, generator);
+		org.mockito.Mockito.doThrow(
+			new SajuCalculationException(new IllegalStateException("engine"))
+		).when(sajuInputAssembler).assemble(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+		);
+
+		assertThatThrownBy(() -> service.createReading(USER_ID, REQUEST_ID, sajuRequest()))
+			.isInstanceOf(SajuCalculationException.class)
+			.hasMessage("사주 계산을 완료하지 못했습니다.");
+
+		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
+		verifyNoInteractions(generator);
 	}
 
 	@Test
@@ -260,6 +310,21 @@ class ReadingCreationServiceTests {
 		drawSessionService = org.mockito.Mockito.mock(
 			TarotDrawSessionService.class
 		);
+		sajuInputAssembler = org.mockito.Mockito.mock(SajuReadingInputAssembler.class);
+		when(sajuInputAssembler.assemble(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.anyInt()
+		)).thenAnswer(invocation -> {
+			NormalizedReadingInput input = invocation.getArgument(0);
+			int targetYear = invocation.getArgument(1);
+			Map<String, Object> payload = new LinkedHashMap<>(input.payload());
+			payload.put("targetYear", targetYear);
+			payload.put("calculationSnapshot", Map.of("calculationVersion", "saju-ko-v1"));
+			return new NormalizedReadingInput(
+				input.kind(), input.spreadType(), input.schemaVersion(), input.question(),
+				payload, input.hashMaterial()
+			);
+		});
 		CompletedTarotDraw draw = new CompletedTarotDraw(
 			TarotSpreadType.RELATIONSHIP_THREE_CARD,
 			List.of("major-00-fool", "major-06-lovers", "major-17-star")
@@ -284,7 +349,9 @@ class ReadingCreationServiceTests {
 			)),
 			new ObjectMapper(),
 			new ReadingGenerationMetadataResolver("gpt-test", catalog),
-			drawSessionService
+			drawSessionService,
+			sajuInputAssembler,
+			Clock.fixed(Instant.parse("2026-08-05T00:00:00Z"), ZoneOffset.UTC)
 		);
 	}
 
@@ -310,6 +377,37 @@ class ReadingCreationServiceTests {
 			null,
 			null,
 			null
+		);
+	}
+
+	private ReadingCreateRequest sajuRequest() {
+		return new ReadingCreateRequest(
+			"saju", null, "올해 이직운이 궁금해요", REQUEST_ID, null, null,
+			new SajuBirthProfileRequest(
+				"solar", "1992-08-17", null, "unknown",
+				"36", "36110", "unspecified"
+			),
+			"career"
+		);
+	}
+
+	private CreatedReadingResponse sajuReading(String status) {
+		Map<String, Object> payload = Map.of(
+			"question", "올해 이직운이 궁금해요",
+			"focusArea", "career",
+			"birthProfile", Map.of(
+				"calendarType", "solar", "birthDate", "1992-08-17",
+				"birthTimePrecision", "unknown", "provinceCode", "36",
+				"cityCode", "36110", "luckDirectionBasis", "unspecified"
+			),
+			"targetYear", 2026,
+			"calculationSnapshot", Map.of("calculationVersion", "saju-ko-v1")
+		);
+		return new CreatedReadingResponse(
+			READING_ID, ReadingKind.SAJU, null, ReadingSchemaVersions.SAJU,
+			status, "사주 리딩", payload, Map.of("title", "사주 리딩"), null,
+			Instant.parse("2026-08-05T00:00:00Z"),
+			Instant.parse("2026-08-05T00:00:01Z")
 		);
 	}
 

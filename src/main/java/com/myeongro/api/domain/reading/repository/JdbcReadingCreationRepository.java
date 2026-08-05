@@ -3,7 +3,9 @@ package com.myeongro.api.domain.reading.repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.dao.DataAccessException;
@@ -21,6 +23,23 @@ import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictExcep
 
 @Repository
 public class JdbcReadingCreationRepository implements ReadingCreationRepository {
+
+	private static final String SELECT_EXISTING = """
+		select
+			id,
+			kind::text as kind,
+			spread_type,
+			schema_version,
+			status::text as status,
+			title,
+			input_payload::text as input_payload,
+			result_payload::text as result_payload,
+			input_hash,
+			created_at,
+			updated_at
+		from public.readings
+		where user_id = ? and request_id = ? and deleted_at is null
+		""";
 
 	private static final String CREATE_PENDING = """
 		select reading_id, generation_id, created
@@ -59,6 +78,31 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	) {
 		this.jdbcTemplate = jdbcTemplate;
 		this.objectMapper = objectMapper;
+	}
+
+	@Override
+	public Optional<CreatedReadingResponse> findExisting(
+		UUID userId,
+		UUID requestId,
+		String inputHash
+	) {
+		List<ExistingReading> existing = jdbcTemplate.query(
+			SELECT_EXISTING,
+			(resultSet, rowNumber) -> new ExistingReading(
+				toResponse(resultSet, rowNumber),
+				resultSet.getString("input_hash")
+			),
+			userId,
+			requestId
+		);
+		if (existing.isEmpty()) {
+			return Optional.empty();
+		}
+		ExistingReading reading = existing.getFirst();
+		if (!inputHash.equals(reading.inputHash())) {
+			throw new ReadingIdempotencyConflictException();
+		}
+		return Optional.of(reading.response());
 	}
 
 	@Override
@@ -213,5 +257,8 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	}
 
 	private record PendingIds(UUID readingId, Long generationId) {
+	}
+
+	private record ExistingReading(CreatedReadingResponse response, String inputHash) {
 	}
 }

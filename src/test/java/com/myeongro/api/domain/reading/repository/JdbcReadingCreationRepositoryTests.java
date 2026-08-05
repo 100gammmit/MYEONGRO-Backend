@@ -55,6 +55,40 @@ class JdbcReadingCreationRepositoryTests {
 			RowMapper<?> rowMapper = invocation.getArgument(1);
 			return rowMapper.mapRow(resultSetFor(sql), 0);
 		});
+		when(jdbcTemplate.query(
+			anyString(),
+			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+			any(Object[].class)
+		)).thenAnswer(invocation -> {
+			String sql = invocation.getArgument(0);
+			RowMapper<?> rowMapper = invocation.getArgument(1);
+			return List.of(rowMapper.mapRow(resultSetFor(sql), 0));
+		});
+	}
+
+	@Test
+	void returnsExistingRequestOnlyWhenCanonicalInputHashMatches() {
+		var existing = repository.findExisting(USER_ID, REQUEST_ID, "input-hash");
+
+		assertThat(existing).isPresent();
+		assertThat(existing.orElseThrow().id()).isEqualTo(READING_ID);
+
+		ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+		verify(jdbcTemplate).query(
+			sql.capture(),
+			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+			args.capture()
+		);
+		assertThat(sql.getValue())
+			.contains("where user_id = ? and request_id = ? and deleted_at is null");
+		assertThat(args.getValue()).containsExactly(USER_ID, REQUEST_ID);
+	}
+
+	@Test
+	void rejectsReusedRequestIdWithDifferentCanonicalInput() {
+		assertThatThrownBy(() -> repository.findExisting(USER_ID, REQUEST_ID, "other-hash"))
+			.isInstanceOf(ReadingIdempotencyConflictException.class);
 	}
 
 	@Test
@@ -215,6 +249,7 @@ class JdbcReadingCreationRepositoryTests {
 		when(resultSet.getString("title")).thenReturn("Generating...");
 		when(resultSet.getString("input_payload"))
 			.thenReturn("{\"question\":\"How is today?\"}");
+		when(resultSet.getString("input_hash")).thenReturn("input-hash");
 		when(resultSet.getString("result_payload")).thenReturn(null);
 		when(resultSet.getTimestamp("created_at"))
 			.thenReturn(Timestamp.from(Instant.parse("2026-06-16T00:00:00Z")));

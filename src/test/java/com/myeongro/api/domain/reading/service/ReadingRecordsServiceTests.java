@@ -22,6 +22,7 @@ import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
+import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
 import org.springframework.core.io.ClassPathResource;
 
 class ReadingRecordsServiceTests {
@@ -36,8 +37,9 @@ class ReadingRecordsServiceTests {
 		ReadingGenerationMetadataResolver metadataResolver =
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
 		ReadingInputNormalizer normalizer = org.mockito.Mockito.mock(ReadingInputNormalizer.class);
+		SajuReadingInputAssembler assembler = org.mockito.Mockito.mock(SajuReadingInputAssembler.class);
 		ReadingRecordsService service = new ReadingRecordsService(
-			repository, creationService, metadataResolver, normalizer
+			repository, creationService, metadataResolver, normalizer, assembler
 		);
 		CreatedReadingResponse reading = reading(1);
 		NormalizedReadingInput input = new NormalizedReadingInput(
@@ -54,6 +56,7 @@ class ReadingRecordsServiceTests {
 		PendingReadingCreation pending = new PendingReadingCreation(READING_ID, 42L, reading);
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading));
 		when(normalizer.restore(reading)).thenReturn(input);
+		when(assembler.restore(input, reading.input())).thenReturn(input);
 		when(metadataResolver.resolve(input.kind(), input.spreadType())).thenReturn(metadata);
 		when(repository.startFailedRetry(USER_ID, READING_ID, metadata)).thenReturn(pending);
 
@@ -76,7 +79,8 @@ class ReadingRecordsServiceTests {
 			repository,
 			org.mockito.Mockito.mock(ReadingCreationService.class),
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			normalizer
+			normalizer,
+			org.mockito.Mockito.mock(SajuReadingInputAssembler.class)
 		);
 		CreatedReadingResponse legacy = reading(schemaVersion);
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(legacy));

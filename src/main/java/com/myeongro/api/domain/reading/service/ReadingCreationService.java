@@ -2,11 +2,14 @@ package com.myeongro.api.domain.reading.service;
 
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +26,8 @@ import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
 import com.myeongro.api.domain.tarotdraw.service.CompletedTarotDraw;
 import com.myeongro.api.domain.tarotdraw.service.TarotDrawSessionService;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationRules;
+import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
 
 @Service
 public class ReadingCreationService {
@@ -34,7 +39,10 @@ public class ReadingCreationService {
 	private final ObjectMapper objectMapper;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 	private final TarotDrawSessionService tarotDrawSessionService;
+	private final SajuReadingInputAssembler sajuInputAssembler;
+	private final Clock clock;
 
+	@Autowired
 	public ReadingCreationService(
 		ConsentService consentService,
 		ReadingCreationRepository repository,
@@ -42,7 +50,26 @@ public class ReadingCreationService {
 		ReadingInputNormalizer inputNormalizer,
 		ObjectMapper objectMapper,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
-		TarotDrawSessionService tarotDrawSessionService
+		TarotDrawSessionService tarotDrawSessionService,
+		SajuReadingInputAssembler sajuInputAssembler
+	) {
+		this(
+			consentService, repository, generator, inputNormalizer, objectMapper,
+			generationMetadataResolver, tarotDrawSessionService, sajuInputAssembler,
+			Clock.systemUTC()
+		);
+	}
+
+	ReadingCreationService(
+		ConsentService consentService,
+		ReadingCreationRepository repository,
+		ReadingGenerator generator,
+		ReadingInputNormalizer inputNormalizer,
+		ObjectMapper objectMapper,
+		ReadingGenerationMetadataResolver generationMetadataResolver,
+		TarotDrawSessionService tarotDrawSessionService,
+		SajuReadingInputAssembler sajuInputAssembler,
+		Clock clock
 	) {
 		this.consentService = consentService;
 		this.repository = repository;
@@ -51,6 +78,8 @@ public class ReadingCreationService {
 		this.objectMapper = objectMapper;
 		this.generationMetadataResolver = generationMetadataResolver;
 		this.tarotDrawSessionService = tarotDrawSessionService;
+		this.sajuInputAssembler = sajuInputAssembler;
+		this.clock = clock;
 	}
 
 	public CreatedReadingResponse createReading(
@@ -80,11 +109,21 @@ public class ReadingCreationService {
 		} else {
 			input = inputNormalizer.normalize(request);
 		}
+		String inputHash = inputHash(input.hashMaterial());
+		if (input.kind() == ReadingKind.SAJU) {
+			var existing = repository.findExisting(userId, requestId, inputHash);
+			if (existing.isPresent()) {
+				return existing.get();
+			}
+			int targetYear = LocalDate.ofInstant(
+				clock.instant(), SajuCalculationRules.BIRTH_ZONE
+			).getYear();
+			input = sajuInputAssembler.assemble(input, targetYear);
+		}
 		ReadingGenerationMetadata metadata = generationMetadataResolver.resolve(
 			input.kind(),
 			input.spreadType()
 		);
-		String inputHash = inputHash(input.hashMaterial());
 		if (input.kind() == ReadingKind.TAROT) {
 			tarotDrawSessionService.resolveAndConsume(
 				userId, request.drawSessionId(), request.spreadType(), requestId, inputHash
