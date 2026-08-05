@@ -11,6 +11,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
@@ -18,6 +20,9 @@ import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
+import org.springframework.core.io.ClassPathResource;
 
 class ReadingRecordsServiceTests {
 
@@ -40,6 +45,7 @@ class ReadingRecordsServiceTests {
 			TarotSpreadType.RELATIONSHIP_THREE_CARD,
 			1,
 			"질문",
+			reading.input(),
 			reading.input()
 		);
 		ReadingGenerationMetadata metadata = new ReadingGenerationMetadata(
@@ -56,17 +62,23 @@ class ReadingRecordsServiceTests {
 		verify(creationService).generatePending(input, pending);
 	}
 
-	@Test
-	void rejectsSchemaVersionZeroBeforeStartingRetry() {
+	@ParameterizedTest
+	@ValueSource(ints = {0, 2})
+	void rejectsUnsupportedTarotSchemaBeforeStartingRetry(int schemaVersion) {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingInputNormalizer normalizer = new ReadingInputNormalizer();
+		ReadingInputNormalizer normalizer = new ReadingInputNormalizer(
+			new SajuBirthPlaceCatalog(
+				new ObjectMapper(),
+				new ClassPathResource("saju/birth-places/kr-admin-v1.json")
+			)
+		);
 		ReadingRecordsService service = new ReadingRecordsService(
 			repository,
 			org.mockito.Mockito.mock(ReadingCreationService.class),
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
 			normalizer
 		);
-		CreatedReadingResponse legacy = reading(0);
+		CreatedReadingResponse legacy = reading(schemaVersion);
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(legacy));
 
 		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))

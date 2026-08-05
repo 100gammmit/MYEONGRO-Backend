@@ -33,6 +33,9 @@ import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
 import com.myeongro.api.domain.tarotdraw.service.CompletedTarotDraw;
 import com.myeongro.api.domain.tarotdraw.service.TarotDrawSessionService;
+import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
+import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
+import org.springframework.core.io.ClassPathResource;
 
 class ReadingCreationServiceTests {
 
@@ -91,6 +94,44 @@ class ReadingCreationServiceTests {
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
 			org.mockito.ArgumentMatchers.anyString()
 		);
+	}
+
+	@Test
+	void reservesSajuSchemaVersionTwoWithoutTarotFields() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
+			.thenReturn(pending());
+		when(repository.completePending(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any()
+		)).thenReturn(completed());
+
+		service(consentService, repository, successfulGenerator())
+			.createReading(USER_ID, REQUEST_ID, new ReadingCreateRequest(
+				"saju",
+				null,
+				"올해 이직운이 궁금해요",
+				REQUEST_ID,
+				null,
+				null,
+				new SajuBirthProfileRequest(
+					"solar", "1992-08-17", null, "unknown",
+					"36", "36110", "unspecified"
+				),
+				"career"
+			));
+
+		ArgumentCaptor<PendingReadingCommand> command =
+			ArgumentCaptor.forClass(PendingReadingCommand.class);
+		verify(repository).createPending(command.capture());
+		assertThat(command.getValue().kind()).isEqualTo(ReadingKind.SAJU);
+		assertThat(command.getValue().spreadType()).isNull();
+		assertThat(command.getValue().schemaVersion()).isEqualTo(ReadingSchemaVersions.SAJU);
+		assertThat(command.getValue().input()).containsOnlyKeys(
+			"question", "focusArea", "birthProfile"
+		);
+		verifyNoInteractions(drawSessionService);
 	}
 
 	@Test
@@ -237,7 +278,10 @@ class ReadingCreationServiceTests {
 			consentService,
 			repository,
 			generator,
-			new ReadingInputNormalizer(),
+			new ReadingInputNormalizer(new SajuBirthPlaceCatalog(
+				new ObjectMapper(),
+				new ClassPathResource("saju/birth-places/kr-admin-v1.json")
+			)),
 			new ObjectMapper(),
 			new ReadingGenerationMetadataResolver("gpt-test", catalog),
 			drawSessionService
@@ -263,7 +307,6 @@ class ReadingCreationServiceTests {
 			"관계의 흐름이 궁금해요.",
 			REQUEST_ID,
 			"draw-session-id",
-			null,
 			null,
 			null,
 			null

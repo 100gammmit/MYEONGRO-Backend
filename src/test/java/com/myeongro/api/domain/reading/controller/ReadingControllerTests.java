@@ -24,6 +24,7 @@ import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.service.ReadingCreationService;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
+import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.global.auth.AuthenticatedUser;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
@@ -139,6 +140,73 @@ class ReadingControllerTests {
 					}
 					"""))
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void returnsStableCodeAndFieldForSajuValidationErrors() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(creationService.createReading(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+		)).thenThrow(new InvalidReadingRequestException(
+			"INVALID_BIRTH_TIME",
+			"birthProfile.birthTime",
+			"출생시간을 확인해 주세요."
+		));
+
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "kind":"saju",
+					  "question":"올해 이직운이 궁금해요",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "focusArea":"career",
+					  "birthProfile":{
+					    "calendarType":"solar",
+					    "birthDate":"1992-08-17",
+					    "birthTime":"25:00",
+					    "birthTimePrecision":"exact",
+					    "provinceCode":"11",
+					    "cityCode":"11680",
+					    "luckDirectionBasis":"female"
+					  }
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_BIRTH_TIME"))
+			.andExpect(jsonPath("$.field").value("birthProfile.birthTime"))
+			.andExpect(jsonPath("$.message").value("출생시간을 확인해 주세요."));
+	}
+
+	@Test
+	void rejectsUnknownNestedSajuFieldsWithTheirPath() throws Exception {
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "kind":"saju",
+					  "question":"질문",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "focusArea":"career",
+					  "birthProfile":{
+					    "calendarType":"solar",
+					    "birthDate":"1992-08-17",
+					    "birthTimePrecision":"unknown",
+					    "provinceCode":"11",
+					    "cityCode":"11680",
+					    "luckDirectionBasis":"unspecified",
+					    "pillars":{}
+					  }
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
+			.andExpect(jsonPath("$.field").value("birthProfile.pillars"));
 	}
 
 	@Test

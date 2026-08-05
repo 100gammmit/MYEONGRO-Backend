@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
+import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.service.ReadingCreationService;
@@ -141,13 +142,70 @@ public class ReadingController {
 		));
 	}
 
-	@ExceptionHandler({
-		IllegalArgumentException.class,
-		HttpMessageNotReadableException.class,
-		MethodArgumentNotValidException.class
-	})
+	@ExceptionHandler(InvalidReadingRequestException.class)
+	public ResponseEntity<Map<String, String>> invalidRequest(
+		InvalidReadingRequestException exception
+	) {
+		return invalidRequestBody(exception);
+	}
+
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<Map<String, String>> unreadable(
+		HttpMessageNotReadableException exception
+	) {
+		InvalidReadingRequestException invalid = findInvalidRequest(exception);
+		if (invalid != null) {
+			return invalidRequestBody(invalid);
+		}
+		return genericBadRequest();
+	}
+
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<Map<String, String>> invalidArguments(
+		MethodArgumentNotValidException exception
+	) {
+		String field = exception.getBindingResult().getFieldErrors().isEmpty()
+			? "request"
+			: exception.getBindingResult().getFieldErrors().getFirst().getField();
+		return invalidRequestBody(new InvalidReadingRequestException(
+			"INVALID_READING_REQUEST",
+			field,
+			"필수 입력을 확인해 주세요."
+		));
+	}
+
+	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<Map<String, String>> badRequest(Exception exception) {
-		return ResponseEntity.badRequest().body(Map.of("error", "잘못된 리딩 요청입니다."));
+		return genericBadRequest();
+	}
+
+	private ResponseEntity<Map<String, String>> invalidRequestBody(
+		InvalidReadingRequestException exception
+	) {
+		return ResponseEntity.badRequest().body(Map.of(
+			"code", exception.getCode(),
+			"field", exception.getField(),
+			"message", exception.getMessage()
+		));
+	}
+
+	private ResponseEntity<Map<String, String>> genericBadRequest() {
+		return ResponseEntity.badRequest().body(Map.of(
+			"code", "INVALID_READING_REQUEST",
+			"field", "request",
+			"message", "잘못된 리딩 요청입니다."
+		));
+	}
+
+	private InvalidReadingRequestException findInvalidRequest(Throwable throwable) {
+		Throwable current = throwable;
+		while (current != null) {
+			if (current instanceof InvalidReadingRequestException invalid) {
+				return invalid;
+			}
+			current = current.getCause();
+		}
+		return null;
 	}
 
 }

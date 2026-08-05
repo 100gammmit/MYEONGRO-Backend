@@ -1,7 +1,6 @@
 package com.myeongro.api.domain.reading.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -83,12 +82,40 @@ class JpaReadingRecordsRepositoryTests {
 	}
 
 	@Test
-	void refusesToInterpretUnknownPayloadSchemaVersion() {
+	void preservesUnknownPayloadSchemaMetadataForReadOnlyAccess() {
 		insertReading(READING_ID, USER_ID, null, "completed", 2);
 
-		assertThatThrownBy(() -> repository.listByUser(USER_ID))
-			.isInstanceOf(IllegalStateException.class)
-			.hasMessageContaining("Unsupported reading schema version");
+		CreatedReadingResponse reading = repository.listByUser(USER_ID).getFirst();
+
+		assertThat(reading.kind().value()).isEqualTo("tarot");
+		assertThat(reading.schemaVersion()).isEqualTo(2);
+		assertThat(reading.input()).containsEntry("question", "How is today?");
+	}
+
+	@Test
+	void readsSajuSchemaVersionTwoWithoutTreatingItAsTarot() {
+		jdbcTemplate.update(
+			"""
+			insert into public.readings (
+				id, user_id, kind, spread_type, schema_version,
+				status, title, input_payload, result_payload,
+				created_at, updated_at
+			)
+			values (?, ?, 'saju', null, 2, 'completed', 'Saju', ?, ?, ?, ?)
+			""",
+			READING_ID,
+			USER_ID,
+			"{\"question\":\"Question\",\"focusArea\":\"career\",\"birthProfile\":{}}",
+			"{\"title\":\"Saju\"}",
+			OffsetDateTime.parse("2026-06-15T00:00:00Z"),
+			OffsetDateTime.parse("2026-06-15T00:00:00Z")
+		);
+
+		CreatedReadingResponse reading = repository.listByUser(USER_ID).getFirst();
+
+		assertThat(reading.kind().value()).isEqualTo("saju");
+		assertThat(reading.spreadType()).isNull();
+		assertThat(reading.schemaVersion()).isEqualTo(2);
 	}
 
 	private void insertReading(

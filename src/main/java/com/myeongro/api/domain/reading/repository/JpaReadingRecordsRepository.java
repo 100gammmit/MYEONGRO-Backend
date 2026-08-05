@@ -25,7 +25,6 @@ import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
-import com.myeongro.api.domain.reading.service.NormalizedReadingInput;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -146,15 +145,10 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 
 	private CreatedReadingResponse toResponse(Object[] row) {
 		int schemaVersion = ((Number) row[3]).intValue();
-		if (schemaVersion != 0
-			&& schemaVersion != NormalizedReadingInput.CURRENT_SCHEMA_VERSION) {
-			throw new IllegalStateException(
-				"Unsupported reading schema version: " + schemaVersion
-			);
-		}
+		ReadingKind kind = ReadingKind.fromValue((String) row[1]);
 		return new CreatedReadingResponse(
 			toUuid(row[0]),
-			ReadingKind.fromValue((String) row[1]),
+			kind,
 			toSpreadType((String) row[2]),
 			schemaVersion,
 			(String) row[4],

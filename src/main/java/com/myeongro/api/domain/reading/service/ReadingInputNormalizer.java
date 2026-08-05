@@ -1,7 +1,10 @@
 package com.myeongro.api.domain.reading.service;
 
-import java.util.LinkedHashMap;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -14,15 +17,30 @@ import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.MajorArcana;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
+import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
+import com.myeongro.api.domain.saju.model.BirthTimePrecision;
+import com.myeongro.api.domain.saju.model.LuckDirectionBasis;
+import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
+import com.myeongro.api.domain.saju.model.SajuFocusArea;
+import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 
 @Component
 public class ReadingInputNormalizer {
 
+	private static final int MINIMUM_BIRTH_YEAR = 1900;
+	private static final int MAXIMUM_BIRTH_YEAR = 2099;
+
+	private final SajuBirthPlaceCatalog birthPlaceCatalog;
+
+	public ReadingInputNormalizer(SajuBirthPlaceCatalog birthPlaceCatalog) {
+		this.birthPlaceCatalog = birthPlaceCatalog;
+	}
+
 	public NormalizedReadingInput normalize(ReadingCreateRequest request) {
 		ReadingKind kind = ReadingKind.fromValue(request.kind());
-		String question = normalizeText(request.question(), 300, "Question");
+		String question = normalizeQuestion(request.question());
 		if (kind == ReadingKind.TAROT) {
-			throw new IllegalArgumentException("Resolved tarot cards are required");
+			throw invalid("INVALID_READING_REQUEST", "kind", "확정된 타로 카드가 필요합니다.");
 		}
 		return normalizeSaju(request, question);
 	}
@@ -33,16 +51,27 @@ public class ReadingInputNormalizer {
 		List<String> cardIds
 	) {
 		if (ReadingKind.fromValue(request.kind()) != ReadingKind.TAROT) {
-			throw new IllegalArgumentException("Tarot reading kind is required");
+			throw invalid("INVALID_READING_REQUEST", "kind", "타로 리딩 요청이 필요합니다.");
+		}
+		if (request.birthProfile() != null || request.focusArea() != null) {
+			throw invalid(
+				"INVALID_READING_REQUEST",
+				request.birthProfile() != null ? "birthProfile" : "focusArea",
+				"타로 리딩에는 사주 입력을 사용할 수 없습니다."
+			);
 		}
 		if (spread != TarotSpreadType.fromValue(request.spreadType())) {
-			throw new IllegalArgumentException("Tarot spread does not match draw session");
+			throw invalid(
+				"INVALID_SPREAD_TYPE",
+				"spreadType",
+				"타로 배열이 선택 결과와 일치하지 않습니다."
+			);
 		}
-		return normalizeTarot(request, normalizeText(request.question(), 300, "Question"), spread, cardIds);
+		return normalizeTarot(request, normalizeQuestion(request.question()), spread, cardIds);
 	}
 
 	public NormalizedReadingInput restore(CreatedReadingResponse reading) {
-		if (reading.schemaVersion() != NormalizedReadingInput.CURRENT_SCHEMA_VERSION) {
+		if (!ReadingSchemaVersions.supports(reading.kind(), reading.schemaVersion())) {
 			throw new IllegalArgumentException("Unsupported reading schema version");
 		}
 		Map<String, Object> payload = reading.input();
@@ -62,11 +91,10 @@ public class ReadingInputNormalizer {
 				"stored-reading",
 				choices,
 				null,
-				null,
 				null
 			), spread, cardIds);
 		}
-		Map<?, ?> profile = valueAsMap(payload.get("profile"), "Stored profile");
+		Map<?, ?> profile = valueAsMap(payload.get("birthProfile"), "Stored birth profile");
 		return normalize(new ReadingCreateRequest(
 			reading.kind().value(),
 			null,
@@ -74,9 +102,16 @@ public class ReadingInputNormalizer {
 			java.util.UUID.randomUUID(),
 			null,
 			null,
-			valueAsString(profile.get("birthDate"), "Stored birth date"),
-			nullableString(profile.get("birthTime")),
-			nullableString(profile.get("gender"))
+			new SajuBirthProfileRequest(
+				valueAsString(profile.get("calendarType"), "Stored calendar type"),
+				valueAsString(profile.get("birthDate"), "Stored birth date"),
+				nullableString(profile.get("birthTime")),
+				valueAsString(profile.get("birthTimePrecision"), "Stored birth time precision"),
+				valueAsString(profile.get("provinceCode"), "Stored province code"),
+				valueAsString(profile.get("cityCode"), "Stored city code"),
+				valueAsString(profile.get("luckDirectionBasis"), "Stored luck direction basis")
+			),
+			valueAsString(payload.get("focusArea"), "Stored focus area")
 		));
 	}
 
@@ -129,12 +164,14 @@ public class ReadingInputNormalizer {
 			throw new IllegalArgumentException("Choice options are only allowed for choice spread");
 		}
 
+		Map<String, Object> immutablePayload = immutable(payload);
 		return new NormalizedReadingInput(
 			ReadingKind.TAROT,
 			spread,
-			NormalizedReadingInput.CURRENT_SCHEMA_VERSION,
+			ReadingSchemaVersions.TAROT,
 			question,
-			Collections.unmodifiableMap(new LinkedHashMap<>(payload))
+			immutablePayload,
+			hashMaterial(ReadingKind.TAROT, spread, ReadingSchemaVersions.TAROT, immutablePayload)
 		);
 	}
 
@@ -144,25 +181,134 @@ public class ReadingInputNormalizer {
 	) {
 		if (request.spreadType() != null || request.drawSessionId() != null
 			|| request.choiceOptions() != null) {
-			throw new IllegalArgumentException("Tarot fields are not allowed for saju");
+			String field = request.spreadType() != null
+				? "spreadType"
+				: request.drawSessionId() != null ? "drawSessionId" : "choiceOptions";
+			throw invalid(
+				"INVALID_READING_REQUEST",
+				field,
+				"사주 리딩에는 타로 입력을 사용할 수 없습니다."
+			);
 		}
-		String birthDate = normalizeText(request.birthDate(), 20, "Birth date");
-		String gender = request.gender() == null ? "unspecified" : request.gender();
-		if (!Set.of("female", "male", "unspecified").contains(gender)) {
-			throw new IllegalArgumentException("Invalid gender");
+		SajuBirthProfileRequest profile = request.birthProfile();
+		if (profile == null) {
+			throw invalid("INVALID_BIRTH_DATE", "birthProfile", "출생정보를 입력해 주세요.");
 		}
-		Map<String, Object> profile = orderedMap(
-			"calendarType", "solar",
-			"birthDate", birthDate,
-			"birthTime", request.birthTime() == null ? "" : request.birthTime(),
-			"gender", gender
+		if (!"solar".equals(profile.calendarType())) {
+			throw invalid(
+				"UNSUPPORTED_CALENDAR_TYPE",
+				"birthProfile.calendarType",
+				"현재는 양력 생년월일만 지원합니다."
+			);
+		}
+
+		LocalDate birthDate = parseBirthDate(profile.birthDate());
+		BirthTimePrecision precision = BirthTimePrecision.fromValue(profile.birthTimePrecision());
+		String birthTime = normalizeBirthTime(profile.birthTime(), precision);
+		LuckDirectionBasis luckDirectionBasis = LuckDirectionBasis.fromValue(
+			profile.luckDirectionBasis()
+		);
+		SajuFocusArea focusArea = SajuFocusArea.fromValue(request.focusArea());
+		birthPlaceCatalog.require(profile.provinceCode(), profile.cityCode());
+
+		Map<String, Object> normalizedProfile = new LinkedHashMap<>();
+		normalizedProfile.put("calendarType", "solar");
+		normalizedProfile.put("birthDate", birthDate.toString());
+		if (birthTime != null) {
+			normalizedProfile.put("birthTime", birthTime);
+		}
+		normalizedProfile.put("birthTimePrecision", precision.value());
+		normalizedProfile.put("provinceCode", profile.provinceCode());
+		normalizedProfile.put("cityCode", profile.cityCode());
+		normalizedProfile.put("luckDirectionBasis", luckDirectionBasis.value());
+
+		Map<String, Object> payload = orderedMap(
+			"question", question,
+			"focusArea", focusArea.value(),
+			"birthProfile", immutable(normalizedProfile)
 		);
 		return new NormalizedReadingInput(
 			ReadingKind.SAJU,
 			null,
-			NormalizedReadingInput.CURRENT_SCHEMA_VERSION,
+			ReadingSchemaVersions.SAJU,
 			question,
-			orderedMap("question", question, "profile", profile)
+			payload,
+			hashMaterial(ReadingKind.SAJU, null, ReadingSchemaVersions.SAJU, payload)
+		);
+	}
+
+	private LocalDate parseBirthDate(String value) {
+		try {
+			LocalDate date = LocalDate.parse(value);
+			if (date.getYear() < MINIMUM_BIRTH_YEAR || date.getYear() > MAXIMUM_BIRTH_YEAR) {
+				throw invalid(
+					"UNSUPPORTED_BIRTH_YEAR",
+					"birthProfile.birthDate",
+					"출생 연도는 1900년부터 2099년까지 입력할 수 있습니다."
+				);
+			}
+			return date;
+		} catch (DateTimeParseException | NullPointerException exception) {
+			throw invalid(
+				"INVALID_BIRTH_DATE",
+				"birthProfile.birthDate",
+				"생년월일을 확인해 주세요."
+			);
+		}
+	}
+
+	private String normalizeBirthTime(String value, BirthTimePrecision precision) {
+		boolean missing = value == null || value.isBlank();
+		if (precision == BirthTimePrecision.UNKNOWN) {
+			if (!missing) {
+				throw invalid(
+					"INVALID_BIRTH_TIME",
+					"birthProfile.birthTime",
+					"출생시간을 모르는 경우 시각을 비워 주세요."
+				);
+			}
+			return null;
+		}
+		if (missing || !value.matches("\\d{2}:\\d{2}")) {
+			throw invalid(
+				"INVALID_BIRTH_TIME",
+				"birthProfile.birthTime",
+				"출생시간을 시와 분으로 입력해 주세요."
+			);
+		}
+		try {
+			return LocalTime.parse(value).toString();
+		} catch (DateTimeParseException exception) {
+			throw invalid(
+				"INVALID_BIRTH_TIME",
+				"birthProfile.birthTime",
+				"출생시간을 확인해 주세요."
+			);
+		}
+	}
+
+	private String normalizeQuestion(String value) {
+		if (value == null || value.trim().isEmpty()) {
+			throw invalid("QUESTION_REQUIRED", "question", "궁금한 점을 입력해 주세요.");
+		}
+		String normalized = value.trim();
+		if (normalized.length() > 300) {
+			throw invalid("QUESTION_TOO_LONG", "question", "질문은 300자 이하로 입력해 주세요.");
+		}
+		return normalized;
+	}
+
+	private Map<String, Object> hashMaterial(
+		ReadingKind kind,
+		TarotSpreadType spread,
+		int schemaVersion,
+		Map<String, Object> payload
+	) {
+		return orderedMap(
+			"kind", kind.value(),
+			"spreadType", spread == null ? null : spread.value(),
+			"schemaVersion", schemaVersion,
+			"inputPayload", payload
 		);
 	}
 
@@ -171,7 +317,11 @@ public class ReadingInputNormalizer {
 		for (int index = 0; index < entries.length; index += 2) {
 			values.put((String) entries[index], entries[index + 1]);
 		}
-		return Collections.unmodifiableMap(values);
+		return immutable(values);
+	}
+
+	private Map<String, Object> immutable(Map<String, Object> values) {
+		return Collections.unmodifiableMap(new LinkedHashMap<>(values));
 	}
 
 	private String normalizeText(String value, int maxLength, String fieldName) {
@@ -240,5 +390,13 @@ public class ReadingInputNormalizer {
 
 	private String nullableString(Object value) {
 		return value instanceof String text ? text : null;
+	}
+
+	private InvalidReadingRequestException invalid(
+		String code,
+		String field,
+		String message
+	) {
+		return new InvalidReadingRequestException(code, field, message);
 	}
 }

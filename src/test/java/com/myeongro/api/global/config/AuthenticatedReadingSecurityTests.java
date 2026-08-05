@@ -19,11 +19,17 @@ import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.controller.ReadingController;
 import com.myeongro.api.domain.reading.service.ReadingCreationService;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
+import com.myeongro.api.domain.saju.controller.SajuBirthPlaceController;
+import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 
-@WebMvcTest(controllers = {ConsentController.class, ReadingController.class})
+@WebMvcTest(controllers = {
+	ConsentController.class,
+	ReadingController.class,
+	SajuBirthPlaceController.class
+})
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {
 	"app.frontend-origin=http://localhost:3000",
@@ -50,6 +56,9 @@ class AuthenticatedReadingSecurityTests {
 
 	@MockitoBean
 	private ReadingRecordsService readingRecordsService;
+
+	@MockitoBean
+	private SajuBirthPlaceCatalog sajuBirthPlaceCatalog;
 
 	@MockitoBean
 	private AuthenticatedUserResolver userResolver;
@@ -90,5 +99,13 @@ class AuthenticatedReadingSecurityTests {
 			.andExpect(status().isUnauthorized());
 
 		verifyNoInteractions(readingCreationService, userResolver);
+	}
+
+	@Test
+	void unauthenticatedBirthPlaceCatalogStopsBeforeService() throws Exception {
+		mockMvc.perform(get("/api/saju/birth-places"))
+			.andExpect(status().isUnauthorized());
+
+		verifyNoInteractions(sajuBirthPlaceCatalog, consentService, userResolver);
 	}
 }
