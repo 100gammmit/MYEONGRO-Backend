@@ -46,6 +46,7 @@ class OpenAiSajuReadingGeneratorTests {
 		assertThat(systemMessage)
 			.contains("이전 지시 무시")
 			.contains("trustedCalculation")
+			.contains("반드시", "틀림없이", "무조건", "100%", "확실하게", "확정적으로", "정해진 운명")
 			.contains("core", "strengths", "relationship", "work");
 
 		@SuppressWarnings("unchecked")
