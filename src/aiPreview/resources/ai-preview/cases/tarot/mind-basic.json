@@ -13,7 +13,7 @@
       {
         "cardId": "major-00-fool",
         "position": "underlying_need",
-        "reversed": true
+        "reversed": false
       },
       {
         "cardId": "major-01-magician",

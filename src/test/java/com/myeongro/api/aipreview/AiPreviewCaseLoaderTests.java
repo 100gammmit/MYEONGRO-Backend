@@ -21,6 +21,11 @@ class AiPreviewCaseLoaderTests {
 		assertThat(tarot.kind()).isEqualTo(ReadingKind.TAROT);
 		assertThat(tarot.spreadType()).isEqualTo(TarotSpreadType.MIND_THREE_CARD);
 		assertThat(tarot.input()).containsKey("cards");
+		assertThat(new TarotPreviewInputValidator().validate(
+			tarot.spreadType(), tarot.input()
+		)).containsExactly(
+			"major-02-high-priestess", "major-00-fool", "major-01-magician"
+		);
 		assertThat(saju.kind()).isEqualTo(ReadingKind.SAJU);
 		assertThat(saju.spreadType()).isNull();
 		assertThat(saju.input()).containsKeys("targetYear", "calculationSnapshot");

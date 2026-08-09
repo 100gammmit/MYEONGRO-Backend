@@ -63,6 +63,11 @@ public class AiPreviewApplication {
 	}
 
 	@Bean
+	TarotPreviewInputValidator tarotPreviewInputValidator() {
+		return new TarotPreviewInputValidator();
+	}
+
+	@Bean
 	AiPreviewReportWriter aiPreviewReportWriter(ObjectMapper objectMapper) {
 		return new AiPreviewReportWriter(objectMapper, Path.of("build", "ai-preview"));
 	}
