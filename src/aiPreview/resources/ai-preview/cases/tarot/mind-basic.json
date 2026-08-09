@@ -1,0 +1,25 @@
+{
+  "id": "mind-basic",
+  "kind": "tarot",
+  "spreadType": "mind_three_card",
+  "question": "요즘 마음이 자꾸 흔들리는데, 내가 먼저 살펴봐야 할 감정은 무엇일까요?",
+  "input": {
+    "cards": [
+      {
+        "cardId": "major-02-high-priestess",
+        "position": "emotion",
+        "reversed": false
+      },
+      {
+        "cardId": "major-00-fool",
+        "position": "underlying_need",
+        "reversed": true
+      },
+      {
+        "cardId": "major-01-magician",
+        "position": "self_action",
+        "reversed": false
+      }
+    ]
+  }
+}

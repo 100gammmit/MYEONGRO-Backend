@@ -14,6 +14,23 @@ java {
     }
 }
 
+sourceSets {
+    aiPreview {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += output + compileClasspath
+    }
+    test {
+        compileClasspath += sourceSets.aiPreview.output
+        runtimeClasspath += sourceSets.aiPreview.output
+    }
+}
+
+configurations {
+    aiPreviewImplementation.extendsFrom implementation
+    aiPreviewCompileOnly.extendsFrom compileOnly
+    aiPreviewRuntimeOnly.extendsFrom runtimeOnly
+}
+
 repositories {
     mavenCentral()
 }
@@ -72,5 +89,28 @@ tasks.named('test') {
         if (System.getProperty(propertyName) != null) {
             systemProperty propertyName, System.getProperty(propertyName)
         }
+    }
+}
+
+tasks.named('compileTestJava') {
+    dependsOn tasks.named('aiPreviewClasses')
+}
+
+tasks.register('aiPreview', JavaExec) {
+    group = 'verification'
+    description = 'Preview tarot or saju AI output without starting the web application.'
+    dependsOn tasks.named('aiPreviewClasses')
+    classpath = sourceSets.aiPreview.runtimeClasspath
+    mainClass = 'com.myeongro.api.aipreview.AiPreviewApplication'
+
+    systemProperty 'ai-preview.kind', project.findProperty('kind') ?: ''
+    systemProperty 'ai-preview.case', project.findProperty('case') ?: ''
+    systemProperty 'ai-preview.label', project.findProperty('label') ?: 'latest'
+    systemProperty 'ai-preview.execute', project.findProperty('execute') ?: 'false'
+    systemProperty 'spring.config.name', 'application-ai-preview'
+    systemProperty 'spring.profiles.active', 'ai-preview'
+    def previewModel = providers.gradleProperty('model').orNull
+    if (previewModel != null) {
+        systemProperty 'app.reading.openai.model', previewModel
     }
 }
