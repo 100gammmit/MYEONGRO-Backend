@@ -1,5 +1,9 @@
 # AI Reading Preview
 
+모델과 프롬프트 경로는 운영 코드와 동일한 `src/main/resources/application.yaml`을
+사용한다. `aiPreview` Gradle 작업은 ignored 로컬 secret만 추가로 import하며,
+별도의 preview 설정 파일을 유지하지 않는다.
+
 프론트엔드, 웹 서버, PostgreSQL, Redis, 로그인 없이 현재 백엔드의 타로·사주
 프롬프트 결과를 로컬에서 확인한다.
 

@@ -107,8 +107,10 @@ tasks.register('aiPreview', JavaExec) {
     systemProperty 'ai-preview.case', project.findProperty('case') ?: ''
     systemProperty 'ai-preview.label', project.findProperty('label') ?: 'latest'
     systemProperty 'ai-preview.execute', project.findProperty('execute') ?: 'false'
-    systemProperty 'spring.config.name', 'application-ai-preview'
+    systemProperty 'spring.config.import', 'optional:classpath:/config/application-secret.yaml'
+    systemProperty 'spring.main.banner-mode', 'off'
     systemProperty 'spring.profiles.active', 'ai-preview'
+    systemProperty 'logging.level.root', 'warn'
     def previewModel = providers.gradleProperty('model').orNull
     if (previewModel != null) {
         systemProperty 'app.reading.openai.model', previewModel
