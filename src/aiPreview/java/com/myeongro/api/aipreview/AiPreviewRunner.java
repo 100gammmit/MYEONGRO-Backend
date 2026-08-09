@@ -31,9 +31,9 @@ final class AiPreviewRunner {
 	private final AiPreviewCaseLoader caseLoader;
 	private final TarotPreviewInputValidator tarotInputValidator;
 	private final AiPreviewReportWriter reportWriter;
+	private final AiPreviewLabelFactory labelFactory;
 	private final String kind;
 	private final String caseId;
-	private final String label;
 	private final boolean execute;
 	private final String model;
 
@@ -44,9 +44,9 @@ final class AiPreviewRunner {
 		AiPreviewCaseLoader caseLoader,
 		TarotPreviewInputValidator tarotInputValidator,
 		AiPreviewReportWriter reportWriter,
+		AiPreviewLabelFactory labelFactory,
 		@Value("${ai-preview.kind:}") String kind,
 		@Value("${ai-preview.case:}") String caseId,
-		@Value("${ai-preview.label:latest}") String label,
 		@Value("${ai-preview.execute:false}") boolean execute,
 		@Value("${app.reading.openai.model}") String model
 	) {
@@ -56,20 +56,21 @@ final class AiPreviewRunner {
 		this.caseLoader = caseLoader;
 		this.tarotInputValidator = tarotInputValidator;
 		this.reportWriter = reportWriter;
+		this.labelFactory = labelFactory;
 		this.kind = kind;
 		this.caseId = caseId;
-		this.label = label;
 		this.execute = execute;
 		this.model = model;
 	}
 
 	void run() {
+		AiPreviewCase previewCase = caseLoader.load(kind, caseId);
+		String label = labelFactory.create(previewCase.kind());
 		if (!SAFE_LABEL.matcher(label).matches()) {
 			throw new IllegalArgumentException("Preview label must use letters, digits, hyphens, or underscores");
 		}
-		AiPreviewCase previewCase = caseLoader.load(kind, caseId);
 		PromptIdentity prompt = promptIdentity(previewCase);
-		printPlan(previewCase, prompt);
+		printPlan(previewCase, prompt, label);
 		if (!execute) {
 			System.out.println("Dry run only. Add -Pexecute=true to call OpenAI.");
 			return;
@@ -128,7 +129,7 @@ final class AiPreviewRunner {
 		}
 	}
 
-	private void printPlan(AiPreviewCase previewCase, PromptIdentity prompt) {
+	private void printPlan(AiPreviewCase previewCase, PromptIdentity prompt, String label) {
 		System.out.println("AI preview plan");
 		System.out.println("- kind: " + previewCase.kind().value());
 		System.out.println("- case: " + previewCase.id());

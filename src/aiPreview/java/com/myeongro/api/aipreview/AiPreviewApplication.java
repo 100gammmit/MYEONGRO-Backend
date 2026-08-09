@@ -1,6 +1,7 @@
 package com.myeongro.api.aipreview;
 
 import java.nio.file.Path;
+import java.time.Clock;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -70,6 +71,11 @@ public class AiPreviewApplication {
 	@Bean
 	AiPreviewReportWriter aiPreviewReportWriter(ObjectMapper objectMapper) {
 		return new AiPreviewReportWriter(objectMapper, Path.of("build", "ai-preview"));
+	}
+
+	@Bean
+	AiPreviewLabelFactory aiPreviewLabelFactory() {
+		return new AiPreviewLabelFactory(Clock.systemDefaultZone());
 	}
 
 	@Bean

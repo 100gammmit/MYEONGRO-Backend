@@ -105,7 +105,6 @@ tasks.register('aiPreview', JavaExec) {
 
     systemProperty 'ai-preview.kind', project.findProperty('kind') ?: ''
     systemProperty 'ai-preview.case', project.findProperty('case') ?: ''
-    systemProperty 'ai-preview.label', project.findProperty('label') ?: 'latest'
     systemProperty 'ai-preview.execute', project.findProperty('execute') ?: 'false'
     systemProperty 'spring.config.import', 'optional:classpath:/config/application-secret.yaml'
     systemProperty 'spring.main.banner-mode', 'off'

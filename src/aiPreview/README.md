@@ -17,8 +17,8 @@
 # 타로 실제 호출
 .\gradlew.bat aiPreview -Pkind=tarot -Pcase=mind-basic -Pexecute=true
 
-# 사주 실제 호출 결과를 before 라벨로 저장
-.\gradlew.bat aiPreview -Pkind=saju -Pcase=career-basic -Plabel=before -Pexecute=true
+# 사주 실제 호출
+.\gradlew.bat aiPreview -Pkind=saju -Pcase=career-basic -Pexecute=true
 
 # 필요할 때만 모델 덮어쓰기
 .\gradlew.bat aiPreview -Pkind=tarot -Pcase=mind-basic -Pmodel=gpt-5.6-luna -Pexecute=true
@@ -27,8 +27,12 @@
 실제 호출 결과는 다음 위치에 저장된다.
 
 ```text
-build/ai-preview/<label>/<kind>-<case>.json
+build/ai-preview/<yyyyMMdd-HHmmss-kind>/<kind>-<case>.json
 ```
+
+라벨은 실행할 때마다 시스템 로컬 시간과 리딩 종류로 자동 생성된다. 예를 들어
+`20260810-152345-tarot` 또는 `20260810-152345-saju` 형식이며, 별도의 `-Plabel`
+입력은 사용하지 않는다.
 
 결과 JSON에는 모델, 프롬프트 파일명 기반 버전, 조합된 최종 프롬프트의
 SHA-256, 실행 시간, 응답 제목과 전체 payload가 포함된다. 같은 파일명을 유지한
