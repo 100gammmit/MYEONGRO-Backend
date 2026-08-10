@@ -2,6 +2,7 @@ package com.myeongro.api.aipreview;
 
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.ZoneId;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -69,8 +70,20 @@ public class AiPreviewApplication {
 	}
 
 	@Bean
-	AiPreviewReportWriter aiPreviewReportWriter(ObjectMapper objectMapper) {
-		return new AiPreviewReportWriter(objectMapper, Path.of("build", "ai-preview"));
+	AiPreviewMarkdownRenderer aiPreviewMarkdownRenderer() {
+		return new AiPreviewMarkdownRenderer(ZoneId.systemDefault());
+	}
+
+	@Bean
+	AiPreviewReportWriter aiPreviewReportWriter(
+		ObjectMapper objectMapper,
+		AiPreviewMarkdownRenderer markdownRenderer
+	) {
+		return new AiPreviewReportWriter(
+			objectMapper,
+			markdownRenderer,
+			Path.of("build", "ai-preview")
+		);
 	}
 
 	@Bean

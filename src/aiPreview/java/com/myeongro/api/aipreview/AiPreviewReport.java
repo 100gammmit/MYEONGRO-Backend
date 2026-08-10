@@ -13,7 +13,6 @@ record AiPreviewReport(
 	String promptSha256,
 	Instant executedAt,
 	long durationMillis,
-	String title,
 	Map<String, Object> result
 ) {
 }

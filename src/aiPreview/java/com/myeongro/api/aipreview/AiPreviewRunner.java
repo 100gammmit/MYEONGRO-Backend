@@ -1,7 +1,6 @@
 package com.myeongro.api.aipreview;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -95,12 +94,12 @@ final class AiPreviewRunner {
 			prompt.sha256(),
 			startedAt,
 			durationMillis,
-			generated.title(),
 			generated.payload()
 		);
-		Path output = reportWriter.write(report);
+		AiPreviewWrittenReport output = reportWriter.write(report);
 		System.out.println("AI preview completed in " + durationMillis + " ms");
-		System.out.println("Result: " + output);
+		System.out.println("Result JSON: " + output.json());
+		System.out.println("Readable Markdown: " + output.markdown());
 	}
 
 	private PromptIdentity promptIdentity(AiPreviewCase previewCase) {

@@ -27,16 +27,19 @@
 실제 호출 결과는 다음 위치에 저장된다.
 
 ```text
-build/ai-preview/<yyyyMMdd-HHmmss-kind>/<kind>-<case>.json
+build/ai-preview/<yyyyMMdd-HHmmss-kind>/
+├─ <kind>-<case>.json
+└─ <kind>-<case>.md
 ```
 
 라벨은 실행할 때마다 시스템 로컬 시간과 리딩 종류로 자동 생성된다. 예를 들어
 `20260810-152345-tarot` 또는 `20260810-152345-saju` 형식이며, 별도의 `-Plabel`
 입력은 사용하지 않는다.
 
-결과 JSON에는 모델, 프롬프트 파일명 기반 버전, 조합된 최종 프롬프트의
-SHA-256, 실행 시간, 응답 제목과 전체 payload가 포함된다. 같은 파일명을 유지한
-채 Markdown 내용을 수정해도 SHA-256으로 변경 전후를 구분할 수 있다.
+JSON은 전체 payload와 실행 정보를 보관하고 IDE diff에 사용한다. 같은 폴더의
+Markdown은 리딩 본문, 실천 가이드, 고지문을 먼저 보여 주고 모델, 프롬프트,
+로컬 생성 시간과 소요 시간은 하단 실행 정보로 정리한다. 같은 프롬프트 파일명을
+유지한 채 내용을 수정해도 SHA-256으로 변경 전후를 구분할 수 있다.
 
 새 fixture는 아래 경로에 추가한다.
 
