@@ -70,6 +70,11 @@ public class AiPreviewApplication {
 	}
 
 	@Bean
+	SajuPreviewInputValidator sajuPreviewInputValidator() {
+		return new SajuPreviewInputValidator();
+	}
+
+	@Bean
 	AiPreviewMarkdownRenderer aiPreviewMarkdownRenderer() {
 		return new AiPreviewMarkdownRenderer(ZoneId.systemDefault());
 	}

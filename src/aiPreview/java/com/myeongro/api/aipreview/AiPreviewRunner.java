@@ -29,6 +29,7 @@ final class AiPreviewRunner {
 	private final SajuPromptCatalog sajuPromptCatalog;
 	private final AiPreviewCaseLoader caseLoader;
 	private final TarotPreviewInputValidator tarotInputValidator;
+	private final SajuPreviewInputValidator sajuInputValidator;
 	private final AiPreviewReportWriter reportWriter;
 	private final AiPreviewLabelFactory labelFactory;
 	private final String kind;
@@ -42,6 +43,7 @@ final class AiPreviewRunner {
 		SajuPromptCatalog sajuPromptCatalog,
 		AiPreviewCaseLoader caseLoader,
 		TarotPreviewInputValidator tarotInputValidator,
+		SajuPreviewInputValidator sajuInputValidator,
 		AiPreviewReportWriter reportWriter,
 		AiPreviewLabelFactory labelFactory,
 		@Value("${ai-preview.kind:}") String kind,
@@ -54,6 +56,7 @@ final class AiPreviewRunner {
 		this.sajuPromptCatalog = sajuPromptCatalog;
 		this.caseLoader = caseLoader;
 		this.tarotInputValidator = tarotInputValidator;
+		this.sajuInputValidator = sajuInputValidator;
 		this.reportWriter = reportWriter;
 		this.labelFactory = labelFactory;
 		this.kind = kind;
@@ -112,6 +115,7 @@ final class AiPreviewRunner {
 			prompt = tarotPromptCatalog.prompt(previewCase.spreadType(), cardIds);
 			version = tarotPromptCatalog.version(previewCase.spreadType());
 		} else {
+			sajuInputValidator.validate(previewCase.input());
 			prompt = sajuPromptCatalog.prompt();
 			version = sajuPromptCatalog.version();
 		}

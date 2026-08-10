@@ -14,11 +14,13 @@ final class TarotPreviewInputValidator {
 	private static final Set<String> CARD_FIELDS = Set.of(
 		"cardId", "position", "reversed"
 	);
+	private static final Set<String> CHOICE_FIELDS = Set.of("a", "b");
 
 	List<String> validate(TarotSpreadType spreadType, Map<String, Object> input) {
 		if (spreadType == null) {
 			throw new IllegalArgumentException("Tarot preview spread type is required");
 		}
+		validateInputFields(spreadType, input);
 		Object cardsValue = input.get("cards");
 		if (!(cardsValue instanceof List<?> cards)
 			|| cards.size() != spreadType.cardCount()) {
@@ -52,6 +54,41 @@ final class TarotPreviewInputValidator {
 			}
 			cardIds.add(cardId);
 		}
+		validateChoiceOptions(spreadType, input.get("choiceOptions"));
 		return List.copyOf(cardIds);
+	}
+
+	private void validateInputFields(TarotSpreadType spreadType, Map<String, Object> input) {
+		Set<String> expectedFields = spreadType == TarotSpreadType.CHOICE_FIVE_CARD
+			? Set.of("cards", "choiceOptions")
+			: Set.of("cards");
+		if (!input.keySet().equals(expectedFields)) {
+			throw new IllegalArgumentException("Tarot preview input structure is invalid");
+		}
+	}
+
+	private void validateChoiceOptions(TarotSpreadType spreadType, Object value) {
+		if (spreadType != TarotSpreadType.CHOICE_FIVE_CARD) {
+			return;
+		}
+		if (!(value instanceof Map<?, ?> options)
+			|| !options.keySet().equals(CHOICE_FIELDS)) {
+			throw new IllegalArgumentException("Tarot preview choice options are required");
+		}
+		String optionA = normalizedChoice(options.get("a"), "A");
+		String optionB = normalizedChoice(options.get("b"), "B");
+		if (optionA.equals(optionB)) {
+			throw new IllegalArgumentException("Tarot preview choice options must be different");
+		}
+	}
+
+	private String normalizedChoice(Object value, String name) {
+		if (!(value instanceof String text) || text.isBlank()
+			|| !text.equals(text.trim()) || text.length() > 100) {
+			throw new IllegalArgumentException(
+				"Tarot preview choice option " + name + " must be normalized and at most 100 characters"
+			);
+		}
+		return text;
 	}
 }

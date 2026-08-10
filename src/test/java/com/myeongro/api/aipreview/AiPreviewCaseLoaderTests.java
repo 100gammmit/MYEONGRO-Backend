@@ -64,6 +64,7 @@ class AiPreviewCaseLoaderTests {
 		assertThat(saju.input()).containsKeys(
 			"focusArea", "targetYear", "calculationSnapshot"
 		);
+		new SajuPreviewInputValidator().validate(saju.input());
 	}
 
 	@Test

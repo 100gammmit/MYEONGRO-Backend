@@ -60,6 +60,9 @@ saju/sample.json
 
 Tarot sample은 각 스프레드의 실제 카드 수와 canonical position 순서를 사용하며,
 choice sample에는 운영 입력과 동일한 `choiceOptions.a`, `choiceOptions.b`가 포함된다.
+dry-run은 choice option의 필수 여부, 공백 제거 상태, 길이와 중복을 검사하고,
+Saju의 focus area, target year, 고정 calculation snapshot 핵심 구조도 API 호출 전에
+검사한다.
 
 fixture에는 실제 서비스 생성기가 받는 정규화된 입력을 저장한다. 특히 사주는
 프롬프트 변경만 비교할 수 있도록 계산 결과인 `calculationSnapshot`을 고정한다.
