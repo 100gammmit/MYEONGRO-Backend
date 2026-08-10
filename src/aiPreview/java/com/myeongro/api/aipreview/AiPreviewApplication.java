@@ -65,16 +65,6 @@ public class AiPreviewApplication {
 	}
 
 	@Bean
-	TarotPreviewInputValidator tarotPreviewInputValidator() {
-		return new TarotPreviewInputValidator();
-	}
-
-	@Bean
-	SajuPreviewInputValidator sajuPreviewInputValidator() {
-		return new SajuPreviewInputValidator();
-	}
-
-	@Bean
 	AiPreviewMarkdownRenderer aiPreviewMarkdownRenderer() {
 		return new AiPreviewMarkdownRenderer(ZoneId.systemDefault());
 	}

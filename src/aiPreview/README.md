@@ -7,8 +7,9 @@
 프론트엔드, 웹 서버, PostgreSQL, Redis, 로그인 없이 현재 백엔드의 타로·사주
 프롬프트 결과를 로컬에서 확인한다.
 
-기본 명령은 fixture와 프롬프트를 검증하고 예상 호출만 출력한다. 실제 OpenAI
-호출은 `-Pexecute=true`를 명시해야 한다.
+기본 명령은 fixture를 로드해 사용할 프롬프트 정보와 예상 호출만 출력한다.
+Controller와 운영 input normalizer를 거치지 않으며, fixture의 전체 입력 계약을
+자동 검증하지 않는다. 실제 OpenAI 호출은 `-Pexecute=true`를 명시해야 한다.
 
 ```powershell
 # 타로 호출 계획 확인
@@ -60,9 +61,11 @@ saju/sample.json
 
 Tarot sample은 각 스프레드의 실제 카드 수와 canonical position 순서를 사용하며,
 choice sample에는 운영 입력과 동일한 `choiceOptions.a`, `choiceOptions.b`가 포함된다.
-dry-run은 choice option의 필수 여부, 공백 제거 상태, 길이와 중복을 검사하고,
-Saju의 focus area, target year, 고정 calculation snapshot 핵심 구조도 API 호출 전에
-검사한다.
+
+sample을 복사하거나 수정한 뒤에는 실제 호출 전에 운영 코드와의 입력 계약을
+수동으로 리뷰한다. 필요하면 이 작업을 Codex의 다른 스레드에 요청한다. dry-run
+성공은 JSON 역직렬화와 프롬프트 조합이 가능하다는 뜻이며, 운영 입력 계약 전체가
+유효하다는 보장은 아니다.
 
 fixture에는 실제 서비스 생성기가 받는 정규화된 입력을 저장한다. 특히 사주는
 프롬프트 변경만 비교할 수 있도록 계산 결과인 `calculationSnapshot`을 고정한다.

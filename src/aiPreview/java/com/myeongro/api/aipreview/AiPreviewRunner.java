@@ -6,6 +6,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -28,8 +29,6 @@ final class AiPreviewRunner {
 	private final TarotPromptCatalog tarotPromptCatalog;
 	private final SajuPromptCatalog sajuPromptCatalog;
 	private final AiPreviewCaseLoader caseLoader;
-	private final TarotPreviewInputValidator tarotInputValidator;
-	private final SajuPreviewInputValidator sajuInputValidator;
 	private final AiPreviewReportWriter reportWriter;
 	private final AiPreviewLabelFactory labelFactory;
 	private final String kind;
@@ -42,8 +41,6 @@ final class AiPreviewRunner {
 		TarotPromptCatalog tarotPromptCatalog,
 		SajuPromptCatalog sajuPromptCatalog,
 		AiPreviewCaseLoader caseLoader,
-		TarotPreviewInputValidator tarotInputValidator,
-		SajuPreviewInputValidator sajuInputValidator,
 		AiPreviewReportWriter reportWriter,
 		AiPreviewLabelFactory labelFactory,
 		@Value("${ai-preview.kind:}") String kind,
@@ -55,8 +52,6 @@ final class AiPreviewRunner {
 		this.tarotPromptCatalog = tarotPromptCatalog;
 		this.sajuPromptCatalog = sajuPromptCatalog;
 		this.caseLoader = caseLoader;
-		this.tarotInputValidator = tarotInputValidator;
-		this.sajuInputValidator = sajuInputValidator;
 		this.reportWriter = reportWriter;
 		this.labelFactory = labelFactory;
 		this.kind = kind;
@@ -109,17 +104,28 @@ final class AiPreviewRunner {
 		String prompt;
 		String version;
 		if (previewCase.kind() == ReadingKind.TAROT) {
-			List<String> cardIds = tarotInputValidator.validate(
-				previewCase.spreadType(), previewCase.input()
-			);
+			List<String> cardIds = selectedCardIds(previewCase.input());
 			prompt = tarotPromptCatalog.prompt(previewCase.spreadType(), cardIds);
 			version = tarotPromptCatalog.version(previewCase.spreadType());
 		} else {
-			sajuInputValidator.validate(previewCase.input());
 			prompt = sajuPromptCatalog.prompt();
 			version = sajuPromptCatalog.version();
 		}
 		return new PromptIdentity(version, sha256(prompt));
+	}
+
+	private List<String> selectedCardIds(Map<String, Object> input) {
+		Object cardsValue = input.get("cards");
+		if (!(cardsValue instanceof List<?> cards)) {
+			throw new IllegalArgumentException("Tarot preview cards are required");
+		}
+		return cards.stream().map(card -> {
+			if (!(card instanceof Map<?, ?> values)
+				|| !(values.get("cardId") instanceof String cardId)) {
+				throw new IllegalArgumentException("Tarot preview card ID is required");
+			}
+			return cardId;
+		}).toList();
 	}
 
 	private String sha256(String value) {
