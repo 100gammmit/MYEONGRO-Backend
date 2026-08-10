@@ -1,0 +1,65 @@
+{
+  "id": "sample",
+  "kind": "saju",
+  "spreadType": null,
+  "question": "올해 나 자신을 이해하고 생활의 균형을 잡기 위해 어떤 부분을 살펴보면 좋을까요?",
+  "input": {
+    "focusArea": "self",
+    "targetYear": 2026,
+    "calculationSnapshot": {
+      "calculationVersion": "saju-ko-v1",
+      "pillars": {
+        "year": {
+          "ganZhi": "임신",
+          "stem": "임",
+          "branch": "신",
+          "fiveElements": "water-metal",
+          "stemTenGod": "편재",
+          "branchTenGods": ["편인", "비견", "식신"]
+        },
+        "month": {
+          "ganZhi": "무신",
+          "stem": "무",
+          "branch": "신",
+          "fiveElements": "earth-metal",
+          "stemTenGod": "편관",
+          "branchTenGods": ["편인", "비견", "식신"]
+        },
+        "day": {
+          "ganZhi": "갑진",
+          "stem": "갑",
+          "branch": "진",
+          "fiveElements": "wood-earth",
+          "stemTenGod": "비견",
+          "branchTenGods": ["편재", "겁재", "정인"]
+        }
+      },
+      "dayMaster": "갑",
+      "fiveElements": {
+        "wood": 1,
+        "fire": 0,
+        "earth": 3,
+        "metal": 2,
+        "water": 2
+      },
+      "relations": [
+        {
+          "type": "합",
+          "members": ["신", "진"]
+        }
+      ],
+      "annualFortune": {
+        "year": 2026,
+        "ganZhi": "병오",
+        "stemTenGod": "식신"
+      },
+      "limitations": ["BIRTH_TIME_UNKNOWN"],
+      "uncertainty": {
+        "precision": "unknown",
+        "candidateCount": 1440,
+        "varyingFields": ["timePillar"],
+        "candidateZoneOffsets": []
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "sample-mind-three-card",
+  "kind": "tarot",
+  "spreadType": "mind_three_card",
+  "question": "요즘 마음이 복잡한데 지금의 감정과 내가 할 수 있는 행동을 어떻게 살펴보면 좋을까요?",
+  "input": {
+    "cards": [
+      {
+        "cardId": "major-02-high-priestess",
+        "position": "emotion",
+        "reversed": false
+      },
+      {
+        "cardId": "major-18-moon",
+        "position": "underlying_need",
+        "reversed": false
+      },
+      {
+        "cardId": "major-01-magician",
+        "position": "self_action",
+        "reversed": false
+      }
+    ]
+  }
+}

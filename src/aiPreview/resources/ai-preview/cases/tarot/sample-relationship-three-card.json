@@ -1,0 +1,25 @@
+{
+  "id": "sample-relationship-three-card",
+  "kind": "tarot",
+  "spreadType": "relationship_three_card",
+  "question": "가까운 사람과의 관계에서 내가 이해하고 확인해야 할 부분은 무엇일까요?",
+  "input": {
+    "cards": [
+      {
+        "cardId": "major-06-lovers",
+        "position": "my_heart",
+        "reversed": false
+      },
+      {
+        "cardId": "major-14-temperance",
+        "position": "relationship_flow",
+        "reversed": false
+      },
+      {
+        "cardId": "major-11-justice",
+        "position": "check_point",
+        "reversed": false
+      }
+    ]
+  }
+}

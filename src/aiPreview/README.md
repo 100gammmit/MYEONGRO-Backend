@@ -48,5 +48,18 @@ src/aiPreview/resources/ai-preview/cases/tarot/
 src/aiPreview/resources/ai-preview/cases/saju/
 ```
 
+바로 복사해 수정할 수 있는 sample fixture는 다음과 같다.
+
+```text
+tarot/sample-daily-one-card.json
+tarot/sample-mind-three-card.json
+tarot/sample-relationship-three-card.json
+tarot/sample-choice-five-card.json
+saju/sample.json
+```
+
+Tarot sample은 각 스프레드의 실제 카드 수와 canonical position 순서를 사용하며,
+choice sample에는 운영 입력과 동일한 `choiceOptions.a`, `choiceOptions.b`가 포함된다.
+
 fixture에는 실제 서비스 생성기가 받는 정규화된 입력을 저장한다. 특히 사주는
 프롬프트 변경만 비교할 수 있도록 계산 결과인 `calculationSnapshot`을 고정한다.

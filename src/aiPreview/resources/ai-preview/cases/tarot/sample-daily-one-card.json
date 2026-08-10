@@ -1,0 +1,15 @@
+{
+  "id": "sample-daily-one-card",
+  "kind": "tarot",
+  "spreadType": "daily_one_card",
+  "question": "오늘 하루를 보내며 가장 주의 깊게 살펴볼 흐름은 무엇일까요?",
+  "input": {
+    "cards": [
+      {
+        "cardId": "major-19-sun",
+        "position": "today",
+        "reversed": false
+      }
+    ]
+  }
+}
