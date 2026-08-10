@@ -1,0 +1,39 @@
+{
+  "id": "stock-choice-five-card",
+  "kind": "tarot",
+  "spreadType": "choice_five_card",
+  "question": "주식 투자를 해볼까 생각중이야",
+  "input": {
+    "cards": [
+      {
+        "cardId": "major-00-fool",
+        "position": "desire",
+        "reversed": false
+      },
+      {
+        "cardId": "major-18-moon",
+        "position": "fear",
+        "reversed": false
+      },
+      {
+        "cardId": "major-09-hermit",
+        "position": "core_value",
+        "reversed": false
+      },
+      {
+        "cardId": "major-07-chariot",
+        "position": "option_a",
+        "reversed": false
+      },
+      {
+        "cardId": "major-21-world",
+        "position": "option_b",
+        "reversed": false
+      }
+    ],
+    "choiceOptions": {
+      "a": "주식 투자를 한다",
+      "b": "적금만 유지한다"
+    }
+  }
+}
