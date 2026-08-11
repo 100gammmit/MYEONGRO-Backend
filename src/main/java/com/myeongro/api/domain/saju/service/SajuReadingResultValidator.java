@@ -38,6 +38,9 @@ public class SajuReadingResultValidator {
 			throw new IllegalArgumentException("Saju result and calculation are required");
 		}
 		requireText(result.title(), "Saju reading title is required");
+		if (result.readingMode() == null) {
+			throw new IllegalArgumentException("Saju reading mode is required");
+		}
 		requireText(result.summary(), "Saju reading summary is required");
 		requireText(result.disclaimer(), "Saju reading disclaimer is required");
 
@@ -76,8 +79,8 @@ public class SajuReadingResultValidator {
 		validateEvidence(question.evidenceKeys(), availableEvidence);
 
 		if (result.guidance() == null
-			|| result.guidance().size() < 2
-			|| result.guidance().size() > 3) {
+			|| result.guidance().size() < 1
+			|| result.guidance().size() > 2) {
 			throw new IllegalArgumentException("Saju guidance count is invalid");
 		}
 		result.guidance().forEach(item -> requireText(item, "Saju guidance is required"));

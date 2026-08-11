@@ -37,7 +37,7 @@ class OpenAiReadingGeneratorTests {
 			ReadingKind.TAROT, spread, "질문", input(spread)
 		);
 		assertThat(generated.payload()).containsOnlyKeys(
-			"title", "summary", "sections", "guidance", "disclaimer"
+			"readingMode", "title", "summary", "sections", "guidance", "disclaimer"
 		);
 
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
@@ -45,6 +45,11 @@ class OpenAiReadingGeneratorTests {
 		Map<String, Object> schema = readingSchema(options);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
+		assertThat(((Map<?, ?>)properties.get("readingMode")).get("enum"))
+			.isEqualTo(List.of(
+				"standard", "health_fortune", "money_fortune",
+				"relationship_fortune", "career_life_fortune"
+			));
 		@SuppressWarnings("unchecked")
 		Map<String, Object> sections = (Map<String, Object>) properties.get("sections");
 		assertThat(sections)
@@ -91,7 +96,7 @@ class OpenAiReadingGeneratorTests {
 	@Test
 	void rejectsResponseWithWrongPositionOrder() {
 		String invalid = """
-			{"output":{"resultType":"reading","reading":{"title":"제목","summary":"요약","sections":[
+			{"output":{"resultType":"reading","reading":{"readingMode":"standard","title":"제목","summary":"요약","sections":[
 			{"position":"underlying_need","heading":"욕구","body":"본문"},
 			{"position":"emotion","heading":"감정","body":"본문"},
 			{"position":"self_action","heading":"행동","body":"본문"}],
@@ -108,7 +113,7 @@ class OpenAiReadingGeneratorTests {
 	@Test
 	void returnsServerOwnedDeclineResultWithoutTarotSections() {
 		OpenAiReadingGenerator generator = generator(new CapturingChatModel("""
-			{"output":{"resultType":"declined","reasonCode":"FINANCIAL_DECISION"}}
+			{"output":{"resultType":"declined","reasonCode":"HARMFUL_OR_ILLEGAL_ACTION"}}
 			"""));
 
 		GeneratedReading generated = generator.generate(
@@ -120,7 +125,7 @@ class OpenAiReadingGeneratorTests {
 
 		assertThat(generated.payload())
 			.containsEntry("resultType", "declined")
-			.containsEntry("reasonCode", "FINANCIAL_DECISION")
+			.containsEntry("reasonCode", "HARMFUL_OR_ILLEGAL_ACTION")
 			.doesNotContainKeys("sections", "summary");
 	}
 
@@ -180,7 +185,7 @@ class OpenAiReadingGeneratorTests {
 			? "[\"작은 행동\"]"
 			: "[\"행동 하나\",\"행동 둘\"]";
 		return """
-			{"output":{"resultType":"reading","reading":{"title":"제목","summary":"요약","sections":[%s],
+			{"output":{"resultType":"reading","reading":{"readingMode":"standard","title":"제목","summary":"요약","sections":[%s],
 			"guidance":%s,"disclaimer":"오락과 자기 성찰을 위한 참고입니다."}}}
 			""".formatted(sections, guidance);
 	}

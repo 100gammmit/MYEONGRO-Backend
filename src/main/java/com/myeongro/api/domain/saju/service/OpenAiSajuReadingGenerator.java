@@ -258,10 +258,16 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 			"type", "object",
 			"additionalProperties", false,
 			"required", List.of(
-				"title", "summary", "natalSections", "annualReading",
+				"readingMode", "title", "summary", "natalSections", "annualReading",
 				"questionReading", "guidance", "disclaimer"
 			),
 			"properties", Map.of(
+				"readingMode", Map.of(
+					"type", "string",
+					"enum", java.util.Arrays.stream(com.myeongro.api.domain.reading.service.ReadingMode.values())
+						.map(com.myeongro.api.domain.reading.service.ReadingMode::value)
+						.toList()
+				),
 				"title", textSchema(),
 				"summary", textSchema(),
 				"natalSections", Map.of(
@@ -284,7 +290,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 					)
 				),
 				"guidance", Map.of(
-					"type", "array", "minItems", 2, "maxItems", 3, "items", textSchema()
+					"type", "array", "minItems", 1, "maxItems", 2, "items", textSchema()
 				),
 				"disclaimer", textSchema()
 			)

@@ -16,6 +16,9 @@ public class TarotReadingResultValidator {
 			throw new IllegalArgumentException("Tarot spread and result are required");
 		}
 		requireText(result.title(), "Tarot reading title is required");
+		if (result.readingMode() == null) {
+			throw new IllegalArgumentException("Tarot reading mode is required");
+		}
 		requireText(result.summary(), "Tarot reading summary is required");
 		requireText(result.disclaimer(), "Tarot reading disclaimer is required");
 

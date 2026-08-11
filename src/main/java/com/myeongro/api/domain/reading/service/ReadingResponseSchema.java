@@ -1,6 +1,5 @@
 package com.myeongro.api.domain.reading.service;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -27,9 +26,7 @@ public final class ReadingResponseSchema {
 				"resultType", Map.of("type", "string", "enum", List.of("declined")),
 				"reasonCode", Map.of(
 					"type", "string",
-					"enum", Arrays.stream(ReadingDeclineReason.values())
-						.map(Enum::name)
-						.toList()
+					"enum", ReadingDeclineReason.modelSelectableValues()
 				)
 			)
 		);

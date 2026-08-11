@@ -22,8 +22,8 @@ public enum TarotSpreadType {
 			new TarotPosition("underlying_need", "감정 뒤의 욕구"),
 			new TarotPosition("self_action", "나를 위한 행동")
 		),
+		1,
 		2,
-		3,
 		1200
 	),
 	RELATIONSHIP_THREE_CARD(
@@ -33,8 +33,8 @@ public enum TarotSpreadType {
 			new TarotPosition("relationship_flow", "관계에서 드러난 흐름"),
 			new TarotPosition("check_point", "내가 확인할 것")
 		),
+		1,
 		2,
-		3,
 		1200
 	),
 	CHOICE_FIVE_CARD(
@@ -46,8 +46,8 @@ public enum TarotSpreadType {
 			new TarotPosition("option_a", "선택 A"),
 			new TarotPosition("option_b", "선택 B")
 		),
+		1,
 		2,
-		3,
 		1800
 	);
 

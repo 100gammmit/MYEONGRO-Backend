@@ -2,7 +2,10 @@ package com.myeongro.api.domain.saju.result;
 
 import java.util.List;
 
+import com.myeongro.api.domain.reading.service.ReadingMode;
+
 public record SajuReadingResult(
+	ReadingMode readingMode,
 	String title,
 	String summary,
 	List<SajuReadingSection> natalSections,
@@ -14,6 +17,21 @@ public record SajuReadingResult(
 	public SajuReadingResult {
 		natalSections = natalSections == null ? null : List.copyOf(natalSections);
 		guidance = guidance == null ? null : List.copyOf(guidance);
+	}
+
+	public SajuReadingResult(
+		String title,
+		String summary,
+		List<SajuReadingSection> natalSections,
+		AnnualReading annualReading,
+		QuestionReading questionReading,
+		List<String> guidance,
+		String disclaimer
+	) {
+		this(
+			ReadingMode.STANDARD, title, summary, natalSections,
+			annualReading, questionReading, guidance, disclaimer
+		);
 	}
 
 	public record AnnualReading(

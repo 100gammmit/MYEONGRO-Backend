@@ -40,14 +40,19 @@ class TarotReadingResultValidatorTests {
 	}
 
 	@Test
-	void dailyAllowsOneGuidanceButOtherSpreadsRequireTwo() {
+	void allSpreadsAllowOneGuidanceAndRejectMoreThanTwo() {
 		ReadingResult daily = result(TarotSpreadType.DAILY_ONE_CARD);
 		assertThatCode(() -> validator.validate(TarotSpreadType.DAILY_ONE_CARD, daily))
 			.doesNotThrowAnyException();
 
 		ReadingResult mind = result(TarotSpreadType.MIND_THREE_CARD);
-		ReadingResult invalid = new ReadingResult(
+		ReadingResult one = new ReadingResult(
 			mind.title(), mind.summary(), mind.sections(), List.of("하나"), mind.disclaimer()
+		);
+		assertThatCode(() -> validator.validate(TarotSpreadType.MIND_THREE_CARD, one))
+			.doesNotThrowAnyException();
+		ReadingResult invalid = new ReadingResult(
+			mind.title(), mind.summary(), mind.sections(), List.of("하나", "둘", "셋"), mind.disclaimer()
 		);
 		assertThatThrownBy(() -> validator.validate(TarotSpreadType.MIND_THREE_CARD, invalid))
 			.isInstanceOf(IllegalArgumentException.class);

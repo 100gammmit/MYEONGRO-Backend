@@ -156,8 +156,9 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 		return Map.of(
 			"type", "object",
 			"additionalProperties", false,
-			"required", List.of("title", "summary", "sections", "guidance", "disclaimer"),
+			"required", List.of("readingMode", "title", "summary", "sections", "guidance", "disclaimer"),
 			"properties", Map.of(
+				"readingMode", readingModeSchema(),
 				"title", textSchema(),
 				"summary", textSchema(),
 				"sections", Map.of(
@@ -188,5 +189,12 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 
 	private Map<String, Object> textSchema() {
 		return Map.of("type", "string", "minLength", 1);
+	}
+
+	private Map<String, Object> readingModeSchema() {
+		return Map.of(
+			"type", "string",
+			"enum", java.util.Arrays.stream(ReadingMode.values()).map(ReadingMode::value).toList()
+		);
 	}
 }

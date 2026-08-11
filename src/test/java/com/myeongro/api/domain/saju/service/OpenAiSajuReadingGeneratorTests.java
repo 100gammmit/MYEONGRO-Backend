@@ -39,7 +39,7 @@ class OpenAiSajuReadingGeneratorTests {
 
 		assertThat(generated.title()).isEqualTo("변화를 준비하며 기준을 세우는 해");
 		assertThat(generated.payload()).containsOnlyKeys(
-			"title", "summary", "natalSections", "annualReading",
+			"readingMode", "title", "summary", "natalSections", "annualReading",
 			"questionReading", "guidance", "disclaimer"
 		);
 
@@ -88,6 +88,9 @@ class OpenAiSajuReadingGeneratorTests {
 		Map<String, Object> schema = options.getResponseFormat().getJsonSchema().getSchema();
 		assertThat(schema).containsEntry("additionalProperties", false);
 		assertThat(schema.toString())
+			.contains("health_fortune", "money_fortune", "relationship_fortune", "career_life_fortune")
+			.doesNotContain("MEDICAL_DECISION", "LEGAL_DECISION", "FINANCIAL_DECISION");
+		assertThat(schema.toString())
 			.doesNotContain("currentLuckCycle", "calculationVersion", "uniqueItems");
 	}
 
@@ -106,7 +109,7 @@ class OpenAiSajuReadingGeneratorTests {
 	@Test
 	void returnsServerOwnedDeclineResultWithoutSajuSections() {
 		OpenAiSajuReadingGenerator generator = generator(new CapturingChatModel("""
-			{"output":{"resultType":"declined","reasonCode":"MEDICAL_DECISION"}}
+			{"output":{"resultType":"declined","reasonCode":"CRISIS_OR_IMMEDIATE_DANGER"}}
 			"""));
 
 		GeneratedReading generated = generator.generate(
@@ -115,7 +118,7 @@ class OpenAiSajuReadingGeneratorTests {
 
 		assertThat(generated.payload())
 			.containsEntry("resultType", "declined")
-			.containsEntry("reasonCode", "MEDICAL_DECISION")
+			.containsEntry("reasonCode", "CRISIS_OR_IMMEDIATE_DANGER")
 			.doesNotContainKeys("natalSections", "questionReading");
 	}
 
@@ -190,7 +193,7 @@ class OpenAiSajuReadingGeneratorTests {
 
 	private String validResponse() {
 		return """
-			{"output":{"resultType":"reading","reading":{"title":"변화를 준비하며 기준을 세우는 해","summary":"가능성을 현실 정보와 함께 살펴보세요.",
+			{"output":{"resultType":"reading","reading":{"readingMode":"standard","title":"변화를 준비하며 기준을 세우는 해","summary":"가능성을 현실 정보와 함께 살펴보세요.",
 			"natalSections":[
 			{"id":"core","heading":"나를 움직이는 중심","body":"중심을 살펴봅니다.","evidenceKeys":["dayMaster"]},
 			{"id":"strengths","heading":"강점과 균형점","body":"균형을 살펴봅니다.","evidenceKeys":["elementBalance"]},
