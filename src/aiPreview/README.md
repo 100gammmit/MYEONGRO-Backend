@@ -21,6 +21,10 @@ Controller와 운영 input normalizer를 거치지 않으며, fixture의 전체 
 # 사주 실제 호출
 .\gradlew.bat aiPreview -Pkind=saju -Pcase=career-basic -Pexecute=true
 
+# 위험 질문 거절 판정 확인(비용이 발생하는 선택 실행)
+.\gradlew.bat aiPreview -Pkind=tarot -Pcase=financial-decision-decline -Pexecute=true
+.\gradlew.bat aiPreview -Pkind=saju -Pcase=medical-decision-decline -Pexecute=true
+
 # 필요할 때만 모델 덮어쓰기
 .\gradlew.bat aiPreview -Pkind=tarot -Pcase=mind-basic -Pmodel=gpt-5.6-luna -Pexecute=true
 ```

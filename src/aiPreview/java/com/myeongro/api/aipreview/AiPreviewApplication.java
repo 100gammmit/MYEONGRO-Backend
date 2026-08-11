@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
 import com.myeongro.api.domain.reading.service.OpenAiReadingGenerator;
 import com.myeongro.api.domain.reading.service.ReadingGeneratorRouter;
 import com.myeongro.api.domain.reading.service.SajuPromptCatalog;
@@ -49,7 +50,8 @@ import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 	TarotPromptCatalog.class,
 	SajuPromptCatalog.class,
 	TarotReadingResultValidator.class,
-	SajuReadingResultValidator.class
+	SajuReadingResultValidator.class,
+	DeclinedReadingFactory.class
 })
 public class AiPreviewApplication {
 

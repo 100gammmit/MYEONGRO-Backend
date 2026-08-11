@@ -16,12 +16,16 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
+import com.myeongro.api.domain.reading.service.ReadingDeclineReason;
 import com.myeongro.api.domain.reading.service.ReadingGenerator;
+import com.myeongro.api.domain.reading.service.ReadingResponseSchema;
 import com.myeongro.api.domain.reading.service.SajuPromptCatalog;
 import com.myeongro.api.domain.saju.result.SajuReadingResult;
 
@@ -35,19 +39,22 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 	private final String model;
 	private final SajuPromptCatalog promptCatalog;
 	private final SajuReadingResultValidator resultValidator;
+	private final DeclinedReadingFactory declinedReadingFactory;
 
 	public OpenAiSajuReadingGenerator(
 		ChatModel chatModel,
 		ObjectMapper objectMapper,
 		@Value("${app.reading.openai.model}") String model,
 		SajuPromptCatalog promptCatalog,
-		SajuReadingResultValidator resultValidator
+		SajuReadingResultValidator resultValidator,
+		DeclinedReadingFactory declinedReadingFactory
 	) {
 		this.chatModel = chatModel;
 		this.objectMapper = objectMapper;
 		this.model = model;
 		this.promptCatalog = promptCatalog;
 		this.resultValidator = resultValidator;
+		this.declinedReadingFactory = declinedReadingFactory;
 	}
 
 	@Override
@@ -75,7 +82,19 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 				options(targetYear, focusArea, trustedCalculation)
 			));
 			String content = response.getResult().getOutput().getText();
-			SajuReadingResult result = objectMapper.readValue(content, SajuReadingResult.class);
+			JsonNode output = objectMapper.readTree(content).required("output");
+			String resultType = output.required("resultType").textValue();
+			if ("declined".equals(resultType)) {
+				return declinedReadingFactory.create(ReadingDeclineReason.fromValue(
+					output.required("reasonCode").textValue()
+				));
+			}
+			if (!"reading".equals(resultType)) {
+				throw new IllegalArgumentException("Unsupported saju response type");
+			}
+			SajuReadingResult result = objectMapper.treeToValue(
+				output.required("reading"), SajuReadingResult.class
+			);
 			resultValidator.validate(result, targetYear, focusArea, trustedCalculation);
 			return new GeneratedReading(
 				result.title(),
@@ -204,11 +223,11 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 				.jsonSchema(ResponseFormat.JsonSchema.builder()
 					.name("saju_birth_annual_question")
 					.strict(true)
-					.schema(readingResultSchema(
+					.schema(ReadingResponseSchema.wrap(readingResultSchema(
 						targetYear,
 						focusArea,
 						resultValidator.availableEvidenceKeys(trustedCalculation)
-					))
+					)))
 					.build())
 				.build())
 			.build();

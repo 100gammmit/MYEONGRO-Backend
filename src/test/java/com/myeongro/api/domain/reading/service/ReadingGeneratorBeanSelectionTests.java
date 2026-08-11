@@ -37,6 +37,7 @@ class ReadingGeneratorBeanSelectionTests {
 			.withBean(ObjectMapper.class, ObjectMapper::new)
 			.withBean(TarotReadingResultValidator.class)
 			.withBean(SajuReadingResultValidator.class)
+			.withBean(DeclinedReadingFactory.class)
 			.withUserConfiguration(TarotPromptCatalog.class)
 			.withUserConfiguration(SajuPromptCatalog.class)
 			.withUserConfiguration(TestChatModelConfig.class)

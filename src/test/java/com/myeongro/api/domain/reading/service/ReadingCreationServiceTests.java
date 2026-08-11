@@ -104,6 +104,37 @@ class ReadingCreationServiceTests {
 	}
 
 	@Test
+	void completesDeclinedReadingInsteadOfMarkingGenerationFailed() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
+			.thenReturn(pending());
+		when(repository.completePending(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any()
+		)).thenReturn(completed());
+		GeneratedReading declined = new DeclinedReadingFactory().create(
+			ReadingDeclineReason.FINANCIAL_DECISION
+		);
+		ReadingGenerator generator = (kind, spread, question, input) -> declined;
+
+		CreatedReadingResponse response = service(consentService, repository, generator)
+			.createReading(USER_ID, REQUEST_ID, request());
+
+		ArgumentCaptor<GeneratedReading> generated = ArgumentCaptor.forClass(GeneratedReading.class);
+		verify(repository).completePending(
+			org.mockito.ArgumentMatchers.any(), generated.capture()
+		);
+		assertThat(response.status()).isEqualTo("completed");
+		assertThat(generated.getValue().payload())
+			.containsEntry("resultType", "declined")
+			.containsEntry("reasonCode", "FINANCIAL_DECISION");
+		verify(repository, never()).failPending(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString()
+		);
+	}
+
+	@Test
 	void reservesSajuSchemaVersionTwoWithoutTarotFields() {
 		ConsentService consentService = acceptedConsent();
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);

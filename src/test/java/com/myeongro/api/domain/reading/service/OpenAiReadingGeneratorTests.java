@@ -42,7 +42,7 @@ class OpenAiReadingGeneratorTests {
 
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
 		assertThat(options.getMaxCompletionTokens()).isEqualTo(spread.maxOutputTokens());
-		Map<String, Object> schema = options.getResponseFormat().getJsonSchema().getSchema();
+		Map<String, Object> schema = readingSchema(options);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
 		@SuppressWarnings("unchecked")
@@ -91,11 +91,11 @@ class OpenAiReadingGeneratorTests {
 	@Test
 	void rejectsResponseWithWrongPositionOrder() {
 		String invalid = """
-			{"title":"제목","summary":"요약","sections":[
+			{"output":{"resultType":"reading","reading":{"title":"제목","summary":"요약","sections":[
 			{"position":"underlying_need","heading":"욕구","body":"본문"},
 			{"position":"emotion","heading":"감정","body":"본문"},
 			{"position":"self_action","heading":"행동","body":"본문"}],
-			"guidance":["하나","둘"],"disclaimer":"안내"}
+			"guidance":["하나","둘"],"disclaimer":"안내"}}}
 			""";
 		assertThatThrownBy(() -> generator(new CapturingChatModel(invalid)).generate(
 			ReadingKind.TAROT,
@@ -105,14 +105,45 @@ class OpenAiReadingGeneratorTests {
 		)).isInstanceOf(OpenAiReadingGenerationException.class);
 	}
 
+	@Test
+	void returnsServerOwnedDeclineResultWithoutTarotSections() {
+		OpenAiReadingGenerator generator = generator(new CapturingChatModel("""
+			{"output":{"resultType":"declined","reasonCode":"FINANCIAL_DECISION"}}
+			"""));
+
+		GeneratedReading generated = generator.generate(
+			ReadingKind.TAROT,
+			TarotSpreadType.CHOICE_FIVE_CARD,
+			"전 재산을 투자할까요?",
+			input(TarotSpreadType.CHOICE_FIVE_CARD)
+		);
+
+		assertThat(generated.payload())
+			.containsEntry("resultType", "declined")
+			.containsEntry("reasonCode", "FINANCIAL_DECISION")
+			.doesNotContainKeys("sections", "summary");
+	}
+
 	private OpenAiReadingGenerator generator(ChatModel chatModel) {
 		return new OpenAiReadingGenerator(
 			chatModel,
 			new ObjectMapper(),
 			"gpt-test",
 			catalog(),
-			new TarotReadingResultValidator()
+			new TarotReadingResultValidator(),
+			new DeclinedReadingFactory()
 		);
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> readingSchema(OpenAiChatOptions options) {
+		Map<String, Object> root = options.getResponseFormat().getJsonSchema().getSchema();
+		Map<String, Object> rootProperties = (Map<String, Object>)root.get("properties");
+		Map<String, Object> output = (Map<String, Object>)rootProperties.get("output");
+		List<Map<String, Object>> branches = (List<Map<String, Object>>)output.get("anyOf");
+		Map<String, Object> readingProperties =
+			(Map<String, Object>)branches.get(0).get("properties");
+		return (Map<String, Object>)readingProperties.get("reading");
 	}
 
 	private TarotPromptCatalog catalog() {
@@ -149,8 +180,8 @@ class OpenAiReadingGeneratorTests {
 			? "[\"작은 행동\"]"
 			: "[\"행동 하나\",\"행동 둘\"]";
 		return """
-			{"title":"제목","summary":"요약","sections":[%s],
-			"guidance":%s,"disclaimer":"오락과 자기 성찰을 위한 참고입니다."}
+			{"output":{"resultType":"reading","reading":{"title":"제목","summary":"요약","sections":[%s],
+			"guidance":%s,"disclaimer":"오락과 자기 성찰을 위한 참고입니다."}}}
 			""".formatted(sections, guidance);
 	}
 

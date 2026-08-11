@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
@@ -31,19 +32,22 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 	private final String model;
 	private final TarotPromptCatalog promptCatalog;
 	private final TarotReadingResultValidator resultValidator;
+	private final DeclinedReadingFactory declinedReadingFactory;
 
 	public OpenAiReadingGenerator(
 		ChatModel chatModel,
 		ObjectMapper objectMapper,
 		@Value("${app.reading.openai.model}") String model,
 		TarotPromptCatalog promptCatalog,
-		TarotReadingResultValidator resultValidator
+		TarotReadingResultValidator resultValidator,
+		DeclinedReadingFactory declinedReadingFactory
 	) {
 		this.chatModel = chatModel;
 		this.objectMapper = objectMapper;
 		this.model = model;
 		this.promptCatalog = promptCatalog;
 		this.resultValidator = resultValidator;
+		this.declinedReadingFactory = declinedReadingFactory;
 	}
 
 	@Override
@@ -66,7 +70,19 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 				options(spreadType)
 			));
 			String content = response.getResult().getOutput().getText();
-			ReadingResult result = objectMapper.readValue(content, ReadingResult.class);
+			JsonNode output = objectMapper.readTree(content).required("output");
+			String resultType = output.required("resultType").textValue();
+			if ("declined".equals(resultType)) {
+				return declinedReadingFactory.create(ReadingDeclineReason.fromValue(
+					output.required("reasonCode").textValue()
+				));
+			}
+			if (!"reading".equals(resultType)) {
+				throw new IllegalArgumentException("Unsupported tarot response type");
+			}
+			ReadingResult result = objectMapper.treeToValue(
+				output.required("reading"), ReadingResult.class
+			);
 			resultValidator.validate(spreadType, result);
 			return new GeneratedReading(
 				result.title(),
@@ -127,7 +143,7 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 				.jsonSchema(ResponseFormat.JsonSchema.builder()
 					.name("tarot_" + spreadType.value())
 					.strict(true)
-					.schema(readingResultSchema(spreadType))
+					.schema(ReadingResponseSchema.wrap(readingResultSchema(spreadType)))
 					.build())
 				.build())
 			.build();

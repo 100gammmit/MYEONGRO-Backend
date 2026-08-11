@@ -21,7 +21,10 @@ final class AiPreviewMarkdownRenderer {
 		Map<String, Object> result = report.result();
 		StringBuilder markdown = new StringBuilder();
 		appendHeading(markdown, 1, text(result.get("title"), "AI 리딩 결과"));
-		appendParagraph(markdown, text(result.get("summary"), null));
+		boolean declined = "declined".equals(result.get("resultType"));
+		appendParagraph(markdown, text(
+			result.get(declined ? "message" : "summary"), null
+		));
 
 		if ("tarot".equals(report.kind())) {
 			appendSections(markdown, result.get("sections"));

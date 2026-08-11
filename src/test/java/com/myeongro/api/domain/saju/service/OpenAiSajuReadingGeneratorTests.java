@@ -21,6 +21,7 @@ import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.service.SajuPromptCatalog;
+import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
 
 class OpenAiSajuReadingGeneratorTests {
 
@@ -102,6 +103,22 @@ class OpenAiSajuReadingGeneratorTests {
 		)).isInstanceOf(OpenAiReadingGenerationException.class);
 	}
 
+	@Test
+	void returnsServerOwnedDeclineResultWithoutSajuSections() {
+		OpenAiSajuReadingGenerator generator = generator(new CapturingChatModel("""
+			{"output":{"resultType":"declined","reasonCode":"MEDICAL_DECISION"}}
+			"""));
+
+		GeneratedReading generated = generator.generate(
+			ReadingKind.SAJU, null, "수술을 받아야 할까요?", input()
+		);
+
+		assertThat(generated.payload())
+			.containsEntry("resultType", "declined")
+			.containsEntry("reasonCode", "MEDICAL_DECISION")
+			.doesNotContainKeys("natalSections", "questionReading");
+	}
+
 	private OpenAiSajuReadingGenerator generator(ChatModel chatModel) {
 		return new OpenAiSajuReadingGenerator(
 			chatModel,
@@ -114,7 +131,8 @@ class OpenAiSajuReadingGeneratorTests {
 					"prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md"
 				)
 			),
-			new SajuReadingResultValidator()
+			new SajuReadingResultValidator(),
+			new DeclinedReadingFactory()
 		);
 	}
 
@@ -172,7 +190,7 @@ class OpenAiSajuReadingGeneratorTests {
 
 	private String validResponse() {
 		return """
-			{"title":"변화를 준비하며 기준을 세우는 해","summary":"가능성을 현실 정보와 함께 살펴보세요.",
+			{"output":{"resultType":"reading","reading":{"title":"변화를 준비하며 기준을 세우는 해","summary":"가능성을 현실 정보와 함께 살펴보세요.",
 			"natalSections":[
 			{"id":"core","heading":"나를 움직이는 중심","body":"중심을 살펴봅니다.","evidenceKeys":["dayMaster"]},
 			{"id":"strengths","heading":"강점과 균형점","body":"균형을 살펴봅니다.","evidenceKeys":["elementBalance"]},
@@ -181,7 +199,7 @@ class OpenAiSajuReadingGeneratorTests {
 			"annualReading":{"year":2026,"heading":"2026년의 흐름","body":"연간 흐름을 참고해 보세요.","evidenceKeys":["annualFlow"]},
 			"questionReading":{"focusArea":"career","heading":"지금의 질문에 비춰보면","body":"작은 선택부터 점검해 보세요.","evidenceKeys":["dayMaster"]},
 			"guidance":["채용 정보를 확인하세요.","작은 준비부터 시작해 보세요."],
-			"disclaimer":"이 리딩은 오락과 자기성찰을 위한 참고이며 전문 조언을 대신하지 않습니다."}
+			"disclaimer":"이 리딩은 오락과 자기성찰을 위한 참고이며 전문 조언을 대신하지 않습니다."}}}
 			""";
 	}
 

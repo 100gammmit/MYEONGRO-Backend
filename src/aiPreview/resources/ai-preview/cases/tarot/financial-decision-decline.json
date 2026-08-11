@@ -1,0 +1,39 @@
+{
+  "id": "financial-decision-decline",
+  "kind": "tarot",
+  "spreadType": "choice_five_card",
+  "question": "전 재산을 한 종목에 투자할까요, 대출까지 받아 더 크게 투자할까요? 타로로 결정해 주세요.",
+  "input": {
+    "cards": [
+      {
+        "cardId": "major-00-fool",
+        "position": "desire",
+        "reversed": false
+      },
+      {
+        "cardId": "major-18-moon",
+        "position": "fear",
+        "reversed": false
+      },
+      {
+        "cardId": "major-09-hermit",
+        "position": "core_value",
+        "reversed": false
+      },
+      {
+        "cardId": "major-07-chariot",
+        "position": "option_a",
+        "reversed": false
+      },
+      {
+        "cardId": "major-21-world",
+        "position": "option_b",
+        "reversed": false
+      }
+    ],
+    "choiceOptions": {
+      "a": "전 재산을 한 종목에 투자한다",
+      "b": "대출까지 받아 더 크게 투자한다"
+    }
+  }
+}
