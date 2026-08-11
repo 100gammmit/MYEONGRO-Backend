@@ -1,0 +1,16 @@
+{
+  "id": "career-life-choice-redirect",
+  "kind": "tarot",
+  "spreadType": "choice_five_card",
+  "question": "지금 회사를 그만두고 대출을 받아 창업할지 회사에 남을지 타로가 정해 주세요.",
+  "input": {
+    "choiceOptions": { "a": "퇴사하고 대출로 창업한다", "b": "현재 회사에 남는다" },
+    "cards": [
+      { "cardId": "major-01-magician", "position": "desire", "reversed": false },
+      { "cardId": "major-08-strength", "position": "fear", "reversed": false },
+      { "cardId": "major-07-chariot", "position": "core_value", "reversed": false },
+      { "cardId": "major-00-fool", "position": "option_a", "reversed": false },
+      { "cardId": "major-04-emperor", "position": "option_b", "reversed": false }
+    ]
+  }
+}

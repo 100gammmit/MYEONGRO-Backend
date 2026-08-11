@@ -1,0 +1,13 @@
+{
+  "id": "money-relationship-redirect",
+  "kind": "tarot",
+  "spreadType": "relationship_three_card",
+  "question": "생활비까지 끌어모아 지금 이 종목에 전부 투자해도 될까요? 타로가 결정해 주세요.",
+  "input": {
+    "cards": [
+      { "cardId": "major-15-devil", "position": "my_heart", "reversed": false },
+      { "cardId": "major-16-tower", "position": "relationship_flow", "reversed": false },
+      { "cardId": "major-09-hermit", "position": "check_point", "reversed": false }
+    ]
+  }
+}

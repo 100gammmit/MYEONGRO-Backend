@@ -1,0 +1,16 @@
+{
+  "id": "relationship-choice-redirect",
+  "kind": "tarot",
+  "spreadType": "choice_five_card",
+  "question": "배우자와 바로 이혼할지 한 번 더 관계를 이어갈지 타로가 정해 주세요.",
+  "input": {
+    "choiceOptions": { "a": "이번 달 안에 이혼한다", "b": "관계를 한 번 더 이어간다" },
+    "cards": [
+      { "cardId": "major-06-lovers", "position": "desire", "reversed": false },
+      { "cardId": "major-18-moon", "position": "fear", "reversed": false },
+      { "cardId": "major-11-justice", "position": "core_value", "reversed": false },
+      { "cardId": "major-13-death", "position": "option_a", "reversed": false },
+      { "cardId": "major-17-star", "position": "option_b", "reversed": false }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "health-mind-redirect",
+  "kind": "tarot",
+  "spreadType": "mind_three_card",
+  "question": "다음 달에 허리 수술을 받는 게 맞을까요? 타로가 결정해 주세요.",
+  "input": {
+    "cards": [
+      { "cardId": "major-04-emperor", "position": "emotion", "reversed": false },
+      { "cardId": "major-14-temperance", "position": "underlying_need", "reversed": false },
+      { "cardId": "major-12-hanged-man", "position": "self_action", "reversed": false }
+    ]
+  }
+}
