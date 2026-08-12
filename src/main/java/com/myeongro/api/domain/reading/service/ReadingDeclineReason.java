@@ -9,11 +9,13 @@ public enum ReadingDeclineReason {
 	MEDICAL_DECISION,
 	LEGAL_DECISION,
 	FINANCIAL_DECISION,
+	HIGH_STAKES_DECISION,
 	HARMFUL_OR_ILLEGAL_ACTION;
 
 	public static List<String> modelSelectableValues() {
 		return List.of(
 			CRISIS_OR_IMMEDIATE_DANGER.name(),
+			HIGH_STAKES_DECISION.name(),
 			HARMFUL_OR_ILLEGAL_ACTION.name()
 		);
 	}

@@ -4,6 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -23,9 +25,12 @@ import com.myeongro.api.domain.reading.dto.ReadingResult;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 
 @Component
 public class OpenAiReadingGenerator implements ReadingGenerator {
+
+	private static final Logger log = LoggerFactory.getLogger(OpenAiReadingGenerator.class);
 
 	private final ChatModel chatModel;
 	private final ObjectMapper objectMapper;
@@ -60,17 +65,36 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 		if (kind != ReadingKind.TAROT || spreadType == null) {
 			throw new IllegalArgumentException("Tarot spread input is required");
 		}
+		Prompt prompt;
 		try {
 			List<String> cardIds = selectedCardIds(spreadType, input);
-			ChatResponse response = chatModel.call(new Prompt(
+			prompt = new Prompt(
 				List.of(
 					new SystemMessage(promptCatalog.prompt(spreadType, cardIds)),
 					new UserMessage(toPromptInput(kind, spreadType, question, input))
 				),
 				options(spreadType)
-			));
+			);
+		} catch (RuntimeException | JsonProcessingException exception) {
+			throw failure(OpenAiReadingGenerationStage.REQUEST_BUILD, spreadType, exception);
+		}
+
+		ChatResponse response;
+		try {
+			response = chatModel.call(prompt);
+		} catch (RuntimeException exception) {
+			throw failure(OpenAiReadingGenerationStage.PROVIDER_CALL, spreadType, exception);
+		}
+
+		JsonNode output;
+		try {
 			String content = response.getResult().getOutput().getText();
-			JsonNode output = objectMapper.readTree(content).required("output");
+			output = objectMapper.readTree(content).required("output");
+		} catch (RuntimeException | JsonProcessingException exception) {
+			throw failure(OpenAiReadingGenerationStage.RESPONSE_PARSE, spreadType, exception);
+		}
+
+		try {
 			String resultType = output.required("resultType").textValue();
 			if ("declined".equals(resultType)) {
 				return declinedReadingFactory.create(ReadingDeclineReason.fromValue(
@@ -90,8 +114,20 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 				})
 			);
 		} catch (RuntimeException | JsonProcessingException exception) {
-			throw new OpenAiReadingGenerationException();
+			throw failure(OpenAiReadingGenerationStage.RESPONSE_CONTRACT, spreadType, exception);
 		}
+	}
+
+	private OpenAiReadingGenerationException failure(
+		OpenAiReadingGenerationStage stage,
+		TarotSpreadType spreadType,
+		Exception exception
+	) {
+		log.warn(
+			"Tarot reading generation failed: stage={}, model={}, spread={}, causeType={}",
+			stage, model, spreadType.value(), exception.getClass().getSimpleName()
+		);
+		return new OpenAiReadingGenerationException(stage, exception);
 	}
 
 	private String toPromptInput(

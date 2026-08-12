@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 import com.myeongro.api.domain.reading.service.SajuPromptCatalog;
 import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
 
@@ -88,7 +89,10 @@ class OpenAiSajuReadingGeneratorTests {
 		Map<String, Object> schema = options.getResponseFormat().getJsonSchema().getSchema();
 		assertThat(schema).containsEntry("additionalProperties", false);
 		assertThat(schema.toString())
-			.contains("health_fortune", "money_fortune", "relationship_fortune", "career_life_fortune")
+			.contains(
+				"health_fortune", "money_fortune", "relationship_fortune",
+				"career_life_fortune", "HIGH_STAKES_DECISION"
+			)
 			.doesNotContain("MEDICAL_DECISION", "LEGAL_DECISION", "FINANCIAL_DECISION");
 		assertThat(schema.toString())
 			.doesNotContain("currentLuckCycle", "calculationVersion", "uniqueItems");
@@ -103,7 +107,9 @@ class OpenAiSajuReadingGeneratorTests {
 
 		assertThatThrownBy(() -> generator(new CapturingChatModel(invalid)).generate(
 			ReadingKind.SAJU, null, "질문", input()
-		)).isInstanceOf(OpenAiReadingGenerationException.class);
+		)).isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
+			assertThat(exception.getStage()).isEqualTo(OpenAiReadingGenerationStage.RESPONSE_CONTRACT)
+		);
 	}
 
 	@Test

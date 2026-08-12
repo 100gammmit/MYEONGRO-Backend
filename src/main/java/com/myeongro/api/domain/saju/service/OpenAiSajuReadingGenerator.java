@@ -4,6 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -22,6 +24,7 @@ import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
 import com.myeongro.api.domain.reading.service.ReadingDeclineReason;
 import com.myeongro.api.domain.reading.service.ReadingGenerator;
@@ -32,6 +35,7 @@ import com.myeongro.api.domain.saju.result.SajuReadingResult;
 @Component
 public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 
+	private static final Logger log = LoggerFactory.getLogger(OpenAiSajuReadingGenerator.class);
 	private static final int MAX_COMPLETION_TOKENS = 4_000;
 
 	private final ChatModel chatModel;
@@ -67,12 +71,16 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 		if (kind != ReadingKind.SAJU || spreadType != null) {
 			throw new IllegalArgumentException("Saju input is required");
 		}
+		Prompt prompt;
+		Map<String, Object> trustedCalculation;
+		int targetYear;
+		String focusArea;
 		try {
 			Map<String, Object> snapshot = requiredMap(input.get("calculationSnapshot"));
-			Map<String, Object> trustedCalculation = trustedCalculation(snapshot);
-			int targetYear = requiredInteger(input.get("targetYear"));
-			String focusArea = requiredText(input.get("focusArea"));
-			ChatResponse response = chatModel.call(new Prompt(
+			trustedCalculation = trustedCalculation(snapshot);
+			targetYear = requiredInteger(input.get("targetYear"));
+			focusArea = requiredText(input.get("focusArea"));
+			prompt = new Prompt(
 				List.of(
 					new SystemMessage(promptCatalog.prompt()),
 					new UserMessage(toPromptInput(
@@ -80,9 +88,27 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 					))
 				),
 				options(targetYear, focusArea, trustedCalculation)
-			));
+			);
+		} catch (RuntimeException | JsonProcessingException exception) {
+			throw failure(OpenAiReadingGenerationStage.REQUEST_BUILD, exception);
+		}
+
+		ChatResponse response;
+		try {
+			response = chatModel.call(prompt);
+		} catch (RuntimeException exception) {
+			throw failure(OpenAiReadingGenerationStage.PROVIDER_CALL, exception);
+		}
+
+		JsonNode output;
+		try {
 			String content = response.getResult().getOutput().getText();
-			JsonNode output = objectMapper.readTree(content).required("output");
+			output = objectMapper.readTree(content).required("output");
+		} catch (RuntimeException | JsonProcessingException exception) {
+			throw failure(OpenAiReadingGenerationStage.RESPONSE_PARSE, exception);
+		}
+
+		try {
 			String resultType = output.required("resultType").textValue();
 			if ("declined".equals(resultType)) {
 				return declinedReadingFactory.create(ReadingDeclineReason.fromValue(
@@ -102,8 +128,19 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 				})
 			);
 		} catch (RuntimeException | JsonProcessingException exception) {
-			throw new OpenAiReadingGenerationException();
+			throw failure(OpenAiReadingGenerationStage.RESPONSE_CONTRACT, exception);
 		}
+	}
+
+	private OpenAiReadingGenerationException failure(
+		OpenAiReadingGenerationStage stage,
+		Exception exception
+	) {
+		log.warn(
+			"Saju reading generation failed: stage={}, model={}, causeType={}",
+			stage, model, exception.getClass().getSimpleName()
+		);
+		return new OpenAiReadingGenerationException(stage, exception);
 	}
 
 	private String toPromptInput(

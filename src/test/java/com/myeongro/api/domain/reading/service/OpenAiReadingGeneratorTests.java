@@ -24,6 +24,7 @@ import com.myeongro.api.domain.reading.entity.MajorArcana;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 
 class OpenAiReadingGeneratorTests {
 
@@ -42,6 +43,9 @@ class OpenAiReadingGeneratorTests {
 
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
 		assertThat(options.getMaxCompletionTokens()).isEqualTo(spread.maxOutputTokens());
+		assertThat(options.getResponseFormat().getJsonSchema().getSchema().toString())
+			.contains("HIGH_STAKES_DECISION")
+			.doesNotContain("MEDICAL_DECISION", "LEGAL_DECISION", "FINANCIAL_DECISION");
 		Map<String, Object> schema = readingSchema(options);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
@@ -107,13 +111,37 @@ class OpenAiReadingGeneratorTests {
 			TarotSpreadType.MIND_THREE_CARD,
 			"질문",
 			input(TarotSpreadType.MIND_THREE_CARD)
-		)).isInstanceOf(OpenAiReadingGenerationException.class);
+		)).isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
+			assertThat(exception.getStage()).isEqualTo(OpenAiReadingGenerationStage.RESPONSE_CONTRACT)
+		);
+	}
+
+	@Test
+	void identifiesProviderAndResponseParseFailureStages() {
+		assertThatThrownBy(() -> generator(new ThrowingChatModel()).generate(
+			ReadingKind.TAROT,
+			TarotSpreadType.DAILY_ONE_CARD,
+			"질문",
+			input(TarotSpreadType.DAILY_ONE_CARD)
+		)).isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception -> {
+			assertThat(exception.getStage()).isEqualTo(OpenAiReadingGenerationStage.PROVIDER_CALL);
+			assertThat(exception.getCauseType()).isEqualTo("IllegalStateException");
+		});
+
+		assertThatThrownBy(() -> generator(new CapturingChatModel("not-json")).generate(
+			ReadingKind.TAROT,
+			TarotSpreadType.DAILY_ONE_CARD,
+			"질문",
+			input(TarotSpreadType.DAILY_ONE_CARD)
+		)).isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
+			assertThat(exception.getStage()).isEqualTo(OpenAiReadingGenerationStage.RESPONSE_PARSE)
+		);
 	}
 
 	@Test
 	void returnsServerOwnedDeclineResultWithoutTarotSections() {
 		OpenAiReadingGenerator generator = generator(new CapturingChatModel("""
-			{"output":{"resultType":"declined","reasonCode":"HARMFUL_OR_ILLEGAL_ACTION"}}
+			{"output":{"resultType":"declined","reasonCode":"HIGH_STAKES_DECISION"}}
 			"""));
 
 		GeneratedReading generated = generator.generate(
@@ -125,7 +153,7 @@ class OpenAiReadingGeneratorTests {
 
 		assertThat(generated.payload())
 			.containsEntry("resultType", "declined")
-			.containsEntry("reasonCode", "HARMFUL_OR_ILLEGAL_ACTION")
+			.containsEntry("reasonCode", "HIGH_STAKES_DECISION")
 			.doesNotContainKeys("sections", "summary");
 	}
 
@@ -205,6 +233,14 @@ class OpenAiReadingGeneratorTests {
 			return new ChatResponse(List.of(
 				new Generation(new AssistantMessage(content))
 			));
+		}
+	}
+
+	private static class ThrowingChatModel implements ChatModel {
+
+		@Override
+		public ChatResponse call(Prompt prompt) {
+			throw new IllegalStateException("provider unavailable");
 		}
 	}
 }
