@@ -26,6 +26,7 @@ import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
+import com.myeongro.api.domain.reading.service.OpenAiResponseDiagnostics;
 import com.myeongro.api.domain.reading.service.ReadingDeclineReason;
 import com.myeongro.api.domain.reading.service.ReadingGenerator;
 import com.myeongro.api.domain.reading.service.ReadingResponseSchema;
@@ -99,13 +100,18 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 		} catch (RuntimeException exception) {
 			throw failure(OpenAiReadingGenerationStage.PROVIDER_CALL, exception);
 		}
+		OpenAiResponseDiagnostics diagnostics = OpenAiResponseDiagnostics.from(response);
 
 		JsonNode output;
 		try {
 			String content = response.getResult().getOutput().getText();
 			output = objectMapper.readTree(content).required("output");
 		} catch (RuntimeException | JsonProcessingException exception) {
-			throw failure(OpenAiReadingGenerationStage.RESPONSE_PARSE, exception);
+			throw failure(
+				OpenAiReadingGenerationStage.RESPONSE_PARSE,
+				exception,
+				diagnostics
+			);
 		}
 
 		try {
@@ -128,7 +134,11 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 				})
 			);
 		} catch (RuntimeException | JsonProcessingException exception) {
-			throw failure(OpenAiReadingGenerationStage.RESPONSE_CONTRACT, exception);
+			throw failure(
+				OpenAiReadingGenerationStage.RESPONSE_CONTRACT,
+				exception,
+				diagnostics
+			);
 		}
 	}
 
@@ -136,9 +146,25 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 		OpenAiReadingGenerationStage stage,
 		Exception exception
 	) {
+		return failure(stage, exception, OpenAiResponseDiagnostics.unavailable());
+	}
+
+	private OpenAiReadingGenerationException failure(
+		OpenAiReadingGenerationStage stage,
+		Exception exception,
+		OpenAiResponseDiagnostics diagnostics
+	) {
 		log.warn(
-			"Saju reading generation failed: stage={}, model={}, causeType={}",
-			stage, model, exception.getClass().getSimpleName()
+			"Saju reading generation failed: stage={}, model={}, causeType={}, generationCount={}, "
+				+ "finishReason={}, contentPresent={}, contentLength={}, completionTokens={}",
+			stage,
+			model,
+			exception.getClass().getSimpleName(),
+			diagnostics.generationCount(),
+			diagnostics.finishReason(),
+			diagnostics.contentPresent(),
+			diagnostics.contentLength(),
+			diagnostics.completionTokens()
 		);
 		return new OpenAiReadingGenerationException(stage, exception);
 	}

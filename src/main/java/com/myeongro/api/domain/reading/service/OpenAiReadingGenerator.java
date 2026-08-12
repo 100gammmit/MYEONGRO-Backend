@@ -85,13 +85,19 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 		} catch (RuntimeException exception) {
 			throw failure(OpenAiReadingGenerationStage.PROVIDER_CALL, spreadType, exception);
 		}
+		OpenAiResponseDiagnostics diagnostics = OpenAiResponseDiagnostics.from(response);
 
 		JsonNode output;
 		try {
 			String content = response.getResult().getOutput().getText();
 			output = objectMapper.readTree(content).required("output");
 		} catch (RuntimeException | JsonProcessingException exception) {
-			throw failure(OpenAiReadingGenerationStage.RESPONSE_PARSE, spreadType, exception);
+			throw failure(
+				OpenAiReadingGenerationStage.RESPONSE_PARSE,
+				spreadType,
+				exception,
+				diagnostics
+			);
 		}
 
 		try {
@@ -114,7 +120,12 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 				})
 			);
 		} catch (RuntimeException | JsonProcessingException exception) {
-			throw failure(OpenAiReadingGenerationStage.RESPONSE_CONTRACT, spreadType, exception);
+			throw failure(
+				OpenAiReadingGenerationStage.RESPONSE_CONTRACT,
+				spreadType,
+				exception,
+				diagnostics
+			);
 		}
 	}
 
@@ -123,9 +134,28 @@ public class OpenAiReadingGenerator implements ReadingGenerator {
 		TarotSpreadType spreadType,
 		Exception exception
 	) {
+		return failure(stage, spreadType, exception, OpenAiResponseDiagnostics.unavailable());
+	}
+
+	private OpenAiReadingGenerationException failure(
+		OpenAiReadingGenerationStage stage,
+		TarotSpreadType spreadType,
+		Exception exception,
+		OpenAiResponseDiagnostics diagnostics
+	) {
 		log.warn(
-			"Tarot reading generation failed: stage={}, model={}, spread={}, causeType={}",
-			stage, model, spreadType.value(), exception.getClass().getSimpleName()
+			"Tarot reading generation failed: stage={}, model={}, spread={}, causeType={}, "
+				+ "generationCount={}, finishReason={}, contentPresent={}, contentLength={}, "
+				+ "completionTokens={}",
+			stage,
+			model,
+			spreadType.value(),
+			exception.getClass().getSimpleName(),
+			diagnostics.generationCount(),
+			diagnostics.finishReason(),
+			diagnostics.contentPresent(),
+			diagnostics.contentLength(),
+			diagnostics.completionTokens()
 		);
 		return new OpenAiReadingGenerationException(stage, exception);
 	}

@@ -28,6 +28,14 @@ class TarotSpreadTypeTests {
 		);
 	}
 
+	@Test
+	void allocatesCompletionTokensByOutputStructure() {
+		assertThat(TarotSpreadType.DAILY_ONE_CARD.maxOutputTokens()).isEqualTo(800);
+		assertThat(TarotSpreadType.MIND_THREE_CARD.maxOutputTokens()).isEqualTo(1800);
+		assertThat(TarotSpreadType.RELATIONSHIP_THREE_CARD.maxOutputTokens()).isEqualTo(1800);
+		assertThat(TarotSpreadType.CHOICE_FIVE_CARD.maxOutputTokens()).isEqualTo(2700);
+	}
+
 	private void assertSpread(
 		TarotSpreadType spread,
 		String value,
