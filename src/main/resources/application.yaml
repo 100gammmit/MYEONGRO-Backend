@@ -83,7 +83,7 @@ app:
       model: ${openai.model:gpt-5.6-luna}
     prompts:
       tarot:
-        common: classpath:prompts/tarot/common-ko-v12.md
+        common: classpath:prompts/tarot/common-ko-v13.md
         cards: classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md
         spreads:
           daily-one-card: classpath:prompts/tarot/spreads/daily-one-card/daily-one-card-ko-v6.md
