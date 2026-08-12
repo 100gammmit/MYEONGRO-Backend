@@ -13,7 +13,7 @@ public enum TarotSpreadType {
 		List.of(new TarotPosition("today", "오늘의 흐름")),
 		1,
 		2,
-		600
+		800
 	),
 	MIND_THREE_CARD(
 		"mind_three_card",
