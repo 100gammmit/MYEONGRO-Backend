@@ -132,15 +132,16 @@ public class ReadingController {
 	}
 
 	@ExceptionHandler(OpenAiReadingGenerationException.class)
-	public ResponseEntity<Map<String, String>> generationFailed(
+	public ResponseEntity<Map<String, Object>> generationFailed(
 		OpenAiReadingGenerationException exception
 	) {
-		return ResponseEntity.status(502).body(Map.of(
-			"error",
-			exception.getMessage(),
-			"code",
-			exception.getCode()
-		));
+		Map<String, Object> body = new java.util.LinkedHashMap<>();
+		body.put("error", exception.getMessage());
+		body.put("code", exception.getCode());
+		if (exception.getReadingId() != null) {
+			body.put("readingId", exception.getReadingId());
+		}
+		return ResponseEntity.status(502).body(body);
 	}
 
 	@ExceptionHandler(SajuCalculationException.class)

@@ -153,7 +153,7 @@ public class ReadingCreationService {
 			);
 		} catch (OpenAiReadingGenerationException exception) {
 			repository.failPending(pending, exception.getCode());
-			throw exception;
+			throw exception.withReadingId(pending.readingId());
 		} catch (RuntimeException exception) {
 			repository.failPending(pending, "READING_GENERATION_FAILED");
 			throw exception;

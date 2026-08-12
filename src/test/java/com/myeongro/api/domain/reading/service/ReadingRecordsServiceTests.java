@@ -1,5 +1,6 @@
 package com.myeongro.api.domain.reading.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +32,34 @@ class ReadingRecordsServiceTests {
 	private static final UUID READING_ID = UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
 
 	@Test
+	void redactsTarotCardsFromGeneratingAndFailedPublicRecords() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingRecordsService service = service(repository);
+		CreatedReadingResponse generating = reading(1, "generating");
+		CreatedReadingResponse failed = reading(1, "failed");
+		when(repository.listByUser(USER_ID)).thenReturn(List.of(generating, failed));
+		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(failed));
+
+		assertThat(service.listByUser(USER_ID))
+			.allSatisfy(item -> assertThat(item.input())
+				.containsKey("question")
+				.doesNotContainKey("cards"));
+		assertThat(service.getByUserAndId(USER_ID, READING_ID).input())
+			.doesNotContainKey("cards");
+	}
+
+	@Test
+	void keepsTarotCardsInCompletedPublicRecords() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingRecordsService service = service(repository);
+		CreatedReadingResponse completed = reading(1, "completed");
+		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(completed));
+
+		assertThat(service.getByUserAndId(USER_ID, READING_ID).input())
+			.containsKey("cards");
+	}
+
+	@Test
 	void retriesWithStoredSpreadSchemaAndPayload() {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
 		ReadingCreationService creationService = org.mockito.Mockito.mock(ReadingCreationService.class);
@@ -41,7 +70,7 @@ class ReadingRecordsServiceTests {
 		ReadingRecordsService service = new ReadingRecordsService(
 			repository, creationService, metadataResolver, normalizer, assembler
 		);
-		CreatedReadingResponse reading = reading(1);
+		CreatedReadingResponse reading = reading(1, "failed");
 		NormalizedReadingInput input = new NormalizedReadingInput(
 			ReadingKind.TAROT,
 			TarotSpreadType.RELATIONSHIP_THREE_CARD,
@@ -82,20 +111,30 @@ class ReadingRecordsServiceTests {
 			normalizer,
 			org.mockito.Mockito.mock(SajuReadingInputAssembler.class)
 		);
-		CreatedReadingResponse legacy = reading(schemaVersion);
+		CreatedReadingResponse legacy = reading(schemaVersion, "failed");
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(legacy));
 
 		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))
 			.isInstanceOf(ReadingRetryNotAllowedException.class);
 	}
 
-	private CreatedReadingResponse reading(int schemaVersion) {
+	private ReadingRecordsService service(ReadingRecordsRepository repository) {
+		return new ReadingRecordsService(
+			repository,
+			org.mockito.Mockito.mock(ReadingCreationService.class),
+			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
+			org.mockito.Mockito.mock(ReadingInputNormalizer.class),
+			org.mockito.Mockito.mock(SajuReadingInputAssembler.class)
+		);
+	}
+
+	private CreatedReadingResponse reading(int schemaVersion, String status) {
 		return new CreatedReadingResponse(
 			READING_ID,
 			ReadingKind.TAROT,
 			schemaVersion == 0 ? null : TarotSpreadType.RELATIONSHIP_THREE_CARD,
 			schemaVersion,
-			"failed",
+			status,
 			"Generating...",
 			Map.of(
 				"question", "질문",

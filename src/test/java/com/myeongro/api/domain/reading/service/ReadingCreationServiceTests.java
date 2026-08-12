@@ -211,7 +211,9 @@ class ReadingCreationServiceTests {
 
 		assertThatThrownBy(() -> service(consentService, repository, failing)
 			.createReading(USER_ID, REQUEST_ID, request()))
-			.isInstanceOf(OpenAiReadingGenerationException.class);
+			.isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
+				assertThat(exception.getReadingId()).isEqualTo(READING_ID)
+			);
 
 		verify(repository).failPending(
 			org.mockito.ArgumentMatchers.any(),

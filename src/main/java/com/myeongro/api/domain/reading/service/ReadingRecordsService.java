@@ -1,11 +1,14 @@
 package com.myeongro.api.domain.reading.service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
+import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
@@ -36,12 +39,13 @@ public class ReadingRecordsService {
 	}
 
 	public List<CreatedReadingResponse> listByUser(UUID userId) {
-		return repository.listByUser(userId);
+		return repository.listByUser(userId).stream()
+			.map(this::toPublicResponse)
+			.toList();
 	}
 
 	public CreatedReadingResponse getByUserAndId(UUID userId, UUID readingId) {
-		return repository.findByUserAndId(userId, readingId)
-			.orElseThrow(ReadingRecordNotFoundException::new);
+		return toPublicResponse(findStoredReading(userId, readingId));
 	}
 
 	public void deleteByUserAndId(UUID userId, UUID readingId) {
@@ -51,7 +55,7 @@ public class ReadingRecordsService {
 	}
 
 	public CreatedReadingResponse retry(UUID userId, UUID readingId) {
-		CreatedReadingResponse currentReading = getByUserAndId(userId, readingId);
+		CreatedReadingResponse currentReading = findStoredReading(userId, readingId);
 		NormalizedReadingInput input;
 		try {
 			input = sajuInputAssembler.restore(
@@ -69,5 +73,25 @@ public class ReadingRecordsService {
 			generationMetadata
 		);
 		return creationService.generatePending(input, pending);
+	}
+
+	private CreatedReadingResponse findStoredReading(UUID userId, UUID readingId) {
+		return repository.findByUserAndId(userId, readingId)
+			.orElseThrow(ReadingRecordNotFoundException::new);
+	}
+
+	private CreatedReadingResponse toPublicResponse(CreatedReadingResponse reading) {
+		if (reading.kind() != ReadingKind.TAROT
+			|| "completed".equals(reading.status())
+			|| !reading.input().containsKey("cards")) {
+			return reading;
+		}
+		Map<String, Object> redactedInput = new LinkedHashMap<>(reading.input());
+		redactedInput.remove("cards");
+		return new CreatedReadingResponse(
+			reading.id(), reading.kind(), reading.spreadType(), reading.schemaVersion(),
+			reading.status(), reading.title(), Map.copyOf(redactedInput), reading.result(),
+			reading.errorCode(), reading.createdAt(), reading.updatedAt()
+		);
 	}
 }

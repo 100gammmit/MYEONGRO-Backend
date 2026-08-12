@@ -25,6 +25,7 @@ import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.service.ReadingCreationService;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.global.auth.AuthenticatedUser;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
@@ -184,6 +185,33 @@ class ReadingControllerTests {
 					}
 					"""))
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void returnsFailedReadingIdForOfficialRetryAfterGenerationFailure() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(creationService.createReading(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+		)).thenThrow(new OpenAiReadingGenerationException().withReadingId(READING_ID));
+
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "kind":"tarot",
+					  "spreadType":"daily_one_card",
+					  "question":"question",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "selectedSlots":[1]
+					}
+					"""))
+			.andExpect(status().isBadGateway())
+			.andExpect(jsonPath("$.code").value("OPENAI_READING_GENERATION_FAILED"))
+			.andExpect(jsonPath("$.readingId").value(READING_ID.toString()));
 	}
 
 	@Test
