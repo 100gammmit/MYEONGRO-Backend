@@ -39,22 +39,14 @@ class TarotReadingResultValidatorTests {
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
-	@Test
-	void allSpreadsAllowOneGuidanceAndRejectMoreThanTwo() {
-		ReadingResult daily = result(TarotSpreadType.DAILY_ONE_CARD);
-		assertThatCode(() -> validator.validate(TarotSpreadType.DAILY_ONE_CARD, daily))
-			.doesNotThrowAnyException();
-
-		ReadingResult mind = result(TarotSpreadType.MIND_THREE_CARD);
-		ReadingResult one = new ReadingResult(
-			mind.title(), mind.summary(), mind.sections(), List.of("하나"), mind.disclaimer()
-		);
-		assertThatCode(() -> validator.validate(TarotSpreadType.MIND_THREE_CARD, one))
-			.doesNotThrowAnyException();
+	@ParameterizedTest
+	@EnumSource(TarotSpreadType.class)
+	void rejectsTwoGuidanceItems(TarotSpreadType spread) {
+		ReadingResult valid = result(spread);
 		ReadingResult invalid = new ReadingResult(
-			mind.title(), mind.summary(), mind.sections(), List.of("하나", "둘", "셋"), mind.disclaimer()
+			valid.title(), valid.summary(), valid.sections(), List.of("하나", "둘"), valid.disclaimer()
 		);
-		assertThatThrownBy(() -> validator.validate(TarotSpreadType.MIND_THREE_CARD, invalid))
+		assertThatThrownBy(() -> validator.validate(spread, invalid))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
@@ -65,9 +57,7 @@ class TarotReadingResultValidatorTests {
 			spread.positions().stream()
 				.map(position -> new ReadingSection(position.id(), position.displayName(), "본문"))
 				.toList(),
-			spread == TarotSpreadType.DAILY_ONE_CARD
-				? List.of("작은 행동")
-				: List.of("행동 하나", "행동 둘"),
+			List.of("작은 행동"),
 			"오락과 자기 성찰을 위한 참고입니다."
 		);
 	}

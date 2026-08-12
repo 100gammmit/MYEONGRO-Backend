@@ -60,6 +60,11 @@ class OpenAiReadingGeneratorTests {
 			.containsEntry("minItems", spread.cardCount())
 			.containsEntry("maxItems", spread.cardCount());
 		@SuppressWarnings("unchecked")
+		Map<String, Object> guidance = (Map<String, Object>) properties.get("guidance");
+		assertThat(guidance)
+			.containsEntry("minItems", 1)
+			.containsEntry("maxItems", 1);
+		@SuppressWarnings("unchecked")
 		Map<String, Object> sectionItems = (Map<String, Object>) sections.get("items");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> sectionProperties =
@@ -104,7 +109,7 @@ class OpenAiReadingGeneratorTests {
 			{"position":"underlying_need","heading":"욕구","body":"본문"},
 			{"position":"emotion","heading":"감정","body":"본문"},
 			{"position":"self_action","heading":"행동","body":"본문"}],
-			"guidance":["하나","둘"],"disclaimer":"안내"}}}
+			"guidance":["하나"],"disclaimer":"안내"}}}
 			""";
 		assertThatThrownBy(() -> generator(new CapturingChatModel(invalid)).generate(
 			ReadingKind.TAROT,
@@ -209,13 +214,10 @@ class OpenAiReadingGeneratorTests {
 				{"position":"%s","heading":"%s - 바보","body":"본문"}
 				""".formatted(position.id(), position.displayName()).trim())
 			.collect(java.util.stream.Collectors.joining(","));
-		String guidance = spread == TarotSpreadType.DAILY_ONE_CARD
-			? "[\"작은 행동\"]"
-			: "[\"행동 하나\",\"행동 둘\"]";
 		return """
 			{"output":{"resultType":"reading","reading":{"readingMode":"standard","title":"제목","summary":"요약","sections":[%s],
-			"guidance":%s,"disclaimer":"오락과 자기 성찰을 위한 참고입니다."}}}
-			""".formatted(sections, guidance);
+			"guidance":["작은 행동"],"disclaimer":"오락과 자기 성찰을 위한 참고입니다."}}}
+			""".formatted(sections);
 	}
 
 	private static class CapturingChatModel implements ChatModel {

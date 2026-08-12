@@ -12,7 +12,7 @@ public enum TarotSpreadType {
 		"daily_one_card",
 		List.of(new TarotPosition("today", "오늘의 흐름")),
 		1,
-		2,
+		1,
 		800
 	),
 	MIND_THREE_CARD(
@@ -23,7 +23,7 @@ public enum TarotSpreadType {
 			new TarotPosition("self_action", "나를 위한 행동")
 		),
 		1,
-		2,
+		1,
 		1800
 	),
 	RELATIONSHIP_THREE_CARD(
@@ -34,7 +34,7 @@ public enum TarotSpreadType {
 			new TarotPosition("check_point", "내가 확인할 것")
 		),
 		1,
-		2,
+		1,
 		1800
 	),
 	CHOICE_FIVE_CARD(
@@ -47,7 +47,7 @@ public enum TarotSpreadType {
 			new TarotPosition("option_b", "선택 B")
 		),
 		1,
-		2,
+		1,
 		2700
 	);
 

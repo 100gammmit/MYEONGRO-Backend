@@ -43,6 +43,8 @@ class TarotSpreadTypeTests {
 	) {
 		assertThat(spread.value()).isEqualTo(value);
 		assertThat(spread.cardCount()).isEqualTo(positions.length);
+		assertThat(spread.minGuidanceItems()).isEqualTo(1);
+		assertThat(spread.maxGuidanceItems()).isEqualTo(1);
 		assertThat(spread.positions()).extracting(TarotPosition::id)
 			.containsExactly(positions);
 	}
