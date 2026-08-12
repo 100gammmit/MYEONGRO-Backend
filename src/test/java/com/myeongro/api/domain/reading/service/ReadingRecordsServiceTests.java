@@ -60,6 +60,29 @@ class ReadingRecordsServiceTests {
 	}
 
 	@Test
+	void repeatedRetryReturnsCompletedReadingAfterResponseLoss() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingCreationService creationService = org.mockito.Mockito.mock(ReadingCreationService.class);
+		ReadingRecordsService service = new ReadingRecordsService(
+			repository,
+			creationService,
+			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
+			org.mockito.Mockito.mock(ReadingInputNormalizer.class),
+			org.mockito.Mockito.mock(SajuReadingInputAssembler.class)
+		);
+		CreatedReadingResponse completed = reading(1, "completed");
+		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(completed));
+
+		assertThat(service.retry(USER_ID, READING_ID)).isSameAs(completed);
+
+		org.mockito.Mockito.verifyNoInteractions(creationService);
+		verify(repository, org.mockito.Mockito.never()).startFailedRetry(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any()
+		);
+	}
+
+	@Test
 	void retriesWithStoredSpreadSchemaAndPayload() {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
 		ReadingCreationService creationService = org.mockito.Mockito.mock(ReadingCreationService.class);

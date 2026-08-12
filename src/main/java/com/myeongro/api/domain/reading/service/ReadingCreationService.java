@@ -107,11 +107,17 @@ public class ReadingCreationService {
 			input = inputNormalizer.normalize(request);
 		}
 		String inputHash = inputHash(input.hashMaterial());
-		if (input.kind() == ReadingKind.SAJU) {
-			var existing = repository.findExisting(userId, requestId, inputHash);
-			if (existing.isPresent()) {
-				return existing.get();
+		var existing = repository.findExisting(userId, requestId, inputHash);
+		if (existing.isPresent()) {
+			CreatedReadingResponse reading = existing.get();
+			if ("completed".equals(reading.status())) {
+				return reading;
 			}
+			if ("failed".equals(reading.status())) {
+				throw new OpenAiReadingGenerationException().withReadingId(reading.id());
+			}
+		}
+		if (input.kind() == ReadingKind.SAJU) {
 			int targetYear = LocalDate.ofInstant(
 				clock.instant(), SajuCalculationRules.BIRTH_ZONE
 			).getYear();

@@ -56,6 +56,9 @@ public class ReadingRecordsService {
 
 	public CreatedReadingResponse retry(UUID userId, UUID readingId) {
 		CreatedReadingResponse currentReading = findStoredReading(userId, readingId);
+		if ("completed".equals(currentReading.status())) {
+			return toPublicResponse(currentReading);
+		}
 		NormalizedReadingInput input;
 		try {
 			input = sajuInputAssembler.restore(

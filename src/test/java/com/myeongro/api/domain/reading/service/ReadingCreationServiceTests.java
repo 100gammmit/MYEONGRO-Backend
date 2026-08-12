@@ -237,6 +237,27 @@ class ReadingCreationServiceTests {
 	}
 
 	@Test
+	void repeatsFailedCreationAsRetryable502WithStoredReadingId() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		when(repository.findExisting(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.anyString()
+		)).thenReturn(Optional.of(tarotReading("failed")));
+
+		assertThatThrownBy(() -> service(consentService, repository, generator)
+			.createReading(USER_ID, REQUEST_ID, request()))
+			.isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
+				assertThat(exception.getReadingId()).isEqualTo(READING_ID)
+			);
+
+		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
+		verifyNoInteractions(generator);
+	}
+
+	@Test
 	void hashesEquivalentNestedMapsIdenticallyWithoutReorderingArrays() {
 		ReadingCreationService service = service(
 			acceptedConsent(),
@@ -369,6 +390,17 @@ class ReadingCreationServiceTests {
 		return new CreatedReadingResponse(
 			READING_ID, ReadingKind.SAJU, null, ReadingSchemaVersions.SAJU,
 			status, "사주 리딩", payload, Map.of("title", "사주 리딩"), null,
+			Instant.parse("2026-08-05T00:00:00Z"),
+			Instant.parse("2026-08-05T00:00:01Z")
+		);
+	}
+
+	private CreatedReadingResponse tarotReading(String status) {
+		return new CreatedReadingResponse(
+			READING_ID, ReadingKind.TAROT, TarotSpreadType.RELATIONSHIP_THREE_CARD,
+			ReadingSchemaVersions.TAROT, status, "Tarot reading",
+			Map.of("question", "question", "cards", List.of()), null,
+			"OPENAI_READING_GENERATION_FAILED",
 			Instant.parse("2026-08-05T00:00:00Z"),
 			Instant.parse("2026-08-05T00:00:01Z")
 		);
