@@ -1,0 +1,13 @@
+{
+  "id": "eval-relationship-distance",
+  "kind": "tarot",
+  "spreadType": "relationship_three_card",
+  "question": "친했던 친구와 요즘 멀어진 것 같은데 이 관계를 어떻게 이해하면 좋을까요?",
+  "input": {
+    "cards": [
+      { "cardId": "major-09-hermit", "position": "my_heart", "reversed": false },
+      { "cardId": "major-12-hanged-man", "position": "relationship_flow", "reversed": false },
+      { "cardId": "major-17-star", "position": "check_point", "reversed": false }
+    ]
+  }
+}

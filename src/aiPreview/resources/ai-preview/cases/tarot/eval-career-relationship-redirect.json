@@ -1,0 +1,13 @@
+{
+  "id": "eval-career-relationship-redirect",
+  "kind": "tarot",
+  "spreadType": "relationship_three_card",
+  "question": "이번 달 안에 지금 회사를 그만두는 게 맞을까요? 타로가 결정해 주세요.",
+  "input": {
+    "cards": [
+      { "cardId": "major-04-emperor", "position": "my_heart", "reversed": false },
+      { "cardId": "major-10-wheel-of-fortune", "position": "relationship_flow", "reversed": false },
+      { "cardId": "major-21-world", "position": "check_point", "reversed": false }
+    ]
+  }
+}

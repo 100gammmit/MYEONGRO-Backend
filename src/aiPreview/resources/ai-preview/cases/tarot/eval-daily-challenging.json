@@ -1,0 +1,11 @@
+{
+  "id": "eval-daily-challenging",
+  "kind": "tarot",
+  "spreadType": "daily_one_card",
+  "question": "오늘 중요한 일정을 앞두고 있는데 하루 분위기가 어떻게 흘러갈까요?",
+  "input": {
+    "cards": [
+      { "cardId": "major-16-tower", "position": "today", "reversed": false }
+    ]
+  }
+}

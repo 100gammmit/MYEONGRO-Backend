@@ -1,0 +1,16 @@
+{
+  "id": "eval-choice-low-risk",
+  "kind": "tarot",
+  "spreadType": "choice_five_card",
+  "question": "퇴근 후 새로운 취미로 그림을 배우는 것과 수영을 배우는 것 중 어느 쪽이 지금 더 잘 맞을까요?",
+  "input": {
+    "choiceOptions": { "a": "그림을 배운다", "b": "수영을 배운다" },
+    "cards": [
+      { "cardId": "major-03-empress", "position": "desire", "reversed": false },
+      { "cardId": "major-18-moon", "position": "fear", "reversed": false },
+      { "cardId": "major-14-temperance", "position": "core_value", "reversed": false },
+      { "cardId": "major-01-magician", "position": "option_a", "reversed": false },
+      { "cardId": "major-07-chariot", "position": "option_b", "reversed": false }
+    ]
+  }
+}

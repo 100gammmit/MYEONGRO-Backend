@@ -1,0 +1,13 @@
+{
+  "id": "eval-mind-conflict",
+  "kind": "tarot",
+  "spreadType": "mind_three_card",
+  "question": "해야 할 일은 많은데 자꾸 미루는 내 마음의 이유를 알고 싶어요.",
+  "input": {
+    "cards": [
+      { "cardId": "major-08-strength", "position": "emotion", "reversed": false },
+      { "cardId": "major-15-devil", "position": "underlying_need", "reversed": false },
+      { "cardId": "major-07-chariot", "position": "self_action", "reversed": false }
+    ]
+  }
+}
