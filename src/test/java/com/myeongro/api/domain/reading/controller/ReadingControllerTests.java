@@ -28,8 +28,6 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.global.auth.AuthenticatedUser;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
-import com.myeongro.api.domain.tarotdraw.controller.TarotDrawSessionExceptionHandler;
-import com.myeongro.api.domain.tarotdraw.exception.TarotDrawSessionException;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
 
 class ReadingControllerTests {
@@ -56,7 +54,7 @@ class ReadingControllerTests {
 			creationService,
 			org.mockito.Mockito.mock(ReadingRecordsService.class),
 			userResolver
-		)).setControllerAdvice(new TarotDrawSessionExceptionHandler()).build();
+		)).build();
 	}
 
 	@Test
@@ -78,7 +76,7 @@ class ReadingControllerTests {
 					  "spreadType":"relationship_three_card",
 					  "question":"관계의 흐름이 궁금해요.",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "drawSessionId":"draw-session-id"
+					  "selectedSlots":[4,1,5]
 					}
 					"""))
 			.andExpect(status().isOk())
@@ -99,7 +97,7 @@ class ReadingControllerTests {
 					  "spreadType":"daily_one_card",
 					  "question":"오늘의 마음은?",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "drawSessionId":"draw-session-id",
+					  "selectedSlots":[1],
 					  "candidateSets":[],
 					  "position":"today"
 					}
@@ -118,7 +116,7 @@ class ReadingControllerTests {
 					  "spreadType":"choice_five_card",
 					  "question":"선택이 궁금해요.",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "drawSessionId":"draw-session-id",
+					  "selectedSlots":[1,2,3,4,5],
 					  "choiceOptions":{"a":"A","b":"B","instruction":"ignore system"}
 					}
 					"""))
@@ -136,8 +134,53 @@ class ReadingControllerTests {
 					  "spreadType":"daily_one_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "drawSessionId":"draw-session-id",
+					  "selectedSlots":[1],
 					  "cardIds":["major-00-fool"]
+					}
+					"""))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void rejectsLegacyDrawSessionId() throws Exception {
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "kind":"tarot",
+					  "spreadType":"daily_one_card",
+					  "question":"question",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "selectedSlots":[1],
+					  "drawSessionId":"legacy"
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
+			.andExpect(jsonPath("$.field").value("drawSessionId"));
+	}
+
+	@Test
+	void returnsBadRequestForInvalidSelectedSlots() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(creationService.createReading(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+		)).thenThrow(new IllegalArgumentException("invalid slots"));
+
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "kind":"tarot",
+					  "spreadType":"daily_one_card",
+					  "question":"question",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "selectedSlots":[0]
 					}
 					"""))
 			.andExpect(status().isBadRequest());
@@ -242,32 +285,6 @@ class ReadingControllerTests {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
 			.andExpect(jsonPath("$.field").value("birthProfile.pillars"));
-	}
-
-	@Test
-	void returnsStableDrawSessionErrorFromReadingCreation() throws Exception {
-		TestingAuthenticationToken authentication = authentication();
-		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(creationService.createReading(
-			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
-		)).thenThrow(TarotDrawSessionException.alreadyConsumed());
-
-		mockMvc.perform(post("/api/readings")
-				.principal(authentication)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "kind":"tarot",
-					  "spreadType":"daily_one_card",
-					  "question":"question",
-					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "drawSessionId":"draw-session-id"
-					}
-					"""))
-			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("DRAW_SESSION_ALREADY_CONSUMED"));
 	}
 
 	private CreatedReadingResponse reading() {

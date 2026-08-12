@@ -8,8 +8,8 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,13 +19,12 @@ import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
-import com.myeongro.api.domain.tarotdraw.service.CompletedTarotDraw;
-import com.myeongro.api.domain.tarotdraw.service.TarotDrawSessionService;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationRules;
 import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
 
@@ -38,7 +37,7 @@ public class ReadingCreationService {
 	private final ReadingInputNormalizer inputNormalizer;
 	private final ObjectMapper objectMapper;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
-	private final TarotDrawSessionService tarotDrawSessionService;
+	private final TarotCardSelector tarotCardSelector;
 	private final SajuReadingInputAssembler sajuInputAssembler;
 	private final Clock clock;
 
@@ -50,12 +49,12 @@ public class ReadingCreationService {
 		ReadingInputNormalizer inputNormalizer,
 		ObjectMapper objectMapper,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
-		TarotDrawSessionService tarotDrawSessionService,
+		TarotCardSelector tarotCardSelector,
 		SajuReadingInputAssembler sajuInputAssembler
 	) {
 		this(
 			consentService, repository, generator, inputNormalizer, objectMapper,
-			generationMetadataResolver, tarotDrawSessionService, sajuInputAssembler,
+			generationMetadataResolver, tarotCardSelector, sajuInputAssembler,
 			Clock.systemUTC()
 		);
 	}
@@ -67,7 +66,7 @@ public class ReadingCreationService {
 		ReadingInputNormalizer inputNormalizer,
 		ObjectMapper objectMapper,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
-		TarotDrawSessionService tarotDrawSessionService,
+		TarotCardSelector tarotCardSelector,
 		SajuReadingInputAssembler sajuInputAssembler,
 		Clock clock
 	) {
@@ -77,7 +76,7 @@ public class ReadingCreationService {
 		this.inputNormalizer = inputNormalizer;
 		this.objectMapper = objectMapper;
 		this.generationMetadataResolver = generationMetadataResolver;
-		this.tarotDrawSessionService = tarotDrawSessionService;
+		this.tarotCardSelector = tarotCardSelector;
 		this.sajuInputAssembler = sajuInputAssembler;
 		this.clock = clock;
 	}
@@ -99,13 +98,11 @@ public class ReadingCreationService {
 
 		NormalizedReadingInput input;
 		if (ReadingKind.fromValue(request.kind()) == ReadingKind.TAROT) {
-			if (request.drawSessionId() == null || request.drawSessionId().isBlank()) {
-				throw com.myeongro.api.domain.tarotdraw.exception.TarotDrawSessionException.invalidSelection();
-			}
-			CompletedTarotDraw draw = tarotDrawSessionService.resolveCompleted(
-				userId, request.drawSessionId(), request.spreadType(), requestId
+			TarotSpreadType spread = TarotSpreadType.fromValue(request.spreadType());
+			var cardIds = tarotCardSelector.select(
+				userId, requestId, spread, request.selectedSlots()
 			);
-			input = inputNormalizer.normalizeTarot(request, draw.spreadType(), draw.cardIds());
+			input = inputNormalizer.normalizeTarot(request, spread, cardIds);
 		} else {
 			input = inputNormalizer.normalize(request);
 		}
@@ -124,11 +121,6 @@ public class ReadingCreationService {
 			input.kind(),
 			input.spreadType()
 		);
-		if (input.kind() == ReadingKind.TAROT) {
-			tarotDrawSessionService.resolveAndConsume(
-				userId, request.drawSessionId(), request.spreadType(), requestId, inputHash
-			);
-		}
 		PendingReadingCreation pending = repository.createPending(PendingReadingCommand.builder()
 			.userId(userId)
 			.requestId(requestId)
@@ -141,11 +133,6 @@ public class ReadingCreationService {
 			.model(metadata.model())
 			.promptVersion(metadata.promptVersion())
 			.build());
-		if (input.kind() == ReadingKind.TAROT) {
-			tarotDrawSessionService.finalizeConsumption(
-				userId, request.drawSessionId(), requestId, inputHash
-			);
-		}
 		if (pending.reading().result() != null) {
 			return pending.reading();
 		}

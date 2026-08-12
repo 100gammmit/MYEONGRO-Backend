@@ -35,8 +35,6 @@ import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
-import com.myeongro.api.domain.tarotdraw.service.CompletedTarotDraw;
-import com.myeongro.api.domain.tarotdraw.service.TarotDrawSessionService;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
 import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
@@ -48,7 +46,6 @@ class ReadingCreationServiceTests {
 	private static final UUID USER_ID = UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
 	private static final UUID REQUEST_ID = UUID.fromString("82ed11d5-2269-438c-9815-42e6f13735f4");
 	private static final UUID READING_ID = UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
-	private TarotDrawSessionService drawSessionService;
 	private SajuReadingInputAssembler sajuInputAssembler;
 
 	@Test
@@ -88,19 +85,6 @@ class ReadingCreationServiceTests {
 			.isEqualTo(TarotSpreadType.RELATIONSHIP_THREE_CARD);
 		assertThat(command.getValue().schemaVersion()).isEqualTo(1);
 		assertThat(command.getValue().input()).containsOnlyKeys("question", "cards");
-		verify(drawSessionService).resolveAndConsume(
-			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.eq("draw-session-id"),
-			org.mockito.ArgumentMatchers.eq("relationship_three_card"),
-			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.anyString()
-		);
-		verify(drawSessionService).finalizeConsumption(
-			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.eq("draw-session-id"),
-			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.anyString()
-		);
 	}
 
 	@Test
@@ -170,7 +154,6 @@ class ReadingCreationServiceTests {
 			"question", "focusArea", "birthProfile", "targetYear", "calculationSnapshot"
 		);
 		assertThat(command.getValue().input()).containsEntry("targetYear", 2026);
-		verifyNoInteractions(drawSessionService);
 	}
 
 	@Test
@@ -248,49 +231,7 @@ class ReadingCreationServiceTests {
 			.createReading(USER_ID, REQUEST_ID, request());
 
 		assertThat(response.status()).isEqualTo("completed");
-		verify(drawSessionService).resolveAndConsume(
-			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.eq("draw-session-id"),
-			org.mockito.ArgumentMatchers.eq("relationship_three_card"),
-			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.anyString()
-		);
 		verifyNoInteractions(generator);
-	}
-
-	@Test
-	void keepsDrawClaimActiveAndAllowsSameRequestRetryWhenPendingCreationFails() {
-		ConsentService consentService = acceptedConsent();
-		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
-		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
-			.thenThrow(new IllegalStateException("database unavailable"))
-			.thenReturn(pending());
-		when(repository.completePending(
-			org.mockito.ArgumentMatchers.any(),
-			org.mockito.ArgumentMatchers.any()
-		)).thenReturn(completed());
-
-		assertThatThrownBy(() -> service(consentService, repository, successfulGenerator())
-			.createReading(USER_ID, REQUEST_ID, request()))
-			.isInstanceOf(IllegalStateException.class);
-
-		verify(drawSessionService, never()).finalizeConsumption(
-			org.mockito.ArgumentMatchers.any(),
-			org.mockito.ArgumentMatchers.anyString(),
-			org.mockito.ArgumentMatchers.any(),
-			org.mockito.ArgumentMatchers.anyString()
-		);
-
-		CreatedReadingResponse retried = service(consentService, repository, successfulGenerator())
-			.createReading(USER_ID, REQUEST_ID, request());
-
-		assertThat(retried.status()).isEqualTo("completed");
-		verify(drawSessionService).finalizeConsumption(
-			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.eq("draw-session-id"),
-			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.anyString()
-		);
 	}
 
 	@Test
@@ -340,9 +281,6 @@ class ReadingCreationServiceTests {
 		SajuPromptCatalog sajuCatalog = org.mockito.Mockito.mock(SajuPromptCatalog.class);
 		when(catalog.version(TarotSpreadType.RELATIONSHIP_THREE_CARD))
 			.thenReturn("common+cards+relationship");
-		drawSessionService = org.mockito.Mockito.mock(
-			TarotDrawSessionService.class
-		);
 		sajuInputAssembler = org.mockito.Mockito.mock(SajuReadingInputAssembler.class);
 		when(sajuInputAssembler.assemble(
 			org.mockito.ArgumentMatchers.any(),
@@ -358,20 +296,6 @@ class ReadingCreationServiceTests {
 				payload, input.hashMaterial()
 			);
 		});
-		CompletedTarotDraw draw = new CompletedTarotDraw(
-			TarotSpreadType.RELATIONSHIP_THREE_CARD,
-			List.of("major-00-fool", "major-06-lovers", "major-17-star")
-		);
-		when(drawSessionService.resolveCompleted(
-			USER_ID, "draw-session-id", "relationship_three_card", REQUEST_ID
-		)).thenReturn(draw);
-		when(drawSessionService.resolveAndConsume(
-			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.eq("draw-session-id"),
-			org.mockito.ArgumentMatchers.eq("relationship_three_card"),
-			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.anyString()
-		)).thenReturn(draw);
 		return new ReadingCreationService(
 			consentService,
 			repository,
@@ -382,7 +306,7 @@ class ReadingCreationServiceTests {
 			)),
 			new ObjectMapper(),
 			new ReadingGenerationMetadataResolver("gpt-test", catalog, sajuCatalog),
-			drawSessionService,
+			new TarotCardSelector("test-only-tarot-selection-secret-32-bytes"),
 			sajuInputAssembler,
 			Clock.fixed(Instant.parse("2026-08-05T00:00:00Z"), ZoneOffset.UTC)
 		);
@@ -410,7 +334,7 @@ class ReadingCreationServiceTests {
 			"relationship_three_card",
 			"관계의 흐름이 궁금해요.",
 			REQUEST_ID,
-			"draw-session-id",
+			List.of(1, 2, 3),
 			null,
 			null,
 			null

@@ -88,7 +88,7 @@ public class ReadingInputNormalizer {
 				spread.value(),
 				question,
 				java.util.UUID.randomUUID(),
-				"stored-reading",
+				null,
 				choices,
 				null,
 				null
@@ -179,11 +179,11 @@ public class ReadingInputNormalizer {
 		ReadingCreateRequest request,
 		String question
 	) {
-		if (request.spreadType() != null || request.drawSessionId() != null
+		if (request.spreadType() != null || request.selectedSlots() != null
 			|| request.choiceOptions() != null) {
 			String field = request.spreadType() != null
 				? "spreadType"
-				: request.drawSessionId() != null ? "drawSessionId" : "choiceOptions";
+				: request.selectedSlots() != null ? "selectedSlots" : "choiceOptions";
 			throw invalid(
 				"INVALID_READING_REQUEST",
 				field,

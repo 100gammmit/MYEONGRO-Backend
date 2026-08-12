@@ -143,7 +143,7 @@ class ReadingInputNormalizerTests {
 				assertThat(exception.getField()).isEqualTo("spreadType"));
 
 		ReadingCreateRequest tarotWithProfile = new ReadingCreateRequest(
-			"tarot", "daily_one_card", "질문", UUID.randomUUID(), "draw", null,
+			"tarot", "daily_one_card", "질문", UUID.randomUUID(), List.of(1), null,
 			validProfile(), null
 		);
 		assertThatThrownBy(() -> normalizer.normalizeTarot(
@@ -220,7 +220,7 @@ class ReadingInputNormalizerTests {
 	) {
 		return new ReadingCreateRequest(
 			"tarot", spread.value(), " 질문 ", UUID.randomUUID(),
-			"draw-session-id", choices, null, null
+			java.util.Collections.nCopies(spread.cardCount(), 1), choices, null, null
 		);
 	}
 

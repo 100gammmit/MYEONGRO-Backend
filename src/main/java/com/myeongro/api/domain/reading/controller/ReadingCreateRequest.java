@@ -1,5 +1,6 @@
 package com.myeongro.api.domain.reading.controller;
 
+import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
@@ -16,7 +17,7 @@ public record ReadingCreateRequest(
 	String question,
 	@NotNull
 	UUID requestId,
-	String drawSessionId,
+	List<Integer> selectedSlots,
 	ChoiceOptionsRequest choiceOptions,
 	SajuBirthProfileRequest birthProfile,
 	String focusArea

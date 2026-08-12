@@ -73,12 +73,8 @@ server:
 app:
   frontend-origin: ${frontend.origin:http://localhost:3000}
 
-  tarot:
-    draw-session:
-      namespace: myeongro:tarot-draw
-      ttl: ${tarot.draw-session.ttl:30m}
-
   reading:
+    tarot-selection-secret: ${tarot.selection-secret}
     openai:
       model: ${openai.model:gpt-5.6-luna}
     prompts:

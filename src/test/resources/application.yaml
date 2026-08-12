@@ -28,12 +28,8 @@ spring:
 
 app:
 
-  tarot:
-    draw-session:
-      namespace: myeongro:test:tarot-draw
-      ttl: 30m
-
   reading:
+    tarot-selection-secret: test-only-tarot-selection-secret-32-bytes
     # Test-only HMAC secret.
     openai:
       model: gpt-test
