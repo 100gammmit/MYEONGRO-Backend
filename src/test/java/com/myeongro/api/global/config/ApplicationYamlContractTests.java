@@ -96,4 +96,15 @@ class ApplicationYamlContractTests {
 		assertThat(applicationYaml).contains("enabled: true");
 		assertThat(applicationYaml).contains("show-details: never");
 	}
+
+	@Test
+	void productionSessionCookieRequiresTheSharedParentDomain() throws Exception {
+		String productionYaml = Files.readString(
+			Path.of("src/main/resources/application-prod.yaml"),
+			StandardCharsets.UTF_8
+		);
+
+		assertThat(productionYaml).contains("domain: ${session.cookie-domain}");
+		assertThat(productionYaml).doesNotContain("domain: ${session.cookie-domain:}");
+	}
 }

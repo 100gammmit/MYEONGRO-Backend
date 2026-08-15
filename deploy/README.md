@@ -28,10 +28,13 @@ OAUTH_GOOGLE_CLIENT_ID=<client-id>
 OAUTH_GOOGLE_CLIENT_SECRET=<client-secret>
 OAUTH_GOOGLE_REDIRECT_URI=https://api.example.com/login/oauth2/code/google
 FRONTEND_ORIGIN=https://www.example.com
+SESSION_COOKIE_DOMAIN=example.com
 TAROT_SELECTION_SECRET=<at-least-32-random-bytes>
 ```
 
 Do not include `SPRING_PROFILES_ACTIVE`, `REDIS_HOST`, or `REDIS_PORT`; production Compose owns them.
+`SESSION_COOKIE_DOMAIN` is required in production and must be the shared parent of the Amplify frontend
+and Spring API hosts. For example, use `example.com` for `www.example.com` and `api.example.com`.
 
 ## EC2 instance role and host
 

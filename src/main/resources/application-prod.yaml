@@ -9,6 +9,7 @@ server:
     session:
       cookie:
         secure: true
+        domain: ${session.cookie-domain}
 
 springdoc:
   api-docs:
