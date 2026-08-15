@@ -41,6 +41,7 @@ application-secret.yaml
 .env
 
 ### local ###
+application-dev.yaml
 AGENTS.md
 
 ### docs ###

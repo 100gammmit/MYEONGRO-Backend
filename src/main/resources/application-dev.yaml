@@ -2,3 +2,10 @@ spring:
   config:
     activate:
       on-profile: dev
+
+server:
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        secure: false
