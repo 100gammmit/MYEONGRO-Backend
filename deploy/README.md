@@ -7,7 +7,7 @@ GitHub never reads production application secrets.
 
 - `AWS_REGION`: ECR, SSM, and EC2 region (for example `ap-northeast-2`)
 - `AWS_PUBLISH_ROLE_ARN`: GitHub OIDC role allowed to push images only to the backend ECR repository
-- `AWS_DEPLOY_ROLE_ARN`: GitHub OIDC role allowed to send and inspect SSM commands only
+- `AWS_DEPLOY_ROLE_ARN`: GitHub OIDC role allowed to send, inspect, and cancel SSM commands only
 - `ECR_REPOSITORY`: backend ECR repository name
 - `EC2_INSTANCE_ID`: target EC2 instance ID
 - `SSM_BACKEND_ENV_PARAMETER`: one SecureString parameter containing the production dotenv file
@@ -49,6 +49,66 @@ Both workflows reject any ref other than `refs/heads/main`. Configure the publis
 Create and protect a GitHub Environment named `production`. The deploy role trust subject must be
 `repo:100gammmit/MYEONGRO-Backend:environment:production`. Restrict that environment to the `main`
 branch. Do not grant SSM permissions to the publish role or ECR push permissions to the deploy role.
+
+The deploy role requires exactly these Run Command actions:
+
+- `ssm:SendCommand` for the target EC2 instance and the `AWS-RunShellScript` document
+- `ssm:GetCommandInvocation` to poll the deployment result
+- `ssm:CancelCommand` to stop a deployment after the workflow timeout
+
+`GetCommandInvocation` and `CancelCommand` do not support resource-level permissions, so their
+policy statement must use `"Resource": "*"`. Keep `SendCommand` in a separate statement scoped to
+the production instance and document. For example, replace the placeholders in this deploy-role
+permissions policy:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendBackendDeployCommand",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": [
+        "arn:aws:ec2:<region>:<account-id>:instance/<instance-id>",
+        "arn:aws:ssm:<region>::document/AWS-RunShellScript"
+      ]
+    },
+    {
+      "Sid": "InspectAndCancelBackendDeployCommand",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetCommandInvocation",
+        "ssm:CancelCommand"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+The deploy role trust policy must also limit GitHub OIDC to the protected production environment:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+          "token.actions.githubusercontent.com:sub": "repo:100gammmit/MYEONGRO-Backend:environment:production"
+        }
+      }
+    }
+  ]
+}
+```
 
 All third-party Actions are pinned to full commit SHAs. Dependabot checks GitHub Actions updates weekly.
 
