@@ -18,23 +18,34 @@ env:
 
 jobs:
   rollback:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      - name: Deploy selected image through SSM
+      - id: registry
+        name: Resolve ECR registry without Docker credentials
         run: |
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          echo "registry=$account_id.dkr.ecr.${AWS_REGION}.amazonaws.com" >> "$GITHUB_OUTPUT"
+      - name: Deploy selected image through SSM
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [[ ! "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "image_tag must be a 40-character lowercase Git SHA" >&2
+            exit 2
+          fi
           chmod +x deploy/send-ssm-command.sh
           deploy/send-ssm-command.sh \
             "${{ vars.EC2_INSTANCE_ID }}" \
             "${{ env.AWS_REGION }}" \
-            "${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ inputs.image_tag }}" \
+            "${{ steps.registry.outputs.registry }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG" \
             "${{ vars.SSM_BACKEND_ENV_PARAMETER }}"

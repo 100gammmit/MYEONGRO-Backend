@@ -6,7 +6,8 @@ GitHub never reads production application secrets.
 ## GitHub repository variables
 
 - `AWS_REGION`: ECR, SSM, and EC2 region (for example `ap-northeast-2`)
-- `AWS_DEPLOY_ROLE_ARN`: GitHub OIDC role allowed to push ECR images and call SSM Run Command
+- `AWS_PUBLISH_ROLE_ARN`: GitHub OIDC role allowed to push images only to the backend ECR repository
+- `AWS_DEPLOY_ROLE_ARN`: GitHub OIDC role allowed to send and inspect SSM commands only
 - `ECR_REPOSITORY`: backend ECR repository name
 - `EC2_INSTANCE_ID`: target EC2 instance ID
 - `SSM_BACKEND_ENV_PARAMETER`: one SecureString parameter containing the production dotenv file
@@ -35,6 +36,17 @@ Do not include `SPRING_PROFILES_ACTIVE`, `REDIS_HOST`, or `REDIS_PORT`; producti
 ## EC2 instance role and host
 
 The EC2 instance role needs `ssm:GetParameter` for the configured SecureString and ECR pull permissions.
-The host needs SSM Agent, AWS CLI, Docker with the Compose plugin, and curl. Port 8080 remains bound to loopback; the reverse proxy is expected to forward to `127.0.0.1:8080`.
+The host needs SSM Agent, AWS CLI, Docker with the Compose plugin, curl, and `flock`. Port 8080 remains bound to loopback; the reverse proxy is expected to forward to `127.0.0.1:8080`.
+
+## GitHub OIDC and production boundary
+
+Both workflows reject any ref other than `refs/heads/main`. Configure the publish role trust subject for
+`repo:100gammmit/MYEONGRO-Backend:ref:refs/heads/main`.
+
+Create and protect a GitHub Environment named `production`. The deploy role trust subject must be
+`repo:100gammmit/MYEONGRO-Backend:environment:production`. Restrict that environment to the `main`
+branch. Do not grant SSM permissions to the publish role or ECR push permissions to the deploy role.
+
+All third-party Actions are pinned to full commit SHAs. Dependabot checks GitHub Actions updates weekly.
 
 The deploy script records the last healthy image and environment file. A failed readiness check restores both. Database migrations are forward-only and are not rolled back automatically.
