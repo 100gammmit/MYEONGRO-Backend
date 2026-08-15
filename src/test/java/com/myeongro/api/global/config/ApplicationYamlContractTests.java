@@ -72,4 +72,28 @@ class ApplicationYamlContractTests {
 		assertThat(applicationYaml).contains("host: ${redis.host:localhost}");
 		assertThat(applicationYaml).contains("port: ${redis.port:6379}");
 	}
+
+	@Test
+	void localSecretsStayOutsideTheApplicationClasspath() throws Exception {
+		String applicationYaml = Files.readString(
+			Path.of("src/main/resources/application.yaml"),
+			StandardCharsets.UTF_8
+		);
+
+		assertThat(applicationYaml)
+			.contains("optional:file:./config/application-secret.yaml")
+			.doesNotContain("classpath:config/application-secret.yaml");
+	}
+
+	@Test
+	void healthEndpointIsExposedForDeploymentVerification() throws Exception {
+		String applicationYaml = Files.readString(
+			Path.of("src/main/resources/application.yaml"),
+			StandardCharsets.UTF_8
+		);
+
+		assertThat(applicationYaml).contains("include: health");
+		assertThat(applicationYaml).contains("enabled: true");
+		assertThat(applicationYaml).contains("show-details: never");
+	}
 }

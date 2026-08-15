@@ -8,10 +8,7 @@ server:
   servlet:
     session:
       cookie:
-        name: MYEONGRO_SESSION
-        http-only: true
         secure: true
-        same-site: lax
 
 springdoc:
   api-docs:

@@ -97,6 +97,12 @@ class SecurityConfigTests {
 	}
 
 	@Test
+	void allowsReadinessHealthEndpointWithoutSession() throws Exception {
+		mockMvc.perform(get("/actuator/health/readiness"))
+			.andExpect(status().isOk());
+	}
+
+	@Test
 	void allowsLogoutEndpointWithoutSession() throws Exception {
 		mockMvc.perform(post("/api/auth/logout"))
 			.andExpect(status().isNoContent());

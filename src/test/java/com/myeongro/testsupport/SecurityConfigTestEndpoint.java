@@ -24,6 +24,11 @@ public class SecurityConfigTestEndpoint {
 		return "me";
 	}
 
+	@GetMapping("/actuator/health/readiness")
+	String readiness() {
+		return "UP";
+	}
+
 	@PostMapping("/api/auth/logout")
 	ResponseEntity<Void> logout() {
 		return ResponseEntity.noContent().build();

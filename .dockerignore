@@ -1,0 +1,14 @@
+.git
+.github
+.gradle
+.idea
+.vscode
+build
+config
+docs
+src/aiPreview
+src/test
+*.iml
+AGENTS.md
+application-secret.yaml
+.env
