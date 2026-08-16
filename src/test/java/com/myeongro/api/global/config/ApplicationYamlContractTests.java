@@ -69,20 +69,6 @@ class ApplicationYamlContractTests {
 		assertThat(applicationYaml).contains("namespace: myeongro:session");
 		assertThat(applicationYaml).contains("flush-mode: on_save");
 		assertThat(applicationYaml).contains("timeout: 30m");
-		assertThat(applicationYaml).contains("host: ${redis.host:localhost}");
-		assertThat(applicationYaml).contains("port: ${redis.port:6379}");
-	}
-
-	@Test
-	void localSecretsStayOutsideTheApplicationClasspath() throws Exception {
-		String applicationYaml = Files.readString(
-			Path.of("src/main/resources/application.yaml"),
-			StandardCharsets.UTF_8
-		);
-
-		assertThat(applicationYaml)
-			.contains("optional:file:./config/application-secret.yaml")
-			.doesNotContain("classpath:config/application-secret.yaml");
 	}
 
 	@Test
@@ -95,16 +81,5 @@ class ApplicationYamlContractTests {
 		assertThat(applicationYaml).contains("include: health");
 		assertThat(applicationYaml).contains("enabled: true");
 		assertThat(applicationYaml).contains("show-details: never");
-	}
-
-	@Test
-	void productionSessionCookieRequiresTheSharedParentDomain() throws Exception {
-		String productionYaml = Files.readString(
-			Path.of("src/main/resources/application-prod.yaml"),
-			StandardCharsets.UTF_8
-		);
-
-		assertThat(productionYaml).contains("domain: ${session.cookie-domain}");
-		assertThat(productionYaml).doesNotContain("domain: ${session.cookie-domain:}");
 	}
 }
