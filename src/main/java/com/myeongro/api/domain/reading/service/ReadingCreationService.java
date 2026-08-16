@@ -15,7 +15,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.myeongro.api.domain.consent.service.ConsentService;
-import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
+import com.myeongro.api.domain.reading.controller.SajuReadingCreateRequest;
+import com.myeongro.api.domain.reading.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
@@ -81,11 +82,30 @@ public class ReadingCreationService {
 		this.clock = clock;
 	}
 
-	public CreatedReadingResponse createReading(
+	public CreatedReadingResponse createTarotReading(
 		UUID userId,
 		UUID requestId,
-		ReadingCreateRequest request
+		TarotReadingCreateRequest request
 	) {
+		requireCreationAllowed(userId, requestId);
+		TarotSpreadType spread = TarotSpreadType.fromValue(request.spreadType());
+		var cardIds = tarotCardSelector.select(
+			userId, requestId, spread, request.selectedSlots()
+		);
+		NormalizedReadingInput input = inputNormalizer.normalizeTarot(request, spread, cardIds);
+		return createReading(userId, requestId, input);
+	}
+
+	public CreatedReadingResponse createSajuReading(
+		UUID userId,
+		UUID requestId,
+		SajuReadingCreateRequest request
+	) {
+		requireCreationAllowed(userId, requestId);
+		return createReading(userId, requestId, inputNormalizer.normalizeSaju(request));
+	}
+
+	private void requireCreationAllowed(UUID userId, UUID requestId) {
 		if (userId == null) {
 			throw new IllegalArgumentException("User id is required");
 		}
@@ -95,17 +115,13 @@ public class ReadingCreationService {
 		if (!consentService.getUserStatus(userId).hasAcceptedRequired()) {
 			throw new RequiredConsentMissingException("필수 동의가 필요합니다.");
 		}
+	}
 
-		NormalizedReadingInput input;
-		if (ReadingKind.fromValue(request.kind()) == ReadingKind.TAROT) {
-			TarotSpreadType spread = TarotSpreadType.fromValue(request.spreadType());
-			var cardIds = tarotCardSelector.select(
-				userId, requestId, spread, request.selectedSlots()
-			);
-			input = inputNormalizer.normalizeTarot(request, spread, cardIds);
-		} else {
-			input = inputNormalizer.normalize(request);
-		}
+	private CreatedReadingResponse createReading(
+		UUID userId,
+		UUID requestId,
+		NormalizedReadingInput input
+	) {
 		String inputHash = inputHash(input.hashMaterial());
 		var existing = repository.findExisting(userId, requestId, inputHash);
 		if (existing.isPresent()) {

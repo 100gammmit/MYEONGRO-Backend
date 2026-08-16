@@ -15,7 +15,8 @@ import org.springframework.core.io.ClassPathResource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.controller.ChoiceOptionsRequest;
-import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
+import com.myeongro.api.domain.reading.controller.SajuReadingCreateRequest;
+import com.myeongro.api.domain.reading.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
@@ -56,7 +57,7 @@ class ReadingInputNormalizerTests {
 
 	@Test
 	void normalizesExactSajuInputAsSchemaVersionTwo() {
-		NormalizedReadingInput normalized = normalizer.normalize(sajuRequest(
+		NormalizedReadingInput normalized = normalizer.normalizeSaju(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", "14:30", "exact",
 				"11", "11680", "female"
@@ -82,7 +83,7 @@ class ReadingInputNormalizerTests {
 
 	@Test
 	void omitsBirthTimeWhenPrecisionIsUnknown() {
-		NormalizedReadingInput normalized = normalizer.normalize(sajuRequest(
+		NormalizedReadingInput normalized = normalizer.normalizeSaju(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", null, "unknown",
 				"36", "36110", "unspecified"
@@ -98,7 +99,7 @@ class ReadingInputNormalizerTests {
 
 	@Test
 	void acceptsApproximateBirthTimeWithoutClientOwnedUncertaintyRange() {
-		NormalizedReadingInput normalized = normalizer.normalize(sajuRequest(
+		NormalizedReadingInput normalized = normalizer.normalizeSaju(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", "14:00", "approximate",
 				"11", "11680", "unspecified"
@@ -121,35 +122,15 @@ class ReadingInputNormalizerTests {
 		String expectedCode,
 		String expectedField
 	) {
-		ReadingCreateRequest request = new ReadingCreateRequest(
-			"saju", null, "질문", UUID.randomUUID(), null, null, profile, focusArea
+		SajuReadingCreateRequest request = new SajuReadingCreateRequest(
+			"질문", UUID.randomUUID(), profile, focusArea
 		);
 
-		assertThatThrownBy(() -> normalizer.normalize(request))
+		assertThatThrownBy(() -> normalizer.normalizeSaju(request))
 			.isInstanceOfSatisfying(InvalidReadingRequestException.class, exception -> {
 				assertThat(exception.getCode()).isEqualTo(expectedCode);
 				assertThat(exception.getField()).isEqualTo(expectedField);
 			});
-	}
-
-	@Test
-	void rejectsTarotFieldsInSajuAndSajuFieldsInTarot() {
-		ReadingCreateRequest sajuWithSpread = new ReadingCreateRequest(
-			"saju", "daily_one_card", "질문", UUID.randomUUID(), null, null,
-			validProfile(), "career"
-		);
-		assertThatThrownBy(() -> normalizer.normalize(sajuWithSpread))
-			.isInstanceOfSatisfying(InvalidReadingRequestException.class, exception ->
-				assertThat(exception.getField()).isEqualTo("spreadType"));
-
-		ReadingCreateRequest tarotWithProfile = new ReadingCreateRequest(
-			"tarot", "daily_one_card", "질문", UUID.randomUUID(), List.of(1), null,
-			validProfile(), null
-		);
-		assertThatThrownBy(() -> normalizer.normalizeTarot(
-			tarotWithProfile, TarotSpreadType.DAILY_ONE_CARD, cards(1)
-		)).isInstanceOfSatisfying(InvalidReadingRequestException.class, exception ->
-			assertThat(exception.getField()).isEqualTo("birthProfile"));
 	}
 
 	@Test
@@ -214,20 +195,19 @@ class ReadingInputNormalizerTests {
 		);
 	}
 
-	private ReadingCreateRequest tarotRequest(
+	private TarotReadingCreateRequest tarotRequest(
 		TarotSpreadType spread,
 		ChoiceOptionsRequest choices
 	) {
-		return new ReadingCreateRequest(
-			"tarot", spread.value(), " 질문 ", UUID.randomUUID(),
-			java.util.Collections.nCopies(spread.cardCount(), 1), choices, null, null
+		return new TarotReadingCreateRequest(
+			spread.value(), " 질문 ", UUID.randomUUID(),
+			java.util.Collections.nCopies(spread.cardCount(), 1), choices
 		);
 	}
 
-	private ReadingCreateRequest sajuRequest(SajuBirthProfileRequest profile) {
-		return new ReadingCreateRequest(
-			"saju", null, " 올해 이직운이 궁금해요 ", UUID.randomUUID(),
-			null, null, profile, "career"
+	private SajuReadingCreateRequest sajuRequest(SajuBirthProfileRequest profile) {
+		return new SajuReadingCreateRequest(
+			" 올해 이직운이 궁금해요 ", UUID.randomUUID(), profile, "career"
 		);
 	}
 

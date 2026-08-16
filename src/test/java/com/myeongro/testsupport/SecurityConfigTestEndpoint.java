@@ -9,9 +9,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class SecurityConfigTestEndpoint {
 
-	@PostMapping("/api/readings")
-	String createReading() {
-		return "created";
+	@PostMapping("/api/tarot/readings")
+	String createTarotReading() {
+		return "tarot-created";
+	}
+
+	@PostMapping("/api/saju/readings")
+	String createSajuReading() {
+		return "saju-created";
 	}
 
 	@GetMapping("/api/readings")

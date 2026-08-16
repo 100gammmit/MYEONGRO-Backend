@@ -46,7 +46,9 @@ class SecurityConfigTests {
 
 	@Test
 	void requiresAuthenticationForReadingCreationEndpoint() throws Exception {
-		mockMvc.perform(post("/api/readings"))
+		mockMvc.perform(post("/api/tarot/readings"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/saju/readings"))
 			.andExpect(status().isUnauthorized());
 	}
 

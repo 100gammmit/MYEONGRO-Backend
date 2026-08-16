@@ -1,24 +1,18 @@
 package com.myeongro.api.domain.reading.controller;
 
-import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-public record ReadingCreateRequest(
-	@NotBlank
-	String kind,
-	String spreadType,
+public record SajuReadingCreateRequest(
 	String question,
 	@NotNull
 	UUID requestId,
-	List<Integer> selectedSlots,
-	ChoiceOptionsRequest choiceOptions,
+	@NotNull
 	SajuBirthProfileRequest birthProfile,
 	String focusArea
 ) {

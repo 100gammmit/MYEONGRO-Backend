@@ -85,11 +85,10 @@ class AuthenticatedReadingSecurityTests {
 
 	@Test
 	void unauthenticatedReadingCreationStopsBeforeDbOrProviderService() throws Exception {
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/tarot/readings")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"tarot",
 					  "spreadType":"daily_one_card",
 					  "question":"오늘의 마음은?",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",

@@ -62,18 +62,17 @@ class ReadingControllerTests {
 	void createsAuthenticatedRelationshipReading() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(creationService.createReading(
+		when(creationService.createTarotReading(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+			org.mockito.ArgumentMatchers.any(TarotReadingCreateRequest.class)
 		)).thenReturn(reading());
 
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"tarot",
 					  "spreadType":"relationship_three_card",
 					  "question":"관계의 흐름이 궁금해요.",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
@@ -88,13 +87,45 @@ class ReadingControllerTests {
 	}
 
 	@Test
+	void createsAuthenticatedSajuReadingWithoutAClientKindField() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(creationService.createSajuReading(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(SajuReadingCreateRequest.class)
+		)).thenReturn(sajuReading());
+
+		mockMvc.perform(post("/api/saju/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "question":"올해 흐름이 궁금해요",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "focusArea":"career",
+					  "birthProfile":{
+					    "calendarType":"solar",
+					    "birthDate":"1992-08-17",
+					    "birthTimePrecision":"unknown",
+					    "provinceCode":"36",
+					    "cityCode":"36110",
+					    "luckDirectionBasis":"unspecified"
+					  }
+					}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.reading.kind").value("saju"))
+			.andExpect(jsonPath("$.reading.schemaVersion").value(2));
+	}
+
+	@Test
 	void rejectsCandidateSetsAndClientOwnedPositionFields() throws Exception {
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"tarot",
 					  "spreadType":"daily_one_card",
 					  "question":"오늘의 마음은?",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
@@ -108,12 +139,11 @@ class ReadingControllerTests {
 
 	@Test
 	void rejectsUnknownChoiceOptionFields() throws Exception {
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"tarot",
 					  "spreadType":"choice_five_card",
 					  "question":"선택이 궁금해요.",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
@@ -126,12 +156,11 @@ class ReadingControllerTests {
 
 	@Test
 	void rejectsClientOwnedCardIds() throws Exception {
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"tarot",
 					  "spreadType":"daily_one_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
@@ -144,12 +173,11 @@ class ReadingControllerTests {
 
 	@Test
 	void rejectsLegacyDrawSessionId() throws Exception {
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"tarot",
 					  "spreadType":"daily_one_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
@@ -166,18 +194,17 @@ class ReadingControllerTests {
 	void returnsBadRequestForInvalidSelectedSlots() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(creationService.createReading(
+		when(creationService.createTarotReading(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+			org.mockito.ArgumentMatchers.any(TarotReadingCreateRequest.class)
 		)).thenThrow(new IllegalArgumentException("invalid slots"));
 
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"tarot",
 					  "spreadType":"daily_one_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
@@ -191,18 +218,17 @@ class ReadingControllerTests {
 	void returnsFailedReadingIdForOfficialRetryAfterGenerationFailure() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(creationService.createReading(
+		when(creationService.createTarotReading(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+			org.mockito.ArgumentMatchers.any(TarotReadingCreateRequest.class)
 		)).thenThrow(new OpenAiReadingGenerationException().withReadingId(READING_ID));
 
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"tarot",
 					  "spreadType":"daily_one_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
@@ -218,18 +244,17 @@ class ReadingControllerTests {
 	void returnsStableCalculationErrorWithoutExposingEngineFailure() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(creationService.createReading(
+		when(creationService.createSajuReading(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+			org.mockito.ArgumentMatchers.any(SajuReadingCreateRequest.class)
 		)).thenThrow(new SajuCalculationException(new IllegalStateException("secret engine detail")));
 
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/saju/readings")
 				.principal(authentication)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"saju",
 					  "question":"올해 흐름이 궁금해요",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
 					  "focusArea":"career",
@@ -252,22 +277,21 @@ class ReadingControllerTests {
 	void returnsStableCodeAndFieldForSajuValidationErrors() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(creationService.createReading(
+		when(creationService.createSajuReading(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.any(ReadingCreateRequest.class)
+			org.mockito.ArgumentMatchers.any(SajuReadingCreateRequest.class)
 		)).thenThrow(new InvalidReadingRequestException(
 			"INVALID_BIRTH_TIME",
 			"birthProfile.birthTime",
 			"출생시간을 확인해 주세요."
 		));
 
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/saju/readings")
 				.principal(authentication)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"saju",
 					  "question":"올해 이직운이 궁금해요",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
 					  "focusArea":"career",
@@ -290,12 +314,11 @@ class ReadingControllerTests {
 
 	@Test
 	void rejectsUnknownNestedSajuFieldsWithTheirPath() throws Exception {
-		mockMvc.perform(post("/api/readings")
+		mockMvc.perform(post("/api/saju/readings")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "kind":"saju",
 					  "question":"질문",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
 					  "focusArea":"career",
@@ -315,6 +338,50 @@ class ReadingControllerTests {
 			.andExpect(jsonPath("$.field").value("birthProfile.pillars"));
 	}
 
+	@Test
+	void rejectsFieldsOwnedByTheOtherReadingKindAtEachCreationEndpoint() throws Exception {
+		mockMvc.perform(post("/api/tarot/readings")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "spreadType":"daily_one_card",
+					  "question":"질문",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "selectedSlots":[1],
+					  "birthProfile":{}
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
+			.andExpect(jsonPath("$.field").value("birthProfile"));
+
+		mockMvc.perform(post("/api/saju/readings")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "question":"질문",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "focusArea":"career",
+					  "birthProfile":{},
+					  "spreadType":"daily_one_card"
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
+			.andExpect(jsonPath("$.field").value("spreadType"));
+	}
+
+	@Test
+	void doesNotExposeTheFormerSharedCreationEndpoint() throws Exception {
+		mockMvc.perform(post("/api/readings")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isMethodNotAllowed());
+	}
+
 	private CreatedReadingResponse reading() {
 		return new CreatedReadingResponse(
 			READING_ID,
@@ -325,6 +392,22 @@ class ReadingControllerTests {
 			"관계 리딩",
 			Map.of("question", "관계의 흐름이 궁금해요."),
 			Map.of("title", "관계 리딩"),
+			null,
+			Instant.parse("2026-06-15T00:00:00Z"),
+			Instant.parse("2026-06-15T00:00:01Z")
+		);
+	}
+
+	private CreatedReadingResponse sajuReading() {
+		return new CreatedReadingResponse(
+			READING_ID,
+			ReadingKind.SAJU,
+			null,
+			2,
+			"completed",
+			"사주 리딩",
+			Map.of("question", "올해 흐름이 궁금해요"),
+			Map.of("title", "사주 리딩"),
 			null,
 			Instant.parse("2026-06-15T00:00:00Z"),
 			Instant.parse("2026-06-15T00:00:01Z")

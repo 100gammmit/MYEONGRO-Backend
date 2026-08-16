@@ -12,7 +12,8 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import com.myeongro.api.domain.reading.controller.ChoiceOptionsRequest;
-import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
+import com.myeongro.api.domain.reading.controller.SajuReadingCreateRequest;
+import com.myeongro.api.domain.reading.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.MajorArcana;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
@@ -36,30 +37,11 @@ public class ReadingInputNormalizer {
 		this.birthPlaceCatalog = birthPlaceCatalog;
 	}
 
-	public NormalizedReadingInput normalize(ReadingCreateRequest request) {
-		ReadingKind kind = ReadingKind.fromValue(request.kind());
-		String question = normalizeQuestion(request.question());
-		if (kind == ReadingKind.TAROT) {
-			throw invalid("INVALID_READING_REQUEST", "kind", "확정된 타로 카드가 필요합니다.");
-		}
-		return normalizeSaju(request, question);
-	}
-
 	public NormalizedReadingInput normalizeTarot(
-		ReadingCreateRequest request,
+		TarotReadingCreateRequest request,
 		TarotSpreadType spread,
 		List<String> cardIds
 	) {
-		if (ReadingKind.fromValue(request.kind()) != ReadingKind.TAROT) {
-			throw invalid("INVALID_READING_REQUEST", "kind", "타로 리딩 요청이 필요합니다.");
-		}
-		if (request.birthProfile() != null || request.focusArea() != null) {
-			throw invalid(
-				"INVALID_READING_REQUEST",
-				request.birthProfile() != null ? "birthProfile" : "focusArea",
-				"타로 리딩에는 사주 입력을 사용할 수 없습니다."
-			);
-		}
 		if (spread != TarotSpreadType.fromValue(request.spreadType())) {
 			throw invalid(
 				"INVALID_SPREAD_TYPE",
@@ -83,25 +65,18 @@ public class ReadingInputNormalizer {
 			}
 			List<String> cardIds = storedCardIds(payload, spread);
 			ChoiceOptionsRequest choices = storedChoiceOptions(payload, spread);
-			return normalizeTarot(new ReadingCreateRequest(
-				reading.kind().value(),
+			return normalizeTarot(new TarotReadingCreateRequest(
 				spread.value(),
 				question,
 				java.util.UUID.randomUUID(),
 				null,
-				choices,
-				null,
-				null
+				choices
 			), spread, cardIds);
 		}
 		Map<?, ?> profile = valueAsMap(payload.get("birthProfile"), "Stored birth profile");
-		return normalize(new ReadingCreateRequest(
-			reading.kind().value(),
-			null,
+		return normalizeSaju(new SajuReadingCreateRequest(
 			question,
 			java.util.UUID.randomUUID(),
-			null,
-			null,
 			new SajuBirthProfileRequest(
 				valueAsString(profile.get("calendarType"), "Stored calendar type"),
 				valueAsString(profile.get("birthDate"), "Stored birth date"),
@@ -116,7 +91,7 @@ public class ReadingInputNormalizer {
 	}
 
 	private NormalizedReadingInput normalizeTarot(
-		ReadingCreateRequest request,
+		TarotReadingCreateRequest request,
 		String question,
 		TarotSpreadType spread,
 		List<String> cardIds
@@ -175,21 +150,8 @@ public class ReadingInputNormalizer {
 		);
 	}
 
-	private NormalizedReadingInput normalizeSaju(
-		ReadingCreateRequest request,
-		String question
-	) {
-		if (request.spreadType() != null || request.selectedSlots() != null
-			|| request.choiceOptions() != null) {
-			String field = request.spreadType() != null
-				? "spreadType"
-				: request.selectedSlots() != null ? "selectedSlots" : "choiceOptions";
-			throw invalid(
-				"INVALID_READING_REQUEST",
-				field,
-				"사주 리딩에는 타로 입력을 사용할 수 없습니다."
-			);
-		}
+	public NormalizedReadingInput normalizeSaju(SajuReadingCreateRequest request) {
+		String question = normalizeQuestion(request.question());
 		SajuBirthProfileRequest profile = request.birthProfile();
 		if (profile == null) {
 			throw invalid("INVALID_BIRTH_DATE", "birthProfile", "출생정보를 입력해 주세요.");

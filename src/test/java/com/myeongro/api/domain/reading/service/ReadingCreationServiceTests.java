@@ -23,7 +23,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
 import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.service.ConsentService;
-import com.myeongro.api.domain.reading.controller.ReadingCreateRequest;
+import com.myeongro.api.domain.reading.controller.SajuReadingCreateRequest;
+import com.myeongro.api.domain.reading.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.dto.ReadingResult;
@@ -57,7 +58,7 @@ class ReadingCreationServiceTests {
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 
 		assertThatThrownBy(() -> service(consentService, repository, successfulGenerator())
-			.createReading(USER_ID, REQUEST_ID, request()))
+			.createTarotReading(USER_ID, REQUEST_ID, request()))
 			.isInstanceOf(RequiredConsentMissingException.class);
 
 		org.mockito.Mockito.verifyNoInteractions(repository);
@@ -75,7 +76,7 @@ class ReadingCreationServiceTests {
 		)).thenReturn(completed());
 
 		service(consentService, repository, successfulGenerator())
-			.createReading(USER_ID, REQUEST_ID, request());
+			.createTarotReading(USER_ID, REQUEST_ID, request());
 
 		ArgumentCaptor<PendingReadingCommand> command =
 			ArgumentCaptor.forClass(PendingReadingCommand.class);
@@ -103,7 +104,7 @@ class ReadingCreationServiceTests {
 		ReadingGenerator generator = (kind, spread, question, input) -> declined;
 
 		CreatedReadingResponse response = service(consentService, repository, generator)
-			.createReading(USER_ID, REQUEST_ID, request());
+			.createTarotReading(USER_ID, REQUEST_ID, request());
 
 		ArgumentCaptor<GeneratedReading> generated = ArgumentCaptor.forClass(GeneratedReading.class);
 		verify(repository).completePending(
@@ -130,13 +131,9 @@ class ReadingCreationServiceTests {
 		)).thenReturn(completed());
 
 		service(consentService, repository, successfulGenerator())
-			.createReading(USER_ID, REQUEST_ID, new ReadingCreateRequest(
-				"saju",
-				null,
+			.createSajuReading(USER_ID, REQUEST_ID, new SajuReadingCreateRequest(
 				"올해 이직운이 궁금해요",
 				REQUEST_ID,
-				null,
-				null,
 				new SajuBirthProfileRequest(
 					"solar", "1992-08-17", null, "unknown",
 					"36", "36110", "unspecified"
@@ -169,7 +166,7 @@ class ReadingCreationServiceTests {
 		)).thenReturn(Optional.of(existing));
 
 		CreatedReadingResponse response = service(consentService, repository, generator)
-			.createReading(USER_ID, REQUEST_ID, sajuRequest());
+			.createSajuReading(USER_ID, REQUEST_ID, sajuRequest());
 
 		assertThat(response).isSameAs(existing);
 		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
@@ -191,7 +188,7 @@ class ReadingCreationServiceTests {
 			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
 		);
 
-		assertThatThrownBy(() -> service.createReading(USER_ID, REQUEST_ID, sajuRequest()))
+		assertThatThrownBy(() -> service.createSajuReading(USER_ID, REQUEST_ID, sajuRequest()))
 			.isInstanceOf(SajuCalculationException.class)
 			.hasMessage("사주 계산을 완료하지 못했습니다.");
 
@@ -210,7 +207,7 @@ class ReadingCreationServiceTests {
 		};
 
 		assertThatThrownBy(() -> service(consentService, repository, failing)
-			.createReading(USER_ID, REQUEST_ID, request()))
+			.createTarotReading(USER_ID, REQUEST_ID, request()))
 			.isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
 				assertThat(exception.getReadingId()).isEqualTo(READING_ID)
 			);
@@ -230,7 +227,7 @@ class ReadingCreationServiceTests {
 			.thenReturn(new PendingReadingCreation(READING_ID, 42L, completed()));
 
 		CreatedReadingResponse response = service(consentService, repository, generator)
-			.createReading(USER_ID, REQUEST_ID, request());
+			.createTarotReading(USER_ID, REQUEST_ID, request());
 
 		assertThat(response.status()).isEqualTo("completed");
 		verifyNoInteractions(generator);
@@ -248,7 +245,7 @@ class ReadingCreationServiceTests {
 		)).thenReturn(Optional.of(tarotReading("failed")));
 
 		assertThatThrownBy(() -> service(consentService, repository, generator)
-			.createReading(USER_ID, REQUEST_ID, request()))
+			.createTarotReading(USER_ID, REQUEST_ID, request()))
 			.isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
 				assertThat(exception.getReadingId()).isEqualTo(READING_ID)
 			);
@@ -351,22 +348,19 @@ class ReadingCreationServiceTests {
 		);
 	}
 
-	private ReadingCreateRequest request() {
-		return new ReadingCreateRequest(
-			"tarot",
+	private TarotReadingCreateRequest request() {
+		return new TarotReadingCreateRequest(
 			"relationship_three_card",
 			"관계의 흐름이 궁금해요.",
 			REQUEST_ID,
 			List.of(1, 2, 3),
-			null,
-			null,
 			null
 		);
 	}
 
-	private ReadingCreateRequest sajuRequest() {
-		return new ReadingCreateRequest(
-			"saju", null, "올해 이직운이 궁금해요", REQUEST_ID, null, null,
+	private SajuReadingCreateRequest sajuRequest() {
+		return new SajuReadingCreateRequest(
+			"올해 이직운이 궁금해요", REQUEST_ID,
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", null, "unknown",
 				"36", "36110", "unspecified"

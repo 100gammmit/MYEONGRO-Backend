@@ -32,8 +32,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/readings")
-@Tag(name = "Readings", description = "타로·사주 리딩 생성 API")
+@RequestMapping("/api")
+@Tag(name = "Readings", description = "타로·사주 리딩 생성 및 기록 API")
 public class ReadingController {
 
 	private final ReadingCreationService service;
@@ -50,16 +50,16 @@ public class ReadingController {
 		this.userResolver = userResolver;
 	}
 
-	@PostMapping
-	@Operation(summary = "리딩 생성", description = "로그인 사용자의 동의 확인 후 리딩을 생성합니다.")
-	public ResponseEntity<Map<String, Object>> createReading(
-		@Valid @RequestBody ReadingCreateRequest request,
+	@PostMapping("/tarot/readings")
+	@Operation(summary = "타로 리딩 생성", description = "로그인 사용자의 동의 확인 후 타로 리딩을 생성합니다.")
+	public ResponseEntity<Map<String, Object>> createTarotReading(
+		@Valid @RequestBody TarotReadingCreateRequest request,
 		Authentication authentication
 	) {
 		UUID userId = userResolver.requireUser(authentication).id();
 		return ResponseEntity.ok(Map.of(
 			"reading",
-			service.createReading(
+			service.createTarotReading(
 				userId,
 				request.requestId(),
 				request
@@ -67,14 +67,31 @@ public class ReadingController {
 		));
 	}
 
-	@GetMapping
+	@PostMapping("/saju/readings")
+	@Operation(summary = "사주 리딩 생성", description = "로그인 사용자의 동의 확인 후 사주 리딩을 생성합니다.")
+	public ResponseEntity<Map<String, Object>> createSajuReading(
+		@Valid @RequestBody SajuReadingCreateRequest request,
+		Authentication authentication
+	) {
+		UUID userId = userResolver.requireUser(authentication).id();
+		return ResponseEntity.ok(Map.of(
+			"reading",
+			service.createSajuReading(
+				userId,
+				request.requestId(),
+				request
+			)
+		));
+	}
+
+	@GetMapping("/readings")
 	@Operation(summary = "내 리딩 기록 목록 조회")
 	public ResponseEntity<Map<String, Object>> listReadings(Authentication authentication) {
 		UUID userId = userResolver.requireUser(authentication).id();
 		return ResponseEntity.ok(Map.of("items", recordsService.listByUser(userId)));
 	}
 
-	@GetMapping("/{readingId}")
+	@GetMapping("/readings/{readingId}")
 	@Operation(summary = "내 리딩 기록 상세 조회")
 	public ResponseEntity<Map<String, Object>> getReading(
 		Authentication authentication,
@@ -87,7 +104,7 @@ public class ReadingController {
 		));
 	}
 
-	@DeleteMapping("/{readingId}")
+	@DeleteMapping("/readings/{readingId}")
 	@Operation(summary = "내 리딩 기록 삭제")
 	public ResponseEntity<Void> deleteReading(
 		Authentication authentication,
@@ -98,7 +115,7 @@ public class ReadingController {
 		return ResponseEntity.noContent().build();
 	}
 
-	@PostMapping("/{readingId}/retry")
+	@PostMapping("/readings/{readingId}/retry")
 	@Operation(summary = "실패한 내 리딩 재시도")
 	public ResponseEntity<Map<String, Object>> retryReading(
 		Authentication authentication,
