@@ -10,6 +10,17 @@ final class AiPreviewMarkdownRenderer {
 
 	private static final DateTimeFormatter EXECUTED_AT_FORMAT =
 		DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss XXX");
+	private static final Map<String, String> EVIDENCE_LABELS = Map.ofEntries(
+		Map.entry("pillars", "명식의 기둥"),
+		Map.entry("dayMaster", "일간"),
+		Map.entry("elementBalance", "오행 분포"),
+		Map.entry("tenGods", "십성 관계"),
+		Map.entry("interactions", "간지 관계"),
+		Map.entry("currentLuckCycle", "현재 대운"),
+		Map.entry("annualFlow", "해당 연도 세운"),
+		Map.entry("limitations", "계산 제한사항"),
+		Map.entry("uncertainty", "출생 시각 불확실성")
+	);
 
 	private final ZoneId zoneId;
 
@@ -67,7 +78,8 @@ final class AiPreviewMarkdownRenderer {
 			if (index > 0) {
 				markdown.append(", ");
 			}
-			markdown.append('`').append(evidenceKeys.get(index)).append('`');
+			String evidenceKey = String.valueOf(evidenceKeys.get(index));
+			markdown.append(EVIDENCE_LABELS.getOrDefault(evidenceKey, evidenceKey));
 		}
 		markdown.append("\n\n");
 	}
