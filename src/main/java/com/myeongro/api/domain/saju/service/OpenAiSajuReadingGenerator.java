@@ -43,6 +43,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 	private final ObjectMapper objectMapper;
 	private final String model;
 	private final SajuPromptCatalog promptCatalog;
+	private final SajuInterpretationInputMapper interpretationInputMapper;
 	private final SajuReadingResultValidator resultValidator;
 	private final DeclinedReadingFactory declinedReadingFactory;
 
@@ -51,6 +52,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 		ObjectMapper objectMapper,
 		@Value("${app.reading.openai.model}") String model,
 		SajuPromptCatalog promptCatalog,
+		SajuInterpretationInputMapper interpretationInputMapper,
 		SajuReadingResultValidator resultValidator,
 		DeclinedReadingFactory declinedReadingFactory
 	) {
@@ -58,6 +60,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 		this.objectMapper = objectMapper;
 		this.model = model;
 		this.promptCatalog = promptCatalog;
+		this.interpretationInputMapper = interpretationInputMapper;
 		this.resultValidator = resultValidator;
 		this.declinedReadingFactory = declinedReadingFactory;
 	}
@@ -78,8 +81,8 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 		String focusArea;
 		try {
 			Map<String, Object> snapshot = requiredMap(input.get("calculationSnapshot"));
-			trustedCalculation = trustedCalculation(snapshot);
 			targetYear = requiredInteger(input.get("targetYear"));
+			trustedCalculation = interpretationInputMapper.map(snapshot, targetYear);
 			focusArea = requiredText(input.get("focusArea"));
 			prompt = new Prompt(
 				List.of(
@@ -183,95 +186,6 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 		return objectMapper.writeValueAsString(message);
 	}
 
-	private Map<String, Object> trustedCalculation(Map<String, Object> snapshot) {
-		Map<String, Object> trusted = new LinkedHashMap<>();
-		copyRequired(snapshot, trusted, "calculationVersion", "calculationVersion");
-		Map<String, Object> pillars = trustedPillars(requiredMap(snapshot.get("pillars")));
-		trusted.put("pillars", pillars);
-		copyRequired(snapshot, trusted, "dayMaster", "dayMaster");
-		copyRequired(snapshot, trusted, "fiveElements", "elementBalance");
-		trusted.put("tenGods", tenGods(pillars));
-		copyRequired(snapshot, trusted, "relations", "interactions");
-		copyOptional(snapshot, trusted, "luckCycle", "currentLuckCycle");
-		copyRequired(snapshot, trusted, "annualFortune", "annualFlow");
-		copyRequired(snapshot, trusted, "limitations", "limitations");
-		trusted.put("uncertainty", trustedUncertainty(
-			requiredMap(snapshot.get("uncertainty"))
-		));
-		return Map.copyOf(trusted);
-	}
-
-	private Map<String, Object> trustedPillars(Map<String, Object> pillars) {
-		Map<String, Object> trusted = new LinkedHashMap<>();
-		for (String name : List.of("year", "month", "day")) {
-			Object value = pillars.get(name);
-			if (!(value instanceof Map<?, ?>)) {
-				throw new IllegalArgumentException("Saju pillars are incomplete");
-			}
-			trusted.put(name, value);
-		}
-		if (pillars.get("time") instanceof Map<?, ?> time) {
-			trusted.put("time", time);
-		}
-		return trusted;
-	}
-
-	private Map<String, Object> trustedUncertainty(Map<String, Object> uncertainty) {
-		Map<String, Object> trusted = new LinkedHashMap<>();
-		for (String key : List.of(
-			"precision", "candidateCount", "varyingFields", "candidateZoneOffsets"
-		)) {
-			Object value = uncertainty.get(key);
-			if (value != null) {
-				trusted.put(key, value);
-			}
-		}
-		if (!trusted.containsKey("precision") || !trusted.containsKey("candidateCount")) {
-			throw new IllegalArgumentException("Saju uncertainty metadata is incomplete");
-		}
-		return trusted;
-	}
-
-	private Map<String, Object> tenGods(Map<String, Object> pillars) {
-		Map<String, Object> values = new LinkedHashMap<>();
-		for (String name : List.of("year", "month", "day", "time")) {
-			Object value = pillars.get(name);
-			if (!(value instanceof Map<?, ?> pillar)) {
-				continue;
-			}
-			Map<String, Object> tenGod = new LinkedHashMap<>();
-			tenGod.put("stem", pillar.get("stemTenGod"));
-			tenGod.put("branch", pillar.get("branchTenGods"));
-			values.put(name, tenGod);
-		}
-		return values;
-	}
-
-	private void copyRequired(
-		Map<String, Object> source,
-		Map<String, Object> target,
-		String sourceKey,
-		String targetKey
-	) {
-		Object value = source.get(sourceKey);
-		if (value == null) {
-			throw new IllegalArgumentException("Saju calculation snapshot is incomplete");
-		}
-		target.put(targetKey, value);
-	}
-
-	private void copyOptional(
-		Map<String, Object> source,
-		Map<String, Object> target,
-		String sourceKey,
-		String targetKey
-	) {
-		Object value = source.get(sourceKey);
-		if (value != null) {
-			target.put(targetKey, value);
-		}
-	}
-
 	private OpenAiChatOptions options(
 		int targetYear,
 		String focusArea,
@@ -353,7 +267,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 					)
 				),
 				"guidance", Map.of(
-					"type", "array", "minItems", 1, "maxItems", 2, "items", textSchema()
+					"type", "array", "minItems", 1, "maxItems", 1, "items", textSchema()
 				),
 				"disclaimer", textSchema()
 			)

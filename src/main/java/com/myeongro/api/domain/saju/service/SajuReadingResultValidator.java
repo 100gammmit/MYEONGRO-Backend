@@ -78,9 +78,7 @@ public class SajuReadingResultValidator {
 		requireText(question.body(), "Saju question body is required");
 		validateEvidence(question.evidenceKeys(), availableEvidence);
 
-		if (result.guidance() == null
-			|| result.guidance().size() < 1
-			|| result.guidance().size() > 2) {
+		if (result.guidance() == null || result.guidance().size() != 1) {
 			throw new IllegalArgumentException("Saju guidance count is invalid");
 		}
 		result.guidance().forEach(item -> requireText(item, "Saju guidance is required"));

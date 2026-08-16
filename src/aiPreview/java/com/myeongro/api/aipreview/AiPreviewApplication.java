@@ -29,6 +29,7 @@ import com.myeongro.api.domain.reading.service.SajuPromptCatalog;
 import com.myeongro.api.domain.reading.service.TarotPromptCatalog;
 import com.myeongro.api.domain.reading.service.TarotReadingResultValidator;
 import com.myeongro.api.domain.saju.service.OpenAiSajuReadingGenerator;
+import com.myeongro.api.domain.saju.service.SajuInterpretationInputMapper;
 import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 
 @SpringBootConfiguration
@@ -49,6 +50,7 @@ import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 	ReadingGeneratorRouter.class,
 	TarotPromptCatalog.class,
 	SajuPromptCatalog.class,
+	SajuInterpretationInputMapper.class,
 	TarotReadingResultValidator.class,
 	SajuReadingResultValidator.class,
 	DeclinedReadingFactory.class

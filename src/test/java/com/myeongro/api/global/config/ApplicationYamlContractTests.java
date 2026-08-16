@@ -27,7 +27,7 @@ class ApplicationYamlContractTests {
 	}
 
 	@Test
-	void tarotPromptConfigurationReferencesReadableClasspathResources() throws Exception {
+	void readingPromptConfigurationReferencesReadableClasspathResources() throws Exception {
 		List<PropertySource<?>> propertySources = new YamlPropertySourceLoader().load(
 			"applicationYaml",
 			new FileSystemResource("src/main/resources/application.yaml")
@@ -41,7 +41,10 @@ class ApplicationYamlContractTests {
 			"app.reading.prompts.tarot.spreads.daily-one-card",
 			"app.reading.prompts.tarot.spreads.mind-three-card",
 			"app.reading.prompts.tarot.spreads.relationship-three-card",
-			"app.reading.prompts.tarot.spreads.choice-five-card"
+			"app.reading.prompts.tarot.spreads.choice-five-card",
+			"app.reading.prompts.saju.common",
+			"app.reading.prompts.saju.interpretation",
+			"app.reading.prompts.saju.reports.birth-annual-question"
 		);
 
 		assertThat(promptKeys).allSatisfy(key -> {

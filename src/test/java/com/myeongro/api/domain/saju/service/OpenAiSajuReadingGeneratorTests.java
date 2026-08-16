@@ -60,16 +60,25 @@ class OpenAiSajuReadingGeneratorTests {
 		Map<String, Object> trusted = (Map<String, Object>)message.get("trustedCalculation");
 		assertThat(trusted)
 			.containsKeys(
-				"calculationVersion", "pillars", "dayMaster", "elementBalance",
+				"pillars", "dayMaster", "elementBalance",
 				"tenGods", "interactions", "annualFlow", "limitations", "uncertainty"
 			)
 			.doesNotContainKeys(
+				"calculationVersion",
 				"birthProfile", "birthDate", "birthTime", "provinceCode", "cityCode",
 				"luckDirectionBasis", "timeCorrection", "currentLuckCycle"
 			);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> pillars = (Map<String, Object>)trusted.get("pillars");
 		assertThat(pillars).doesNotContainKey("time");
+		@SuppressWarnings("unchecked")
+		Map<String, Object> dayPillar = (Map<String, Object>)pillars.get("day");
+		assertThat(dayPillar)
+			.containsEntry("ganZhi", "을축")
+			.containsEntry("stem", "을목")
+			.containsEntry("branch", "축토")
+			.doesNotContainKeys("stemTenGod", "branchTenGods", "fiveElements");
+		assertThat(trusted).containsEntry("dayMaster", "을목");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> uncertainty = (Map<String, Object>)trusted.get("uncertainty");
 		assertThat(uncertainty).doesNotContainKeys("rangeStart", "rangeEnd");
@@ -79,7 +88,9 @@ class OpenAiSajuReadingGeneratorTests {
 			.containsEntry("focusArea", "career")
 			.containsEntry("question", ATTACK);
 		assertThat(chatModel.prompt.getUserMessage().getText())
-			.doesNotContain("1992-08-17", "14:30", "세종특별자치시", "36110", "female");
+			.doesNotContain(
+				"1992-08-17", "14:30", "세종특별자치시", "36110", "female", "乙"
+			);
 
 		OpenAiChatOptions options = (OpenAiChatOptions)chatModel.prompt.getOptions();
 		assertThat(options.getModel()).isEqualTo("gpt-test");
@@ -96,6 +107,16 @@ class OpenAiSajuReadingGeneratorTests {
 			.doesNotContain("MEDICAL_DECISION", "LEGAL_DECISION", "FINANCIAL_DECISION");
 		assertThat(schema.toString())
 			.doesNotContain("currentLuckCycle", "calculationVersion", "uniqueItems");
+		@SuppressWarnings("unchecked")
+		Map<String, Object> readingProperties = (Map<String, Object>)generator.readingResultSchema(
+			2026, "career", List.of("dayMaster")
+		).get("properties");
+		assertThat(readingProperties.get("guidance")).isEqualTo(Map.of(
+			"type", "array",
+			"minItems", 1,
+			"maxItems", 1,
+			"items", Map.of("type", "string", "minLength", 1)
+		));
 	}
 
 	@Test
@@ -140,6 +161,7 @@ class OpenAiSajuReadingGeneratorTests {
 					"prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md"
 				)
 			),
+			new SajuInterpretationInputMapper(),
 			new SajuReadingResultValidator(),
 			new DeclinedReadingFactory()
 		);
@@ -207,7 +229,7 @@ class OpenAiSajuReadingGeneratorTests {
 			{"id":"work","heading":"일하고 선택하는 방식","body":"선택 방식을 살펴봅니다.","evidenceKeys":["tenGods"]}],
 			"annualReading":{"year":2026,"heading":"2026년의 흐름","body":"연간 흐름을 참고해 보세요.","evidenceKeys":["annualFlow"]},
 			"questionReading":{"focusArea":"career","heading":"지금의 질문에 비춰보면","body":"작은 선택부터 점검해 보세요.","evidenceKeys":["dayMaster"]},
-			"guidance":["채용 정보를 확인하세요.","작은 준비부터 시작해 보세요."],
+			"guidance":["오늘 맡은 일 하나를 먼저 마무리해 보는 건 어때요?"],
 			"disclaimer":"이 리딩은 오락과 자기성찰을 위한 참고이며 전문 조언을 대신하지 않습니다."}}}
 			""";
 	}

@@ -80,6 +80,21 @@ class SajuReadingResultValidatorTests {
 	}
 
 	@Test
+	void rejectsMoreThanOneGuidanceItem() {
+		SajuReadingResult valid = result("차분히 가능성을 살펴보세요", "annualFlow");
+		SajuReadingResult duplicateGuidance = new SajuReadingResult(
+			valid.readingMode(), valid.title(), valid.summary(), valid.natalSections(),
+			valid.annualReading(), valid.questionReading(),
+			List.of("첫 번째 제안입니다", "두 번째 제안입니다"), valid.disclaimer()
+		);
+
+		assertThatThrownBy(() -> validator.validate(
+			duplicateGuidance, 2026, "career", trusted("exact")
+		)).isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("guidance");
+	}
+
+	@Test
 	void rejectsDefinitiveLanguageWhenBirthTimeIsUncertain() {
 		assertThatThrownBy(() -> validator.validate(
 			result("올해 반드시 성공합니다", "annualFlow"),
@@ -119,7 +134,7 @@ class SajuReadingResultValidatorTests {
 			new SajuReadingResult.QuestionReading(
 				"career", "지금의 질문", "선택지를 점검해 보세요", List.of("dayMaster")
 			),
-			List.of("현실 정보를 확인하세요", "작은 실험부터 해보세요"),
+			List.of("작은 실험부터 해보세요"),
 			"이 리딩은 오락과 자기성찰을 위한 참고입니다."
 		);
 	}

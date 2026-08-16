@@ -19,11 +19,11 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 class SajuCalculationGoldenTests {
 
 	@Test
-	void matchesFrozenSajuKoV1Fixtures() throws Exception {
+	void matchesFrozenSajuKoV2Fixtures() throws Exception {
 		ObjectMapper objectMapper = new ObjectMapper();
 		SajuCalculationService service = service(objectMapper);
 		JsonNode fixture = objectMapper.readTree(
-			new ClassPathResource("saju/golden/saju-ko-v1.json").getInputStream()
+			new ClassPathResource("saju/golden/saju-ko-v2.json").getInputStream()
 		);
 		assertThat(fixture.path("calculationVersion").asText())
 			.isEqualTo(SajuCalculationRules.CALCULATION_VERSION);
@@ -46,6 +46,10 @@ class SajuCalculationGoldenTests {
 					"BIRTH_TIME_UNKNOWN", "MONTH_PILLAR_UNCERTAIN",
 					"DAY_PILLAR_UNCERTAIN", "TIME_PILLAR_UNCERTAIN"
 				);
+				assertThat(snapshot.annualFortune().ganZhi()).isEqualTo("丙午");
+				assertThat(snapshot.annualFortune().stemTenGod()).isNull();
+				assertThat(snapshot.uncertainty().varyingFields())
+					.contains("annualFortune.stemTenGod");
 			}
 			if ("lichun-before-female".equals(testCase.path("id").asText())) {
 				assertThat(snapshot.timeCorrection().engineCivilTime())

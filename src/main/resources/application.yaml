@@ -104,10 +104,10 @@ app:
           relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v8.md
           choice-five-card: classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v8.md
       saju:
-        common: classpath:prompts/saju/common-ko-v5.md
-        interpretation: classpath:prompts/saju/interpretation/interpretation-guide-ko-v1.md
+        common: classpath:prompts/saju/common-ko-v6.md
+        interpretation: classpath:prompts/saju/interpretation/interpretation-guide-ko-v2.md
         reports:
-          birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v2.md
+          birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v3.md
 
   consent:
     versions:

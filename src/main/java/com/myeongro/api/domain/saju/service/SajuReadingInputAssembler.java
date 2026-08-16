@@ -67,7 +67,7 @@ public class SajuReadingInputAssembler {
 			requiredMap(storedPayload.get("calculationSnapshot"))
 		);
 		if (snapshot.targetYear() != targetYear
-			|| !SajuCalculationRules.CALCULATION_VERSION.equals(snapshot.calculationVersion())
+			|| !SajuCalculationRules.supports(snapshot.calculationVersion())
 			|| !SajuCalculationRules.ENGINE.equals(snapshot.engine())
 			|| !SajuCalculationRules.ENGINE_VERSION.equals(snapshot.engineVersion())
 			|| snapshot.cityCatalogVersion() == null

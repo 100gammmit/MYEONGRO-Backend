@@ -15,6 +15,7 @@ import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.service.NormalizedReadingInput;
 import com.myeongro.api.domain.reading.service.ReadingSchemaVersions;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationService;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationRules;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot.AnnualFortune;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot.Pillar;
@@ -31,7 +32,9 @@ class SajuReadingInputAssemblerTests {
 	@Test
 	void freezesTargetYearAndVersionedSnapshotWithoutChangingIdempotencyMaterial() {
 		NormalizedReadingInput base = baseInput();
-		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot("kr-admin-v1"));
+		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot(
+			SajuCalculationRules.CALCULATION_VERSION, "kr-admin-v1"
+		));
 
 		NormalizedReadingInput assembled = assembler.assemble(base, 2026);
 
@@ -47,7 +50,9 @@ class SajuReadingInputAssemblerTests {
 	@Test
 	void restoresStoredSnapshotWithoutRecalculationAndAcceptsHistoricalCatalogVersion() {
 		NormalizedReadingInput base = baseInput();
-		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot("kr-admin-v0"));
+		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot(
+			"saju-ko-v1", "kr-admin-v0"
+		));
 		NormalizedReadingInput stored = assembler.assemble(base, 2026);
 
 		NormalizedReadingInput restored = assembler.restore(base, stored.payload());
@@ -61,7 +66,9 @@ class SajuReadingInputAssemblerTests {
 	@SuppressWarnings("unchecked")
 	void rejectsSnapshotWithUnknownFieldsBeforeRetry() {
 		NormalizedReadingInput base = baseInput();
-		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot("kr-admin-v1"));
+		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot(
+			SajuCalculationRules.CALCULATION_VERSION, "kr-admin-v1"
+		));
 		Map<String, Object> stored = new LinkedHashMap<>(assembler.assemble(base, 2026).payload());
 		Map<String, Object> snapshot = new LinkedHashMap<>((Map<String, Object>)stored.get("calculationSnapshot"));
 		snapshot.put("unexpected", true);
@@ -96,10 +103,10 @@ class SajuReadingInputAssemblerTests {
 		);
 	}
 
-	private SajuCalculationSnapshot snapshot(String catalogVersion) {
+	private SajuCalculationSnapshot snapshot(String calculationVersion, String catalogVersion) {
 		Pillar pillar = new Pillar("壬申", "壬", "申", "watermetal", "正印", List.of("正官"));
 		return new SajuCalculationSnapshot(
-			"saju-ko-v1", "lunar-java", "1.7.7", catalogVersion, 2026,
+			calculationVersion, "lunar-java", "1.7.7", catalogVersion, 2026,
 			null, new Pillars(pillar, pillar, pillar, pillar), "乙",
 			Map.of("wood", 1), List.of(), null,
 			new AnnualFortune(2026, "丙午", "伤官"),

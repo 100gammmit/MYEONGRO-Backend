@@ -117,7 +117,7 @@ public class ApproximateBirthTimeResolver {
 			: null;
 		String dayMaster = common(candidates, Candidate::dayMaster);
 		LuckCycle luckCycle = includeTime ? common(candidates, Candidate::luckCycle) : null;
-		AnnualFortune annual = common(candidates, Candidate::annualFortune);
+		AnnualFortune annual = commonAnnualFortune(candidates);
 		Map<String, Integer> elements = commonElementCounts(candidates);
 		List<Relation> relations = commonRelations(candidates);
 
@@ -132,6 +132,9 @@ public class ApproximateBirthTimeResolver {
 			&& candidates.stream().anyMatch(candidate -> candidate.luckCycle() != null)) {
 			varying.add("luckCycle");
 			limitations.add(SajuLimitationCode.LUCK_CYCLE_UNCERTAIN);
+		}
+		if (annual != null && annual.stemTenGod() == null) {
+			varying.add("annualFortune.stemTenGod");
 		}
 		return new Resolution(
 			new Candidate(new Pillars(year, month, day, time), dayMaster, elements, relations, luckCycle, annual),
@@ -188,6 +191,25 @@ public class ApproximateBirthTimeResolver {
 		return candidates.stream().allMatch(candidate -> Objects.equals(first, getter.apply(candidate)))
 			? first
 			: null;
+	}
+
+	private AnnualFortune commonAnnualFortune(List<Candidate> candidates) {
+		List<AnnualFortune> values = candidates.stream()
+			.map(Candidate::annualFortune)
+			.toList();
+		if (values.stream().anyMatch(Objects::isNull)) {
+			return null;
+		}
+		Integer year = commonValue(values, AnnualFortune::year);
+		String ganZhi = commonValue(values, AnnualFortune::ganZhi);
+		if (year == null || ganZhi == null) {
+			return null;
+		}
+		return new AnnualFortune(
+			year,
+			ganZhi,
+			commonValue(values, AnnualFortune::stemTenGod)
+		);
 	}
 
 	private Pillar commonPillar(
