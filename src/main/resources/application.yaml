@@ -2,9 +2,6 @@ spring:
   application:
     name: MYEONGRO-Backend
 
-  config:
-    import: optional:file:./config/application-secret.yaml
-
   datasource:
     url: ${database.url}
     username: ${database.username}
