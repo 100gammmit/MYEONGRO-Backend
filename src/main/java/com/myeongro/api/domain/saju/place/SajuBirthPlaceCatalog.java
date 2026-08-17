@@ -2,10 +2,12 @@ package com.myeongro.api.domain.saju.place;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -25,7 +27,8 @@ public class SajuBirthPlaceCatalog {
 
 	private final String version;
 	private final List<ProvinceView> provinces;
-	private final Map<String, SajuBirthPlace> placesByCityCode;
+	private final Map<String, SajuBirthPlace> placesByProvinceCode;
+	private final Map<String, String> provinceCodeByCityCode;
 
 	public SajuBirthPlaceCatalog(
 		ObjectMapper objectMapper,
@@ -34,7 +37,8 @@ public class SajuBirthPlaceCatalog {
 		CatalogData data = read(objectMapper, resource);
 		this.version = data.version();
 		this.provinces = data.provinces();
-		this.placesByCityCode = data.placesByCityCode();
+		this.placesByProvinceCode = data.placesByProvinceCode();
+		this.provinceCodeByCityCode = data.provinceCodeByCityCode();
 	}
 
 	public String version() {
@@ -45,16 +49,27 @@ public class SajuBirthPlaceCatalog {
 		return provinces;
 	}
 
+	public SajuBirthPlace requireProvince(String provinceCode) {
+		SajuBirthPlace place = placesByProvinceCode.get(provinceCode);
+		if (place == null) {
+			throw new InvalidReadingRequestException(
+				"INVALID_BIRTH_PLACE",
+				"birthProfile.provinceCode",
+				"출생 시·도를 다시 선택해 주세요."
+			);
+		}
+		return place;
+	}
+
 	public SajuBirthPlace require(String provinceCode, String cityCode) {
-		SajuBirthPlace place = placesByCityCode.get(cityCode);
-		if (place == null || !place.provinceCode().equals(provinceCode)) {
+		if (!Objects.equals(provinceCode, provinceCodeByCityCode.get(cityCode))) {
 			throw new InvalidReadingRequestException(
 				"INVALID_BIRTH_PLACE",
 				"birthProfile.cityCode",
 				"출생 도시를 다시 선택해 주세요."
 			);
 		}
-		return place;
+		return requireProvince(provinceCode);
 	}
 
 	private CatalogData read(ObjectMapper objectMapper, Resource resource) {
@@ -69,7 +84,8 @@ public class SajuBirthPlaceCatalog {
 			Set<String> provinceCodes = new HashSet<>();
 			Set<String> cityCodes = new HashSet<>();
 			List<ProvinceView> provinceViews = new ArrayList<>();
-			Map<String, SajuBirthPlace> places = new LinkedHashMap<>();
+			Map<String, SajuBirthPlace> provincePlaces = new LinkedHashMap<>();
+			Map<String, String> cityProvinces = new LinkedHashMap<>();
 			for (JsonNode provinceNode : provinceNodes) {
 				String provinceCode = text(
 					provinceNode, "provinceCode", "Province code is required"
@@ -85,10 +101,11 @@ public class SajuBirthPlaceCatalog {
 				if (cityNodes == null || !cityNodes.isArray() || cityNodes.isEmpty()) {
 					throw new IllegalArgumentException("Birth-place cities are required");
 				}
-				List<CityView> cities = new ArrayList<>();
+				List<Double> latitudes = new ArrayList<>();
+				List<Double> longitudes = new ArrayList<>();
 				for (JsonNode cityNode : cityNodes) {
 					String cityCode = text(cityNode, "cityCode", "City code is required");
-					String cityName = text(cityNode, "cityName", "City name is required");
+					text(cityNode, "cityName", "City name is required");
 					double latitude = number(cityNode, "latitude");
 					double longitude = number(cityNode, "longitude");
 					if (!CITY_CODE.matcher(cityCode).matches()
@@ -100,30 +117,32 @@ public class SajuBirthPlaceCatalog {
 						|| longitude < -180d || longitude > 180d) {
 						throw new IllegalArgumentException("Birth-place coordinate is invalid");
 					}
-					cities.add(new CityView(cityCode, cityName));
-					places.put(cityCode, new SajuBirthPlace(
-						provinceCode,
-						provinceName,
-						cityCode,
-						cityName,
-						latitude,
-						longitude
-					));
+					latitudes.add(latitude);
+					longitudes.add(longitude);
+					cityProvinces.put(cityCode, provinceCode);
 				}
-				provinceViews.add(new ProvinceView(
-					provinceCode,
-					provinceName,
-					List.copyOf(cities)
+				provinceViews.add(new ProvinceView(provinceCode, provinceName));
+				provincePlaces.put(provinceCode, new SajuBirthPlace(
+					provinceCode, provinceName, median(latitudes), median(longitudes)
 				));
 			}
 			return new CatalogData(
-				catalogVersion,
+				catalogVersion + "-province",
 				List.copyOf(provinceViews),
-				Map.copyOf(places)
+				Map.copyOf(provincePlaces),
+				Map.copyOf(cityProvinces)
 			);
 		} catch (IOException exception) {
 			throw new IllegalStateException("Cannot read birth-place catalog", exception);
 		}
+	}
+
+	private double median(List<Double> values) {
+		List<Double> sorted = values.stream().sorted(Comparator.naturalOrder()).toList();
+		int middle = sorted.size() / 2;
+		return sorted.size() % 2 == 1
+			? sorted.get(middle)
+			: (sorted.get(middle - 1) + sorted.get(middle)) / 2d;
 	}
 
 	private String text(JsonNode node, String field, String errorMessage) {
@@ -144,18 +163,15 @@ public class SajuBirthPlaceCatalog {
 
 	public record ProvinceView(
 		String provinceCode,
-		String provinceName,
-		List<CityView> cities
+		String provinceName
 	) {
-	}
-
-	public record CityView(String cityCode, String cityName) {
 	}
 
 	private record CatalogData(
 		String version,
 		List<ProvinceView> provinces,
-		Map<String, SajuBirthPlace> placesByCityCode
+		Map<String, SajuBirthPlace> placesByProvinceCode,
+		Map<String, String> provinceCodeByCityCode
 	) {
 	}
 }

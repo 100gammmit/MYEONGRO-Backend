@@ -19,11 +19,11 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 class SajuCalculationGoldenTests {
 
 	@Test
-	void matchesFrozenSajuKoV2Fixtures() throws Exception {
+	void matchesFrozenSajuKoV3Fixtures() throws Exception {
 		ObjectMapper objectMapper = new ObjectMapper();
 		SajuCalculationService service = service(objectMapper);
 		JsonNode fixture = objectMapper.readTree(
-			new ClassPathResource("saju/golden/saju-ko-v2.json").getInputStream()
+			new ClassPathResource("saju/golden/saju-ko-v3.json").getInputStream()
 		);
 		assertThat(fixture.path("calculationVersion").asText())
 			.isEqualTo(SajuCalculationRules.CALCULATION_VERSION);
@@ -119,7 +119,7 @@ class SajuCalculationGoldenTests {
 	private Map<String, Object> profile(String date, String time, String precision) {
 		return Map.of(
 			"birthDate", date, "birthTime", time, "birthTimePrecision", precision,
-			"provinceCode", "11", "cityCode", "11110", "luckDirectionBasis", "male"
+			"provinceCode", "11", "luckDirectionBasis", "male"
 		);
 	}
 

@@ -15,7 +15,6 @@ import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot.TimeCorr
 import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot.Uncertainty;
 import com.myeongro.api.domain.saju.model.BirthTimePrecision;
 import com.myeongro.api.domain.saju.model.LuckDirectionBasis;
-import com.myeongro.api.domain.saju.place.SajuBirthPlace;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 
@@ -57,10 +56,11 @@ public class SajuCalculationService {
 		LuckDirectionBasis luckBasis = LuckDirectionBasis.fromValue(
 			requiredString(birthProfile, "luckDirectionBasis")
 		);
-		SajuBirthPlace place = birthPlaceCatalog.require(
-			requiredString(birthProfile, "provinceCode"),
-			requiredString(birthProfile, "cityCode")
-		);
+		double longitude = precision == BirthTimePrecision.UNKNOWN
+			? SajuCalculationRules.KOREA_REFERENCE_LONGITUDE
+			: birthPlaceCatalog.requireProvince(
+				requiredString(birthProfile, "provinceCode")
+			).longitude();
 
 		Candidate candidate;
 		TimeCorrection correction = null;
@@ -68,7 +68,7 @@ public class SajuCalculationService {
 		List<SajuLimitationCode> limitations = new ArrayList<>();
 		if (precision == BirthTimePrecision.UNKNOWN) {
 			Resolution resolution = approximateResolver.resolveUnknown(
-				birthDate, place.longitude(), luckBasis, targetYear
+				birthDate, longitude, luckBasis, targetYear
 			);
 			candidate = resolution.trusted();
 			limitations.addAll(resolution.limitations());
@@ -88,16 +88,16 @@ public class SajuCalculationService {
 			LocalTime birthTime = LocalTime.parse(requiredString(birthProfile, "birthTime"));
 			LocalDateTime civilTime = birthDate.atTime(birthTime);
 			if (precision == BirthTimePrecision.APPROXIMATE) {
-				var centerCorrections = corrector.correctCandidates(civilTime, place.longitude());
+				var centerCorrections = corrector.correctCandidates(civilTime, longitude);
 				Resolution resolution = approximateResolver.resolve(
-					civilTime, place.longitude(), luckBasis, targetYear
+					civilTime, longitude, luckBasis, targetYear
 				);
 				candidate = resolution.trusted();
 				correction = timeCorrection(centerCorrections);
 				limitations.addAll(resolution.limitations());
 				uncertainty = resolution.uncertainty();
 			} else {
-				var corrections = corrector.correctCandidates(civilTime, place.longitude());
+				var corrections = corrector.correctCandidates(civilTime, longitude);
 				if (corrections.isEmpty()) {
 					throw new InvalidReadingRequestException(
 						"INVALID_BIRTH_TIME", "birthProfile.birthTime",

@@ -74,6 +74,10 @@ public class ReadingInputNormalizer {
 			), spread, cardIds);
 		}
 		Map<?, ?> profile = valueAsMap(payload.get("birthProfile"), "Stored birth profile");
+		boolean legacySajuSchema = reading.schemaVersion() == 2;
+		String legacyCityCode = legacySajuSchema
+			? valueAsString(profile.get("cityCode"), "Stored city code")
+			: null;
 		return normalizeSaju(new SajuReadingCreateRequest(
 			question,
 			java.util.UUID.randomUUID(),
@@ -82,12 +86,13 @@ public class ReadingInputNormalizer {
 				valueAsString(profile.get("birthDate"), "Stored birth date"),
 				nullableString(profile.get("birthTime")),
 				valueAsString(profile.get("birthTimePrecision"), "Stored birth time precision"),
-				valueAsString(profile.get("provinceCode"), "Stored province code"),
-				valueAsString(profile.get("cityCode"), "Stored city code"),
+				legacySajuSchema
+					? valueAsString(profile.get("provinceCode"), "Stored province code")
+					: nullableString(profile.get("provinceCode")),
 				valueAsString(profile.get("luckDirectionBasis"), "Stored luck direction basis")
 			),
 			valueAsString(payload.get("focusArea"), "Stored focus area")
-		));
+		), reading.schemaVersion(), legacyCityCode);
 	}
 
 	private NormalizedReadingInput normalizeTarot(
@@ -151,6 +156,14 @@ public class ReadingInputNormalizer {
 	}
 
 	public NormalizedReadingInput normalizeSaju(SajuReadingCreateRequest request) {
+		return normalizeSaju(request, ReadingSchemaVersions.SAJU, null);
+	}
+
+	private NormalizedReadingInput normalizeSaju(
+		SajuReadingCreateRequest request,
+		int schemaVersion,
+		String legacyCityCode
+	) {
 		String question = normalizeQuestion(request.question());
 		SajuBirthProfileRequest profile = request.birthProfile();
 		if (profile == null) {
@@ -171,7 +184,13 @@ public class ReadingInputNormalizer {
 			profile.luckDirectionBasis()
 		);
 		SajuFocusArea focusArea = SajuFocusArea.fromValue(request.focusArea());
-		birthPlaceCatalog.require(profile.provinceCode(), profile.cityCode());
+		boolean birthPlaceRequired = precision != BirthTimePrecision.UNKNOWN;
+		if (birthPlaceRequired) {
+			birthPlaceCatalog.requireProvince(profile.provinceCode());
+			if (legacyCityCode != null) {
+				birthPlaceCatalog.require(profile.provinceCode(), legacyCityCode);
+			}
+		}
 
 		Map<String, Object> normalizedProfile = new LinkedHashMap<>();
 		normalizedProfile.put("calendarType", "solar");
@@ -180,8 +199,9 @@ public class ReadingInputNormalizer {
 			normalizedProfile.put("birthTime", birthTime);
 		}
 		normalizedProfile.put("birthTimePrecision", precision.value());
-		normalizedProfile.put("provinceCode", profile.provinceCode());
-		normalizedProfile.put("cityCode", profile.cityCode());
+		if (birthPlaceRequired) {
+			normalizedProfile.put("provinceCode", profile.provinceCode());
+		}
 		normalizedProfile.put("luckDirectionBasis", luckDirectionBasis.value());
 
 		Map<String, Object> payload = orderedMap(
@@ -192,10 +212,10 @@ public class ReadingInputNormalizer {
 		return new NormalizedReadingInput(
 			ReadingKind.SAJU,
 			null,
-			ReadingSchemaVersions.SAJU,
+			schemaVersion,
 			question,
 			payload,
-			hashMaterial(ReadingKind.SAJU, null, ReadingSchemaVersions.SAJU, payload)
+			hashMaterial(ReadingKind.SAJU, null, schemaVersion, payload)
 		);
 	}
 

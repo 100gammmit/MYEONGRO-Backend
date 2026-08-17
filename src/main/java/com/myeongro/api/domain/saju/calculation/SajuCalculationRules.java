@@ -6,9 +6,9 @@ import java.util.Set;
 
 public final class SajuCalculationRules {
 
-	public static final String CALCULATION_VERSION = "saju-ko-v2";
+	public static final String CALCULATION_VERSION = "saju-ko-v3";
 	private static final Set<String> SUPPORTED_VERSIONS = Set.of(
-		"saju-ko-v1", CALCULATION_VERSION
+		"saju-ko-v1", "saju-ko-v2", CALCULATION_VERSION
 	);
 	public static final String ENGINE = "lunar-java";
 	public static final String ENGINE_VERSION = "1.7.7";
@@ -17,6 +17,7 @@ public final class SajuCalculationRules {
 	public static final int DAY_BOUNDARY_SECT = 2;
 	public static final int LUCK_START_SECT = 2;
 	public static final int APPROXIMATE_MINUTES = 60;
+	public static final double KOREA_REFERENCE_LONGITUDE = 127.5d;
 
 	private SajuCalculationRules() {
 	}

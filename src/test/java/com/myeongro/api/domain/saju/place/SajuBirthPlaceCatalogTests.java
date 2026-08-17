@@ -15,27 +15,21 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 class SajuBirthPlaceCatalogTests {
 
 	@Test
-	void loadsVersionedCurrentKoreanAdministrativePlaces() {
+	void exposesProvinceOnlyPlacesWithInternalRepresentativeCoordinates() {
 		SajuBirthPlaceCatalog catalog = catalog();
 
-		assertThat(catalog.version()).isEqualTo("kr-admin-v1");
+		assertThat(catalog.version()).isEqualTo("kr-admin-v1-province");
 		assertThat(catalog.provinces()).hasSize(16);
-		assertThat(catalog.provinces())
-			.flatExtracting(SajuBirthPlaceCatalog.ProvinceView::cities)
-			.hasSize(269);
 		assertThat(catalog.provinces())
 			.anySatisfy(province -> {
 				assertThat(province.provinceCode()).isEqualTo("36");
 				assertThat(province.provinceName()).isEqualTo("세종특별자치시");
-				assertThat(province.cities()).extracting(
-					SajuBirthPlaceCatalog.CityView::cityCode
-				).containsExactly("36110");
 			});
 
-		SajuBirthPlace gangnam = catalog.require("11", "11680");
-		assertThat(gangnam.cityName()).isEqualTo("강남구");
-		assertThat(gangnam.latitude()).isBetween(33d, 39d);
-		assertThat(gangnam.longitude()).isBetween(124d, 132d);
+		SajuBirthPlace seoul = catalog.requireProvince("11");
+		assertThat(seoul.provinceName()).isEqualTo("서울특별시");
+		assertThat(seoul.latitude()).isBetween(33d, 39d);
+		assertThat(seoul.longitude()).isBetween(124d, 132d);
 	}
 
 	@Test

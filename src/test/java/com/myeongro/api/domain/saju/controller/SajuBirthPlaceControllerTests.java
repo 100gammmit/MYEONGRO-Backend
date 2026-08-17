@@ -46,25 +46,21 @@ class SajuBirthPlaceControllerTests {
 	}
 
 	@Test
-	void returnsVersionedTwoDepthCatalogAfterRequiredConsent() throws Exception {
+	void returnsVersionedProvinceCatalogAfterRequiredConsent() throws Exception {
 		when(consentService.getUserStatus(USER_ID)).thenReturn(new ConsentStatus(
 			ConsentDocumentType.required(), ConsentDocumentType.required(), true
 		));
-		when(catalog.version()).thenReturn("kr-admin-v1");
+		when(catalog.version()).thenReturn("kr-admin-v1-province");
 		when(catalog.provinces()).thenReturn(List.of(
-			new SajuBirthPlaceCatalog.ProvinceView(
-				"11",
-				"서울특별시",
-				List.of(new SajuBirthPlaceCatalog.CityView("11680", "강남구"))
-			)
+			new SajuBirthPlaceCatalog.ProvinceView("11", "서울특별시")
 		));
 
 		mockMvc.perform(get("/api/saju/birth-places").principal(authentication))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.version").value("kr-admin-v1"))
+			.andExpect(jsonPath("$.version").value("kr-admin-v1-province"))
 			.andExpect(jsonPath("$.provinces[0].provinceCode").value("11"))
-			.andExpect(jsonPath("$.provinces[0].cities[0].cityCode").value("11680"))
-			.andExpect(jsonPath("$.provinces[0].cities[0].latitude").doesNotExist());
+			.andExpect(jsonPath("$.provinces[0].provinceName").value("서울특별시"))
+			.andExpect(jsonPath("$.provinces[0].cities").doesNotExist());
 	}
 
 	@Test

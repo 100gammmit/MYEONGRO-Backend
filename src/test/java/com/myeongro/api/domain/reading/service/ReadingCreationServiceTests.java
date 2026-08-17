@@ -136,7 +136,7 @@ class ReadingCreationServiceTests {
 				REQUEST_ID,
 				new SajuBirthProfileRequest(
 					"solar", "1992-08-17", null, "unknown",
-					"36", "36110", "unspecified"
+					null, "unspecified"
 				),
 				"career"
 			));
@@ -363,7 +363,7 @@ class ReadingCreationServiceTests {
 			"올해 이직운이 궁금해요", REQUEST_ID,
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", null, "unknown",
-				"36", "36110", "unspecified"
+				null, "unspecified"
 			),
 			"career"
 		);
@@ -375,8 +375,7 @@ class ReadingCreationServiceTests {
 			"focusArea", "career",
 			"birthProfile", Map.of(
 				"calendarType", "solar", "birthDate", "1992-08-17",
-				"birthTimePrecision", "unknown", "provinceCode", "36",
-				"cityCode", "36110", "luckDirectionBasis", "unspecified"
+				"birthTimePrecision", "unknown", "luckDirectionBasis", "unspecified"
 			),
 			"targetYear", 2026,
 			"calculationSnapshot", Map.of("calculationVersion", "saju-ko-v1")

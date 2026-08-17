@@ -9,7 +9,6 @@ public record SajuBirthProfileRequest(
 	String birthTime,
 	String birthTimePrecision,
 	String provinceCode,
-	String cityCode,
 	String luckDirectionBasis
 ) {
 

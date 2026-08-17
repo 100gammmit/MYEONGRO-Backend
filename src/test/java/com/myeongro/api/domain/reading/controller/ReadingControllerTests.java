@@ -24,6 +24,7 @@ import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.service.ReadingCreationService;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
+import com.myeongro.api.domain.reading.service.ReadingSchemaVersions;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.global.auth.AuthenticatedUser;
@@ -108,15 +109,13 @@ class ReadingControllerTests {
 					    "calendarType":"solar",
 					    "birthDate":"1992-08-17",
 					    "birthTimePrecision":"unknown",
-					    "provinceCode":"36",
-					    "cityCode":"36110",
 					    "luckDirectionBasis":"unspecified"
 					  }
 					}
 					"""))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.reading.kind").value("saju"))
-			.andExpect(jsonPath("$.reading.schemaVersion").value(2));
+			.andExpect(jsonPath("$.reading.schemaVersion").value(3));
 	}
 
 	@Test
@@ -262,8 +261,6 @@ class ReadingControllerTests {
 					    "calendarType":"solar",
 					    "birthDate":"1992-08-17",
 					    "birthTimePrecision":"unknown",
-					    "provinceCode":"36",
-					    "cityCode":"36110",
 					    "luckDirectionBasis":"unspecified"
 					  }
 					}
@@ -301,7 +298,6 @@ class ReadingControllerTests {
 					    "birthTime":"25:00",
 					    "birthTimePrecision":"exact",
 					    "provinceCode":"11",
-					    "cityCode":"11680",
 					    "luckDirectionBasis":"female"
 					  }
 					}
@@ -326,8 +322,6 @@ class ReadingControllerTests {
 					    "calendarType":"solar",
 					    "birthDate":"1992-08-17",
 					    "birthTimePrecision":"unknown",
-					    "provinceCode":"11",
-					    "cityCode":"11680",
 					    "luckDirectionBasis":"unspecified",
 					    "pillars":{}
 					  }
@@ -336,6 +330,32 @@ class ReadingControllerTests {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
 			.andExpect(jsonPath("$.field").value("birthProfile.pillars"));
+	}
+
+	@Test
+	void rejectsFormerCityCodeFromNewSajuRequests() throws Exception {
+		mockMvc.perform(post("/api/saju/readings")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "question":"질문",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "focusArea":"career",
+					  "birthProfile":{
+					    "calendarType":"solar",
+					    "birthDate":"1992-08-17",
+					    "birthTime":"14:30",
+					    "birthTimePrecision":"exact",
+					    "provinceCode":"11",
+					    "cityCode":"11680",
+					    "luckDirectionBasis":"unspecified"
+					  }
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
+			.andExpect(jsonPath("$.field").value("birthProfile.cityCode"));
 	}
 
 	@Test
@@ -403,7 +423,7 @@ class ReadingControllerTests {
 			READING_ID,
 			ReadingKind.SAJU,
 			null,
-			2,
+			ReadingSchemaVersions.SAJU,
 			"completed",
 			"사주 리딩",
 			Map.of("question", "올해 흐름이 궁금해요"),

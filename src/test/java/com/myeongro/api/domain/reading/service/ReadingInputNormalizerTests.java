@@ -56,11 +56,11 @@ class ReadingInputNormalizerTests {
 	}
 
 	@Test
-	void normalizesExactSajuInputAsSchemaVersionTwo() {
+	void normalizesExactSajuInputAsSchemaVersionThree() {
 		NormalizedReadingInput normalized = normalizer.normalizeSaju(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", "14:30", "exact",
-				"11", "11680", "female"
+				"11", "female"
 			)
 		));
 
@@ -75,9 +75,8 @@ class ReadingInputNormalizerTests {
 		assertThat(profile).containsEntry("birthTime", "14:30")
 			.containsEntry("birthTimePrecision", "exact")
 			.containsEntry("provinceCode", "11")
-			.containsEntry("cityCode", "11680")
-			.doesNotContainKeys("latitude", "longitude", "pillars");
-		assertThat(normalized.hashMaterial()).containsEntry("schemaVersion", 2);
+			.doesNotContainKeys("cityCode", "latitude", "longitude", "pillars");
+		assertThat(normalized.hashMaterial()).containsEntry("schemaVersion", 3);
 		assertThat(normalized.hashMaterial().get("inputPayload")).isEqualTo(normalized.payload());
 	}
 
@@ -86,14 +85,14 @@ class ReadingInputNormalizerTests {
 		NormalizedReadingInput normalized = normalizer.normalizeSaju(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", null, "unknown",
-				"36", "36110", "unspecified"
+				null, "unspecified"
 			)
 		));
 
 		@SuppressWarnings("unchecked")
 		Map<String, Object> profile =
 			(Map<String, Object>) normalized.payload().get("birthProfile");
-		assertThat(profile).doesNotContainKey("birthTime")
+		assertThat(profile).doesNotContainKeys("birthTime", "provinceCode", "cityCode")
 			.containsEntry("birthTimePrecision", "unknown");
 	}
 
@@ -102,7 +101,7 @@ class ReadingInputNormalizerTests {
 		NormalizedReadingInput normalized = normalizer.normalizeSaju(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", "14:00", "approximate",
-				"11", "11680", "unspecified"
+				"11", "unspecified"
 			)
 		));
 
@@ -189,7 +188,7 @@ class ReadingInputNormalizerTests {
 			Arguments.of(profile("solar", "1992-08-17", null, "exact", "11", "11680", "female"), "career", "INVALID_BIRTH_TIME", "birthProfile.birthTime"),
 			Arguments.of(profile("solar", "1992-08-17", "14:30", "unknown", "11", "11680", "female"), "career", "INVALID_BIRTH_TIME", "birthProfile.birthTime"),
 			Arguments.of(profile("solar", "1992-08-17", "14:30", "rough", "11", "11680", "female"), "career", "INVALID_BIRTH_TIME_PRECISION", "birthProfile.birthTimePrecision"),
-			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "26", "11680", "female"), "career", "INVALID_BIRTH_PLACE", "birthProfile.cityCode"),
+			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "99", null, "female"), "career", "INVALID_BIRTH_PLACE", "birthProfile.provinceCode"),
 			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "11", "11680", "other"), "career", "INVALID_LUCK_DIRECTION_BASIS", "birthProfile.luckDirectionBasis"),
 			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "11", "11680", "female"), "health", "INVALID_FOCUS_AREA", "focusArea")
 		);
@@ -225,7 +224,7 @@ class ReadingInputNormalizerTests {
 		String basis
 	) {
 		return new SajuBirthProfileRequest(
-			calendarType, birthDate, birthTime, precision, provinceCode, cityCode, basis
+			calendarType, birthDate, birthTime, precision, provinceCode, basis
 		);
 	}
 
