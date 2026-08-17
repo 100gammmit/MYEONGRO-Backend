@@ -333,6 +333,42 @@ class ReadingControllerTests {
 	}
 
 	@Test
+	void returnsStableErrorWhenUnknownTimeIncludesProvince() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(creationService.createSajuReading(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(SajuReadingCreateRequest.class)
+		)).thenThrow(new InvalidReadingRequestException(
+			"INVALID_BIRTH_PLACE",
+			"birthProfile.provinceCode",
+			"출생시간을 모르는 경우 출생 시·도를 비워 주세요."
+		));
+
+		mockMvc.perform(post("/api/saju/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "question":"올해 흐름이 궁금해요",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "focusArea":"career",
+					  "birthProfile":{
+					    "calendarType":"solar",
+					    "birthDate":"1992-08-17",
+					    "birthTimePrecision":"unknown",
+					    "provinceCode":"36",
+					    "luckDirectionBasis":"unspecified"
+					  }
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_BIRTH_PLACE"))
+			.andExpect(jsonPath("$.field").value("birthProfile.provinceCode"));
+	}
+
+	@Test
 	void rejectsFormerCityCodeFromNewSajuRequests() throws Exception {
 		mockMvc.perform(post("/api/saju/readings")
 				.principal(authentication())

@@ -185,6 +185,15 @@ public class ReadingInputNormalizer {
 		);
 		SajuFocusArea focusArea = SajuFocusArea.fromValue(request.focusArea());
 		boolean birthPlaceRequired = precision != BirthTimePrecision.UNKNOWN;
+		if (!birthPlaceRequired
+			&& schemaVersion == ReadingSchemaVersions.SAJU
+			&& profile.provinceCode() != null) {
+			throw invalid(
+				"INVALID_BIRTH_PLACE",
+				"birthProfile.provinceCode",
+				"출생시간을 모르는 경우 출생 시·도를 비워 주세요."
+			);
+		}
 		if (birthPlaceRequired) {
 			birthPlaceCatalog.requireProvince(profile.provinceCode());
 			if (legacyCityCode != null) {

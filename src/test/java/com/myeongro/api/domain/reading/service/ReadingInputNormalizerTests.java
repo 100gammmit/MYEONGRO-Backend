@@ -97,6 +97,19 @@ class ReadingInputNormalizerTests {
 	}
 
 	@Test
+	void rejectsProvinceWhenBirthTimeIsUnknown() {
+		assertThatThrownBy(() -> normalizer.normalizeSaju(sajuRequest(
+			new SajuBirthProfileRequest(
+				"solar", "1992-08-17", null, "unknown",
+				"36", "unspecified"
+			)
+		))).isInstanceOfSatisfying(InvalidReadingRequestException.class, exception -> {
+			assertThat(exception.getCode()).isEqualTo("INVALID_BIRTH_PLACE");
+			assertThat(exception.getField()).isEqualTo("birthProfile.provinceCode");
+		});
+	}
+
+	@Test
 	void acceptsApproximateBirthTimeWithoutClientOwnedUncertaintyRange() {
 		NormalizedReadingInput normalized = normalizer.normalizeSaju(sajuRequest(
 			new SajuBirthProfileRequest(
