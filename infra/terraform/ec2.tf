@@ -67,9 +67,11 @@ resource "aws_iam_instance_profile" "backend_host" {
 }
 
 resource "aws_instance" "backend" {
-  ami                    = data.aws_ami.al2023.id
-  instance_type          = var.instance_type
-  subnet_id              = data.aws_subnets.default.ids[0]
+  ami           = data.aws_ami.al2023.id
+  instance_type = var.instance_type
+  # sort() keeps this deterministic across applies; DescribeSubnets does not
+  # guarantee a stable order, and subnet_id is ForceNew on aws_instance.
+  subnet_id              = sort(data.aws_subnets.default.ids)[0]
   vpc_security_group_ids = [aws_security_group.backend.id]
   iam_instance_profile   = aws_iam_instance_profile.backend_host.name
   user_data              = file("${path.module}/templates/user_data.sh")

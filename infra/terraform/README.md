@@ -1,9 +1,10 @@
 # Backend infrastructure (Terraform)
 
-Provisions the AWS resources that `deploy/README.md` assumes already exist: the EC2 host,
-ECR repository, GitHub OIDC roles, and the SSM parameter that carries production secrets.
-State is local (`terraform.tfstate`, gitignored) — this has not been migrated to a remote
-backend yet.
+Provisions the AWS resources that the backend's CI/CD pipeline (`deploy/README.md`,
+`compose.prod.yaml`, `.github/workflows/backend-ci-cd.yaml` — currently on the `dev` branch,
+not yet merged to `main`) assumes already exist: the EC2 host, ECR repository, GitHub OIDC
+roles, and the SSM parameter that carries production secrets. State is local
+(`terraform.tfstate`, gitignored) — this has not been migrated to a remote backend yet.
 
 Out of scope: reverse proxy / TLS / domain, RDS or any other database, and registering the
 GitHub repository variables or the `production` environment itself (GitHub has no Terraform
@@ -43,6 +44,6 @@ environment (e.g. `AWS_PROFILE` or `aws sso login`).
      --overwrite \
      --value "$(cat backend.env)"
    ```
-   See `deploy/README.md` for the required dotenv keys.
+   See `deploy/README.md` (on the `dev` branch) for the required dotenv keys.
 4. Point `DATABASE_URL` in that dotenv at a Postgres instance (RDS or otherwise) — this
    module does not provision one.

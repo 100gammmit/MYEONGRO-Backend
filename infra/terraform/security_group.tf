@@ -1,5 +1,5 @@
-# No inbound rules: the app port stays loopback-bound (see compose.prod.yaml) and
-# host access is via SSM Session Manager, not SSH.
+# No inbound rules: the app port stays loopback-bound (see compose.prod.yaml on the
+# dev branch) and host access is via SSM Session Manager, not SSH.
 resource "aws_security_group" "backend" {
   name        = "${var.project_name}-backend"
   description = "Backend EC2 host: no inbound, SSM-managed access only"
