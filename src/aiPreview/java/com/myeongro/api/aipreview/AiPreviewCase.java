@@ -4,7 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
+import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 
 record AiPreviewCase(
 	String id,

@@ -4,8 +4,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
-
 import lombok.Builder;
 
 @Builder
@@ -14,7 +12,7 @@ public record PendingReadingCommand(
 	UUID requestId,
 	String inputHash,
 	ReadingKind kind,
-	TarotSpreadType spreadType,
+	String spreadType,
 	int schemaVersion,
 	Map<String, Object> input,
 	String provider,

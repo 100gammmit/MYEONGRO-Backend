@@ -16,18 +16,23 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.myeongro.api.domain.consent.controller.ConsentController;
 import com.myeongro.api.domain.consent.service.ConsentService;
-import com.myeongro.api.domain.reading.controller.ReadingController;
-import com.myeongro.api.domain.reading.service.ReadingCreationService;
+import com.myeongro.api.domain.reading.controller.ReadingRecordsController;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
 import com.myeongro.api.domain.saju.controller.SajuBirthPlaceController;
+import com.myeongro.api.domain.saju.controller.SajuReadingController;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
+import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
+import com.myeongro.api.domain.tarot.controller.TarotReadingController;
+import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 
 @WebMvcTest(controllers = {
 	ConsentController.class,
-	ReadingController.class,
+	TarotReadingController.class,
+	SajuReadingController.class,
+	ReadingRecordsController.class,
 	SajuBirthPlaceController.class
 })
 @Import(SecurityConfig.class)
@@ -52,7 +57,10 @@ class AuthenticatedReadingSecurityTests {
 	private ConsentService consentService;
 
 	@MockitoBean
-	private ReadingCreationService readingCreationService;
+	private TarotReadingCreationService tarotReadingCreationService;
+
+	@MockitoBean
+	private SajuReadingCreationService sajuReadingCreationService;
 
 	@MockitoBean
 	private ReadingRecordsService readingRecordsService;
@@ -97,7 +105,7 @@ class AuthenticatedReadingSecurityTests {
 					"""))
 			.andExpect(status().isUnauthorized());
 
-		verifyNoInteractions(readingCreationService, userResolver);
+		verifyNoInteractions(tarotReadingCreationService, sajuReadingCreationService, userResolver);
 	}
 
 	@Test

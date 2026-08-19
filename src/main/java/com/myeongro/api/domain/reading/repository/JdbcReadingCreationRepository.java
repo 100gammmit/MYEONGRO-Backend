@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 
 @Repository
@@ -118,7 +117,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 				command.requestId(),
 				command.inputHash(),
 				command.kind().value(),
-				command.spreadType() == null ? null : command.spreadType().value(),
+				command.spreadType(),
 				command.schemaVersion(),
 				toJson(command.input()),
 				command.provider(),
@@ -188,7 +187,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		return new CreatedReadingResponse(
 			resultSet.getObject("id", UUID.class),
 			ReadingKind.fromValue(resultSet.getString("kind")),
-			toSpreadType(resultSet.getString("spread_type")),
+			resultSet.getString("spread_type"),
 			resultSet.getInt("schema_version"),
 			resultSet.getString("status"),
 			resultSet.getString("title"),
@@ -198,10 +197,6 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 			toInstant(resultSet.getTimestamp("created_at")),
 			toInstant(resultSet.getTimestamp("updated_at"))
 		);
-	}
-
-	private TarotSpreadType toSpreadType(String value) {
-		return value == null ? null : TarotSpreadType.fromValue(value);
 	}
 
 	private java.time.Instant toInstant(Timestamp timestamp) {

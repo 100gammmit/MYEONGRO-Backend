@@ -22,7 +22,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 
@@ -149,7 +148,7 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 		return new CreatedReadingResponse(
 			toUuid(row[0]),
 			kind,
-			toSpreadType((String) row[2]),
+			(String) row[2],
 			schemaVersion,
 			(String) row[4],
 			(String) row[5],
@@ -159,10 +158,6 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 			toInstant(row[9]),
 			toInstant(row[10])
 		);
-	}
-
-	private TarotSpreadType toSpreadType(String value) {
-		return value == null ? null : TarotSpreadType.fromValue(value);
 	}
 
 	private UUID toUuid(Object value) {

@@ -16,8 +16,8 @@ import org.springframework.context.annotation.Profile;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.service.ReadingGenerator;
-import com.myeongro.api.domain.reading.service.SajuPromptCatalog;
-import com.myeongro.api.domain.reading.service.TarotPromptCatalog;
+import com.myeongro.api.domain.saju.service.SajuPromptCatalog;
+import com.myeongro.api.domain.tarot.service.TarotPromptCatalog;
 
 @Component
 @Profile("ai-preview")
@@ -77,7 +77,7 @@ final class AiPreviewRunner {
 		long startedNanos = System.nanoTime();
 		GeneratedReading generated = readingGenerator.generate(
 			previewCase.kind(),
-			previewCase.spreadType(),
+			previewCase.spreadType() == null ? null : previewCase.spreadType().value(),
 			previewCase.question(),
 			previewCase.input()
 		);

@@ -16,6 +16,10 @@ import org.springframework.context.annotation.Configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.saju.service.OpenAiSajuReadingGenerator;
+import com.myeongro.api.domain.saju.service.SajuPromptCatalog;
+import com.myeongro.api.domain.tarot.service.OpenAiTarotReadingGenerator;
+import com.myeongro.api.domain.tarot.service.TarotPromptCatalog;
+import com.myeongro.api.domain.tarot.service.TarotReadingResultValidator;
 import com.myeongro.api.domain.saju.service.SajuInterpretationInputMapper;
 import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 
@@ -44,7 +48,7 @@ class ReadingGeneratorBeanSelectionTests {
 			.withUserConfiguration(SajuPromptCatalog.class)
 			.withUserConfiguration(TestChatModelConfig.class)
 			.withUserConfiguration(DemoReadingGenerator.class)
-			.withUserConfiguration(OpenAiReadingGenerator.class)
+			.withUserConfiguration(OpenAiTarotReadingGenerator.class)
 			.withUserConfiguration(OpenAiSajuReadingGenerator.class)
 			.withUserConfiguration(ReadingGeneratorRouter.class)
 			.withUserConfiguration(ReadingGenerationMetadataResolver.class);

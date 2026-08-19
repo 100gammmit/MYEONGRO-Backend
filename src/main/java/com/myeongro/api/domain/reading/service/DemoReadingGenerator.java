@@ -5,86 +5,51 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
-import com.myeongro.api.domain.reading.dto.ReadingResult;
-import com.myeongro.api.domain.reading.dto.ReadingSection;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 
 @Component
 public class DemoReadingGenerator implements ReadingGenerator {
-	private final ObjectMapper objectMapper;
-
-	public DemoReadingGenerator(ObjectMapper objectMapper) {
-		this.objectMapper = objectMapper;
-	}
 
 	@Override
 	public GeneratedReading generate(
 		ReadingKind kind,
-		TarotSpreadType spreadType,
+		String spreadType,
 		String question,
 		Map<String, Object> input
 	) {
-		ReadingResult result = kind == ReadingKind.TAROT ? tarot(question) : saju(question);
-		return new GeneratedReading(
-			result.title(),
-			objectMapper.convertValue(result, new TypeReference<>() {
-			})
-		);
+		return kind == ReadingKind.TAROT ? tarot(question) : saju(question);
 	}
 
-	private ReadingResult tarot(String question) {
-		return new ReadingResult(
-			"\uD0C0\uB85C \uB370\uBAA8 \uB9AC\uB529",
-			"\uC138 \uC7A5\uC758 \uCE74\uB4DC\uAC00 \uD604\uC7AC \uD750\uB984\uC744 \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.",
-			List.of(
-				new ReadingSection(
-					null,
-					"\uD604\uC7AC\uC758 \uD750\uB984",
-					"\uC9C8\uBB38\uACFC \uC120\uD0DD\uD55C \uCE74\uB4DC\uB97C \uBC14\uD0D5\uC73C\uB85C "
-						+ "\uCC28\uBD84\uD788 \uD750\uB984\uC744 \uC0B4\uD3B4\uBD05\uB2C8\uB2E4: "
-						+ question
+	private GeneratedReading tarot(String question) {
+		return new GeneratedReading("타로 데모 리딩", Map.of(
+			"title", "타로 데모 리딩",
+			"summary", "선택한 카드가 현재 흐름을 보여줘요.",
+			"sections", List.of(
+				Map.of(
+					"heading", "현재의 흐름",
+					"body", "질문과 카드를 바탕으로 흐름을 살펴봐요: " + question
 				),
-				new ReadingSection(
-					null,
-					"\uB2E4\uC74C \uC120\uD0DD",
-					"\uD070 \uACB0\uB860\uBCF4\uB2E4 \uC624\uB298 \uBC14\uB85C "
-						+ "\uC2E4\uD589\uD560 \uC218 \uC788\uB294 \uC791\uC740 \uD589\uB3D9\uC5D0 "
-						+ "\uC9D1\uC911\uD574 \uBCF4\uC138\uC694."
+				Map.of(
+					"heading", "다음 선택",
+					"body", "오늘 바로 시도할 수 있는 작은 행동에 집중해봐도 좋아요."
 				)
 			),
-			List.of(
-				"\uC791\uC740 \uD589\uB3D9 \uD558\uB098\uB97C \uBA3C\uC800 \uC815\uD558\uC138\uC694.",
-				"\uACB0\uC815\uC744 \uBBF8\uB8E8\uAE30\uBCF4\uB2E4 "
-					+ "\uD655\uC778 \uAC00\uB2A5\uD55C \uC815\uBCF4\uBD80\uD130 \uC815\uB9AC\uD558\uC138\uC694."
-			),
-			"\uC774 \uB9AC\uB529\uC740 \uC624\uB77D\uACFC \uC790\uAE30\uC131\uCC30\uC744 "
-				+ "\uC704\uD55C \uCC38\uACE0 \uC790\uB8CC\uC785\uB2C8\uB2E4."
-		);
+			"guidance", List.of("부담이 적은 행동 하나를 먼저 정해봐도 좋아요."),
+			"disclaimer", "이 리딩은 오락과 자기성찰을 위한 참고 자료입니다."
+		));
 	}
 
-	private ReadingResult saju(String question) {
-		return new ReadingResult(
-			"\uC0AC\uC8FC \uB370\uBAA8 \uB9AC\uB529",
-			"\uC785\uB825\uD55C \uC0DD\uB144\uC6D4\uC77C\uC744 \uBC14\uD0D5\uC73C\uB85C "
-				+ "\uD604\uC7AC\uC758 \uD750\uB984\uC744 \uAC04\uB2E8\uD788 \uC815\uB9AC\uD569\uB2C8\uB2E4.",
-			List.of(new ReadingSection(
-				null,
-				"\uC624\uB298\uC758 \uADE0\uD615",
-				"\uC9C8\uBB38\uC744 \uAE30\uC900\uC73C\uB85C \uBB34\uB9AC\uD558\uC9C0 "
-					+ "\uC54A\uB294 \uC120\uD0DD\uACFC \uD68C\uBCF5\uC758 \uB9AC\uB4EC\uC744 "
-					+ "\uC0B4\uD3B4\uBCF4\uC138\uC694: "
-					+ question
+	private GeneratedReading saju(String question) {
+		return new GeneratedReading("사주 데모 리딩", Map.of(
+			"title", "사주 데모 리딩",
+			"summary", "입력한 생년월일을 바탕으로 현재 흐름을 간단히 정리해요.",
+			"sections", List.of(Map.of(
+				"heading", "오늘의 균형",
+				"body", "질문을 기준으로 무리하지 않는 선택과 회복의 리듬을 살펴봐요: " + question
 			)),
-			List.of(
-				"\uAC00\uC7A5 \uBD80\uB2F4\uC774 \uC801\uC740 \uC120\uD0DD\uC9C0\uBD80\uD130 "
-					+ "\uC2E4\uD589\uD574 \uBCF4\uC138\uC694."
-			),
-			"\uC774 \uB9AC\uB529\uC740 \uC624\uB77D\uACFC \uC790\uAE30\uC131\uCC30\uC744 "
-				+ "\uC704\uD55C \uCC38\uACE0 \uC790\uB8CC\uC785\uB2C8\uB2E4."
-		);
+			"guidance", List.of("부담이 적은 선택부터 살펴봐도 괜찮아요."),
+			"disclaimer", "이 리딩은 오락과 자기성찰을 위한 참고 자료입니다."
+		));
 	}
 }

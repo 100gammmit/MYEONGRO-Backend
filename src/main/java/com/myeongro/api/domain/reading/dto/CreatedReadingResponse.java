@@ -5,12 +5,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
-
 public record CreatedReadingResponse(
 	UUID id,
 	ReadingKind kind,
-	TarotSpreadType spreadType,
+	String spreadType,
 	int schemaVersion,
 	String status,
 	String title,

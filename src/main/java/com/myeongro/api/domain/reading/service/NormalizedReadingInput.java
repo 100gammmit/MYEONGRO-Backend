@@ -5,11 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
-
 public record NormalizedReadingInput(
 	ReadingKind kind,
-	TarotSpreadType spreadType,
+	String spreadType,
 	int schemaVersion,
 	String question,
 	Map<String, Object> payload,

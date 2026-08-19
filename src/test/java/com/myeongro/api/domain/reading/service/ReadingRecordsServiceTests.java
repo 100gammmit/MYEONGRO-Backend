@@ -17,14 +17,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
+import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
-import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
-import org.springframework.core.io.ClassPathResource;
+import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
 
 class ReadingRecordsServiceTests {
 
@@ -62,20 +59,19 @@ class ReadingRecordsServiceTests {
 	@Test
 	void repeatedRetryReturnsCompletedReadingAfterResponseLoss() {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingCreationService creationService = org.mockito.Mockito.mock(ReadingCreationService.class);
+		ReadingCreationWorkflow creationWorkflow = org.mockito.Mockito.mock(ReadingCreationWorkflow.class);
 		ReadingRecordsService service = new ReadingRecordsService(
 			repository,
-			creationService,
+			creationWorkflow,
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			org.mockito.Mockito.mock(ReadingInputNormalizer.class),
-			org.mockito.Mockito.mock(SajuReadingInputAssembler.class)
+			org.mockito.Mockito.mock(ReadingInputRestorer.class)
 		);
 		CreatedReadingResponse completed = reading(1, "completed");
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(completed));
 
 		assertThat(service.retry(USER_ID, READING_ID)).isSameAs(completed);
 
-		org.mockito.Mockito.verifyNoInteractions(creationService);
+		org.mockito.Mockito.verifyNoInteractions(creationWorkflow);
 		verify(repository, org.mockito.Mockito.never()).startFailedRetry(
 			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.any()
@@ -85,18 +81,17 @@ class ReadingRecordsServiceTests {
 	@Test
 	void retriesWithStoredSpreadSchemaAndPayload() {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingCreationService creationService = org.mockito.Mockito.mock(ReadingCreationService.class);
+		ReadingCreationWorkflow creationWorkflow = org.mockito.Mockito.mock(ReadingCreationWorkflow.class);
 		ReadingGenerationMetadataResolver metadataResolver =
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
-		ReadingInputNormalizer normalizer = org.mockito.Mockito.mock(ReadingInputNormalizer.class);
-		SajuReadingInputAssembler assembler = org.mockito.Mockito.mock(SajuReadingInputAssembler.class);
+		ReadingInputRestorer restorer = org.mockito.Mockito.mock(ReadingInputRestorer.class);
 		ReadingRecordsService service = new ReadingRecordsService(
-			repository, creationService, metadataResolver, normalizer, assembler
+			repository, creationWorkflow, metadataResolver, restorer
 		);
 		CreatedReadingResponse reading = reading(1, "failed");
 		NormalizedReadingInput input = new NormalizedReadingInput(
 			ReadingKind.TAROT,
-			TarotSpreadType.RELATIONSHIP_THREE_CARD,
+			TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
 			1,
 			"질문",
 			reading.input(),
@@ -107,32 +102,30 @@ class ReadingRecordsServiceTests {
 		);
 		PendingReadingCreation pending = new PendingReadingCreation(READING_ID, 42L, reading);
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading));
-		when(normalizer.restore(reading)).thenReturn(input);
-		when(assembler.restore(input, reading.input())).thenReturn(input);
+		when(restorer.restore(reading)).thenReturn(input);
 		when(metadataResolver.resolve(input.kind(), input.spreadType())).thenReturn(metadata);
 		when(repository.startFailedRetry(USER_ID, READING_ID, metadata)).thenReturn(pending);
 
 		service.retry(USER_ID, READING_ID);
 
-		verify(creationService).generatePending(input, pending);
+		verify(creationWorkflow).generatePending(input, pending);
 	}
 
 	@ParameterizedTest
 	@ValueSource(ints = {0, 2})
 	void rejectsUnsupportedTarotSchemaBeforeStartingRetry(int schemaVersion) {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingInputNormalizer normalizer = new ReadingInputNormalizer(
-			new SajuBirthPlaceCatalog(
-				new ObjectMapper(),
-				new ClassPathResource("saju/birth-places/kr-admin-v1.json")
-			)
-		);
+		StoredReadingInputRestorer sajuRestorer =
+			org.mockito.Mockito.mock(StoredReadingInputRestorer.class);
+		when(sajuRestorer.kind()).thenReturn(ReadingKind.SAJU);
+		ReadingInputRestorer restorer = new ReadingInputRestorer(List.of(
+			new TarotReadingInputNormalizer(), sajuRestorer
+		));
 		ReadingRecordsService service = new ReadingRecordsService(
 			repository,
-			org.mockito.Mockito.mock(ReadingCreationService.class),
+			org.mockito.Mockito.mock(ReadingCreationWorkflow.class),
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			normalizer,
-			org.mockito.Mockito.mock(SajuReadingInputAssembler.class)
+			restorer
 		);
 		CreatedReadingResponse legacy = reading(schemaVersion, "failed");
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(legacy));
@@ -144,10 +137,9 @@ class ReadingRecordsServiceTests {
 	private ReadingRecordsService service(ReadingRecordsRepository repository) {
 		return new ReadingRecordsService(
 			repository,
-			org.mockito.Mockito.mock(ReadingCreationService.class),
+			org.mockito.Mockito.mock(ReadingCreationWorkflow.class),
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			org.mockito.Mockito.mock(ReadingInputNormalizer.class),
-			org.mockito.Mockito.mock(SajuReadingInputAssembler.class)
+			org.mockito.Mockito.mock(ReadingInputRestorer.class)
 		);
 	}
 
@@ -155,7 +147,7 @@ class ReadingRecordsServiceTests {
 		return new CreatedReadingResponse(
 			READING_ID,
 			ReadingKind.TAROT,
-			schemaVersion == 0 ? null : TarotSpreadType.RELATIONSHIP_THREE_CARD,
+			schemaVersion == 0 ? null : TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
 			schemaVersion,
 			status,
 			"Generating...",

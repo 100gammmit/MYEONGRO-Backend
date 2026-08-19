@@ -26,7 +26,7 @@ import org.springframework.jdbc.core.RowMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
+import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 
 class JdbcReadingCreationRepositoryTests {
@@ -213,7 +213,7 @@ class JdbcReadingCreationRepositoryTests {
 			.requestId(REQUEST_ID)
 			.inputHash("input-hash")
 			.kind(ReadingKind.TAROT)
-			.spreadType(TarotSpreadType.DAILY_ONE_CARD)
+			.spreadType(TarotSpreadType.DAILY_ONE_CARD.value())
 			.schemaVersion(1)
 			.input(Map.of("question", "How is today?"))
 			.provider("openai")

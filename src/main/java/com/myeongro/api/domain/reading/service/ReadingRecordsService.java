@@ -13,29 +13,25 @@ import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
-import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
 
 @Service
 public class ReadingRecordsService {
 
 	private final ReadingRecordsRepository repository;
-	private final ReadingCreationService creationService;
+	private final ReadingCreationWorkflow creationWorkflow;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
-	private final ReadingInputNormalizer inputNormalizer;
-	private final SajuReadingInputAssembler sajuInputAssembler;
+	private final ReadingInputRestorer inputRestorer;
 
 	public ReadingRecordsService(
 		ReadingRecordsRepository repository,
-		ReadingCreationService creationService,
+		ReadingCreationWorkflow creationWorkflow,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
-		ReadingInputNormalizer inputNormalizer,
-		SajuReadingInputAssembler sajuInputAssembler
+		ReadingInputRestorer inputRestorer
 	) {
 		this.repository = repository;
-		this.creationService = creationService;
+		this.creationWorkflow = creationWorkflow;
 		this.generationMetadataResolver = generationMetadataResolver;
-		this.inputNormalizer = inputNormalizer;
-		this.sajuInputAssembler = sajuInputAssembler;
+		this.inputRestorer = inputRestorer;
 	}
 
 	public List<CreatedReadingResponse> listByUser(UUID userId) {
@@ -61,10 +57,7 @@ public class ReadingRecordsService {
 		}
 		NormalizedReadingInput input;
 		try {
-			input = sajuInputAssembler.restore(
-				inputNormalizer.restore(currentReading),
-				currentReading.input()
-			);
+			input = inputRestorer.restore(currentReading);
 		} catch (IllegalArgumentException exception) {
 			throw new ReadingRetryNotAllowedException();
 		}
@@ -75,7 +68,7 @@ public class ReadingRecordsService {
 			readingId,
 			generationMetadata
 		);
-		return creationService.generatePending(input, pending);
+		return creationWorkflow.generatePending(input, pending);
 	}
 
 	private CreatedReadingResponse findStoredReading(UUID userId, UUID readingId) {

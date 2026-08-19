@@ -22,19 +22,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.entity.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
 import com.myeongro.api.domain.reading.service.OpenAiResponseDiagnostics;
 import com.myeongro.api.domain.reading.service.ReadingDeclineReason;
-import com.myeongro.api.domain.reading.service.ReadingGenerator;
+import com.myeongro.api.domain.reading.service.ReadingGenerationHandler;
+import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 import com.myeongro.api.domain.reading.service.ReadingResponseSchema;
-import com.myeongro.api.domain.reading.service.SajuPromptCatalog;
 import com.myeongro.api.domain.saju.result.SajuReadingResult;
 
 @Component
-public class OpenAiSajuReadingGenerator implements ReadingGenerator {
+public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(OpenAiSajuReadingGenerator.class);
 	private static final int MAX_COMPLETION_TOKENS = 4_000;
@@ -66,9 +65,22 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerator {
 	}
 
 	@Override
+	public ReadingKind kind() {
+		return ReadingKind.SAJU;
+	}
+
+	@Override
+	public ReadingGenerationMetadata metadata(String spreadType) {
+		if (spreadType != null) {
+			throw new IllegalArgumentException("Saju spread type must be empty");
+		}
+		return new ReadingGenerationMetadata("openai", model, promptCatalog.version());
+	}
+
+	@Override
 	public GeneratedReading generate(
 		ReadingKind kind,
-		TarotSpreadType spreadType,
+		String spreadType,
 		String question,
 		Map<String, Object> input
 	) {
