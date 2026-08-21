@@ -18,6 +18,7 @@ import com.myeongro.api.domain.consent.controller.ConsentController;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.controller.ReadingRecordsController;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
+import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 import com.myeongro.api.domain.saju.controller.SajuBirthPlaceController;
 import com.myeongro.api.domain.saju.controller.SajuReadingController;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
@@ -64,6 +65,9 @@ class AuthenticatedReadingSecurityTests {
 
 	@MockitoBean
 	private ReadingRecordsService readingRecordsService;
+
+	@MockitoBean
+	private ReadingCreditService readingCreditService;
 
 	@MockitoBean
 	private SajuBirthPlaceCatalog sajuBirthPlaceCatalog;

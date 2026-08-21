@@ -24,6 +24,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
+import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
@@ -41,7 +44,9 @@ class JdbcReadingCreationRepositoryTests {
 
 	private final JdbcTemplate jdbcTemplate = org.mockito.Mockito.mock(JdbcTemplate.class);
 	private final JdbcReadingCreationRepository repository =
-		new JdbcReadingCreationRepository(jdbcTemplate, new ObjectMapper());
+		new JdbcReadingCreationRepository(
+			jdbcTemplate, new ObjectMapper(), ReadingCreditTestFixtures.properties()
+		);
 
 	@BeforeEach
 	void setUp() {
@@ -122,7 +127,9 @@ class JdbcReadingCreationRepositoryTests {
 			"{\"question\":\"How is today?\"}",
 			"openai",
 			"gpt-test",
-			"prompt-v1"
+			"prompt-v1",
+			1,
+			10
 		);
 		assertThat(sql.getAllValues().get(1))
 			.contains("from public.readings")
@@ -132,8 +139,8 @@ class JdbcReadingCreationRepositoryTests {
 
 	@Test
 	void completesPendingReadingThroughDatabaseFunctionBoundary() {
-		when(jdbcTemplate.queryForObject(anyString(), eq(Object.class), any(Object[].class)))
-			.thenReturn(1);
+		when(jdbcTemplate.queryForObject(anyString(), eq(Boolean.class), any(Object[].class)))
+			.thenReturn(false);
 		PendingReadingCreation pending = new PendingReadingCreation(
 			READING_ID,
 			GENERATION_ID,
@@ -147,7 +154,7 @@ class JdbcReadingCreationRepositoryTests {
 		ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
 		verify(jdbcTemplate)
-			.queryForObject(sql.capture(), eq(Object.class), args.capture());
+			.queryForObject(sql.capture(), eq(Boolean.class), args.capture());
 		assertThat(sql.getValue())
 			.contains("public.complete_reading_generation")
 			.contains("cast(? as jsonb)");
@@ -157,6 +164,7 @@ class JdbcReadingCreationRepositoryTests {
 		assertThat((String) args.getValue()[3])
 			.contains("\"title\":\"Completed title\"")
 			.contains("\"summary\":\"Summary\"");
+		assertThat(args.getValue()[4]).isEqualTo(10);
 	}
 
 	@Test
@@ -196,7 +204,7 @@ class JdbcReadingCreationRepositoryTests {
 	}
 
 	@Test
-	void mapsExistingIncompleteReadingToConflict() {
+	void mapsExistingIncompleteReadingToActiveGenerationConflict() {
 		when(jdbcTemplate.queryForObject(
 			anyString(),
 			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
@@ -204,7 +212,37 @@ class JdbcReadingCreationRepositoryTests {
 		)).thenThrow(sqlException("RL110"));
 
 		assertThatThrownBy(() -> repository.createPending(command()))
-			.isInstanceOf(ReadingIdempotencyConflictException.class);
+			.isInstanceOf(ReadingGenerationInProgressException.class);
+	}
+
+	@Test
+	void mapsActiveGenerationSqlStateToStableDomainException() {
+		when(jdbcTemplate.queryForObject(
+			anyString(),
+			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+			any(Object[].class)
+		)).thenThrow(sqlException("RL111"));
+
+		assertThatThrownBy(() -> repository.createPending(command()))
+			.isInstanceOf(ReadingGenerationInProgressException.class);
+	}
+
+	@Test
+	void mapsInsufficientCreditSqlStateWithRequiredCost() {
+		when(jdbcTemplate.queryForObject(
+			anyString(),
+			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+			any(Object[].class)
+		)).thenThrow(sqlException("RL112"));
+
+		assertThatThrownBy(() -> repository.createPending(command()))
+			.isInstanceOfSatisfying(
+				InsufficientReadingCreditsException.class,
+				exception -> {
+					assertThat(exception.getUserId()).isEqualTo(USER_ID);
+					assertThat(exception.getRequired()).isEqualTo(1);
+				}
+			);
 	}
 
 	private PendingReadingCommand command() {
@@ -219,6 +257,7 @@ class JdbcReadingCreationRepositoryTests {
 			.provider("openai")
 			.model("gpt-test")
 			.promptVersion("prompt-v1")
+			.creditCost(1)
 			.build();
 	}
 

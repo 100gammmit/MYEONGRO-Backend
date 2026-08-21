@@ -23,6 +23,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
+import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 
 import jakarta.persistence.EntityManager;
@@ -57,7 +59,7 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 		""";
 	private static final String START_FAILED_RETRY = """
 		select generation_id
-		from public.start_failed_reading_retry(?, ?, ?, ?, ?)
+		from public.start_failed_reading_retry(?, ?, ?, ?, ?, ?, ?)
 		""";
 
 	@PersistenceContext
@@ -119,7 +121,9 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 	public PendingReadingCreation startFailedRetry(
 		UUID userId,
 		UUID readingId,
-		ReadingGenerationMetadata metadata
+		ReadingGenerationMetadata metadata,
+		int creditCost,
+		int dailyFreeGrant
 	) {
 		try {
 			Long generationId = jdbcTemplate.queryForObject(
@@ -129,7 +133,9 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 				readingId,
 				metadata.provider(),
 				metadata.model(),
-				metadata.promptVersion()
+				metadata.promptVersion(),
+				creditCost,
+				dailyFreeGrant
 			);
 			CreatedReadingResponse reading = findByUserAndId(userId, readingId)
 				.orElseThrow(ReadingRetryNotAllowedException::new);
@@ -137,6 +143,12 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 		} catch (DataAccessException exception) {
 			if ("RL109".equals(findSqlState(exception))) {
 				throw new ReadingRetryNotAllowedException();
+			}
+			if ("RL111".equals(findSqlState(exception))) {
+				throw new ReadingGenerationInProgressException();
+			}
+			if ("RL112".equals(findSqlState(exception))) {
+				throw new InsufficientReadingCreditsException(userId, creditCost);
 			}
 			throw exception;
 		}

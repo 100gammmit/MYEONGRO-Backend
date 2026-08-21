@@ -6,6 +6,9 @@ create table public.profiles (
   deleted_at timestamp with time zone,
   purge_after timestamp with time zone,
   purged_at timestamp with time zone,
+  free_credit_balance integer not null default 0,
+  paid_credit_balance integer not null default 0,
+  free_credit_reset_date date,
   created_at timestamp with time zone not null default current_timestamp,
   updated_at timestamp with time zone not null default current_timestamp
 );

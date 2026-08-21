@@ -21,6 +21,7 @@ import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
+import com.myeongro.api.domain.readingcredit.config.ReadingCreditProperties;
 
 @Service
 public class ReadingCreationWorkflow {
@@ -30,19 +31,22 @@ public class ReadingCreationWorkflow {
 	private final ReadingGenerator generator;
 	private final ObjectMapper objectMapper;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
+	private final ReadingCreditProperties creditProperties;
 
 	public ReadingCreationWorkflow(
 		ConsentService consentService,
 		ReadingCreationRepository repository,
 		ReadingGenerator generator,
 		ObjectMapper objectMapper,
-		ReadingGenerationMetadataResolver generationMetadataResolver
+		ReadingGenerationMetadataResolver generationMetadataResolver,
+		ReadingCreditProperties creditProperties
 	) {
 		this.consentService = consentService;
 		this.repository = repository;
 		this.generator = generator;
 		this.objectMapper = objectMapper;
 		this.generationMetadataResolver = generationMetadataResolver;
+		this.creditProperties = creditProperties;
 	}
 
 	public CreatedReadingResponse create(
@@ -80,6 +84,7 @@ public class ReadingCreationWorkflow {
 			.provider(metadata.provider())
 			.model(metadata.model())
 			.promptVersion(metadata.promptVersion())
+			.creditCost(creditProperties.cost(input.kind(), input.spreadType()))
 			.build());
 		if (pending.reading().result() != null) {
 			return pending.reading();

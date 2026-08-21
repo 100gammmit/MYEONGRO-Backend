@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -18,10 +20,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
+import com.myeongro.api.domain.readingcredit.config.ReadingCreditProperties;
 
 @Repository
 public class JdbcReadingCreationRepository implements ReadingCreationRepository {
+	private static final Logger log = LoggerFactory.getLogger(
+		JdbcReadingCreationRepository.class
+	);
 
 	private static final String SELECT_EXISTING = """
 		select
@@ -43,7 +51,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	private static final String CREATE_PENDING = """
 		select reading_id, generation_id, created
 		from public.create_pending_reading(
-			?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?
+			?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?, ?, ?
 		)
 		""";
 	private static final String SELECT_READING = """
@@ -62,7 +70,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		where id = ?
 		""";
 	private static final String COMPLETE_PENDING = """
-		select public.complete_reading_generation(?, ?, ?, cast(? as jsonb))
+		select public.complete_reading_generation(?, ?, ?, cast(? as jsonb), ?)
 		""";
 	private static final String FAIL_PENDING = """
 		select public.fail_reading_generation(?, ?, ?)
@@ -70,13 +78,16 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 
 	private final JdbcTemplate jdbcTemplate;
 	private final ObjectMapper objectMapper;
+	private final ReadingCreditProperties creditProperties;
 
 	public JdbcReadingCreationRepository(
 		JdbcTemplate jdbcTemplate,
-		ObjectMapper objectMapper
+		ObjectMapper objectMapper,
+		ReadingCreditProperties creditProperties
 	) {
 		this.jdbcTemplate = jdbcTemplate;
 		this.objectMapper = objectMapper;
+		this.creditProperties = creditProperties;
 	}
 
 	@Override
@@ -122,7 +133,9 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 				toJson(command.input()),
 				command.provider(),
 				command.model(),
-				command.promptVersion()
+				command.promptVersion(),
+				command.creditCost(),
+				creditProperties.dailyFreeGrant()
 			);
 			if (pendingIds == null || pendingIds.readingId() == null) {
 				throw new IllegalStateException("Pending reading was not created");
@@ -133,7 +146,9 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 				findCreatedReading(pendingIds.readingId())
 			);
 		} catch (DataAccessException exception) {
-			throw mapDatabaseException(exception);
+			throw mapDatabaseException(
+				exception, command.userId(), command.creditCost()
+			);
 		}
 	}
 
@@ -143,17 +158,24 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		GeneratedReading result
 	) {
 		try {
-			jdbcTemplate.queryForObject(
+			Boolean balanceMismatch = jdbcTemplate.queryForObject(
 				COMPLETE_PENDING,
-				Object.class,
+				Boolean.class,
 				pending.readingId(),
 				pending.generationId(),
 				result.title(),
-				toJson(result.payload())
+				toJson(result.payload()),
+				creditProperties.dailyFreeGrant()
 			);
+			if (Boolean.TRUE.equals(balanceMismatch)) {
+				log.error(
+					"CREDIT_COMPLETION_BALANCE_MISMATCH readingId={} generationId={}",
+					pending.readingId(), pending.generationId()
+				);
+			}
 			return findCreatedReading(pending.readingId());
 		} catch (DataAccessException exception) {
-			throw mapDatabaseException(exception);
+			throw mapDatabaseException(exception, null, 0);
 		}
 	}
 
@@ -225,9 +247,23 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	}
 
 	private RuntimeException mapDatabaseException(DataAccessException exception) {
+		return mapDatabaseException(exception, null, 0);
+	}
+
+	private RuntimeException mapDatabaseException(
+		DataAccessException exception,
+		UUID userId,
+		int requiredCredits
+	) {
 		String sqlState = findSqlState(exception);
-		if ("RL104".equals(sqlState) || "RL110".equals(sqlState)) {
+		if ("RL104".equals(sqlState)) {
 			return new ReadingIdempotencyConflictException();
+		}
+		if ("RL110".equals(sqlState) || "RL111".equals(sqlState)) {
+			return new ReadingGenerationInProgressException();
+		}
+		if ("RL112".equals(sqlState)) {
+			return new InsufficientReadingCreditsException(userId, requiredCredits);
 		}
 		return exception;
 	}

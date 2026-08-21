@@ -47,6 +47,17 @@ app:
         interpretation: classpath:prompts/saju/interpretation/interpretation-guide-ko-v1.md
         reports:
           birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md
+  reading-credits:
+    daily-free-grant: 10
+    costs:
+      tarot:
+        daily-one-card: 1
+        mind-three-card: 2
+        relationship-three-card: 2
+        choice-five-card: 3
+      saju: 4
+    stale-after: 5m
+    cleanup-cron: "0 */5 * * * *"
   consent:
     versions:
       terms: 2026-06-10

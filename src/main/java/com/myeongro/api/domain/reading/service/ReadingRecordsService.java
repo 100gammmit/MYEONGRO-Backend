@@ -13,6 +13,7 @@ import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
+import com.myeongro.api.domain.readingcredit.config.ReadingCreditProperties;
 
 @Service
 public class ReadingRecordsService {
@@ -21,17 +22,20 @@ public class ReadingRecordsService {
 	private final ReadingCreationWorkflow creationWorkflow;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 	private final ReadingInputRestorer inputRestorer;
+	private final ReadingCreditProperties creditProperties;
 
 	public ReadingRecordsService(
 		ReadingRecordsRepository repository,
 		ReadingCreationWorkflow creationWorkflow,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
-		ReadingInputRestorer inputRestorer
+		ReadingInputRestorer inputRestorer,
+		ReadingCreditProperties creditProperties
 	) {
 		this.repository = repository;
 		this.creationWorkflow = creationWorkflow;
 		this.generationMetadataResolver = generationMetadataResolver;
 		this.inputRestorer = inputRestorer;
+		this.creditProperties = creditProperties;
 	}
 
 	public List<CreatedReadingResponse> listByUser(UUID userId) {
@@ -66,7 +70,9 @@ public class ReadingRecordsService {
 		PendingReadingCreation pending = repository.startFailedRetry(
 			userId,
 			readingId,
-			generationMetadata
+			generationMetadata,
+			creditProperties.cost(input.kind(), input.spreadType()),
+			creditProperties.dailyFreeGrant()
 		);
 		return creationWorkflow.generatePending(input, pending);
 	}

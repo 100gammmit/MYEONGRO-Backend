@@ -1,6 +1,7 @@
 package com.myeongro.api.domain.profile.entity;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -26,6 +27,15 @@ public class ProfileEntity {
 
 	@Column(name = "purged_at")
 	private Instant purgedAt;
+
+	@Column(name = "free_credit_balance", nullable = false)
+	private int freeCreditBalance;
+
+	@Column(name = "paid_credit_balance", nullable = false)
+	private int paidCreditBalance;
+
+	@Column(name = "free_credit_reset_date")
+	private LocalDate freeCreditResetDate;
 
 	@Column(name = "created_at", insertable = false, updatable = false)
 	private Instant createdAt;

@@ -171,4 +171,27 @@ class FlywayBaselineContractTests {
             .doesNotContain("ip-hash-secret");
     }
 
+    @Test
+    void v9AddsDailyAndPaidCreditsWithoutAUsageLedger() throws IOException {
+        var migration = Files.list(MIGRATION_DIRECTORY)
+            .filter(path -> path.getFileName().toString()
+                .startsWith("V9__daily_reading_credits"))
+            .findFirst()
+            .orElseThrow();
+
+        var sql = Files.readString(migration);
+
+        assertThat(sql)
+            .contains("add column free_credit_balance")
+            .contains("add column paid_credit_balance")
+            .contains("add column free_credit_reset_date")
+            .contains("add column credit_cost")
+            .contains("readings_one_generating_per_user_uq")
+            .contains("create or replace function public.get_reading_credit_status")
+            .contains("create or replace function public.fail_stale_reading_generations")
+            .contains("GENERATION_TIMEOUT")
+            .contains("INSUFFICIENT_READING_CREDITS")
+            .doesNotContain("create table public.reading_credit");
+    }
+
 }

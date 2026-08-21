@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
+import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 import com.myeongro.testsupport.SecurityConfigTestEndpoint;
 
 @WebMvcTest(controllers = SecurityConfigTestEndpoint.class)
@@ -43,6 +44,9 @@ class SecurityConfigTests {
 
 	@MockitoBean
 	private OidcSessionUserService oidcSessionUserService;
+
+	@MockitoBean
+	private ReadingCreditService readingCreditService;
 
 	@Test
 	void requiresAuthenticationForReadingCreationEndpoint() throws Exception {

@@ -109,6 +109,18 @@ app:
         reports:
           birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v4.md
 
+  reading-credits:
+    daily-free-grant: ${reading.credits.daily-free-grant:10}
+    costs:
+      tarot:
+        daily-one-card: ${reading.credits.costs.tarot.daily-one-card:1}
+        mind-three-card: ${reading.credits.costs.tarot.mind-three-card:2}
+        relationship-three-card: ${reading.credits.costs.tarot.relationship-three-card:2}
+        choice-five-card: ${reading.credits.costs.tarot.choice-five-card:3}
+      saju: ${reading.credits.costs.saju:4}
+    stale-after: ${reading.credits.stale-after:5m}
+    cleanup-cron: "${reading.credits.cleanup-cron:0 */5 * * * *}"
+
   consent:
     versions:
       terms: 2026-06-10

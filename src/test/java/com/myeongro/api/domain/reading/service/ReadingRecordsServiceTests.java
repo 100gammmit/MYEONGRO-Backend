@@ -22,6 +22,7 @@ import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
+import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
 
 class ReadingRecordsServiceTests {
 
@@ -64,7 +65,8 @@ class ReadingRecordsServiceTests {
 			repository,
 			creationWorkflow,
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			org.mockito.Mockito.mock(ReadingInputRestorer.class)
+			org.mockito.Mockito.mock(ReadingInputRestorer.class),
+			ReadingCreditTestFixtures.properties()
 		);
 		CreatedReadingResponse completed = reading(1, "completed");
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(completed));
@@ -74,7 +76,8 @@ class ReadingRecordsServiceTests {
 		org.mockito.Mockito.verifyNoInteractions(creationWorkflow);
 		verify(repository, org.mockito.Mockito.never()).startFailedRetry(
 			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-			org.mockito.ArgumentMatchers.any()
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(),
+			org.mockito.ArgumentMatchers.anyInt()
 		);
 	}
 
@@ -86,7 +89,8 @@ class ReadingRecordsServiceTests {
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
 		ReadingInputRestorer restorer = org.mockito.Mockito.mock(ReadingInputRestorer.class);
 		ReadingRecordsService service = new ReadingRecordsService(
-			repository, creationWorkflow, metadataResolver, restorer
+			repository, creationWorkflow, metadataResolver, restorer,
+			ReadingCreditTestFixtures.properties()
 		);
 		CreatedReadingResponse reading = reading(1, "failed");
 		NormalizedReadingInput input = new NormalizedReadingInput(
@@ -104,10 +108,12 @@ class ReadingRecordsServiceTests {
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading));
 		when(restorer.restore(reading)).thenReturn(input);
 		when(metadataResolver.resolve(input.kind(), input.spreadType())).thenReturn(metadata);
-		when(repository.startFailedRetry(USER_ID, READING_ID, metadata)).thenReturn(pending);
+		when(repository.startFailedRetry(USER_ID, READING_ID, metadata, 2, 10))
+			.thenReturn(pending);
 
 		service.retry(USER_ID, READING_ID);
 
+		verify(repository).startFailedRetry(USER_ID, READING_ID, metadata, 2, 10);
 		verify(creationWorkflow).generatePending(input, pending);
 	}
 
@@ -125,7 +131,8 @@ class ReadingRecordsServiceTests {
 			repository,
 			org.mockito.Mockito.mock(ReadingCreationWorkflow.class),
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			restorer
+			restorer,
+			ReadingCreditTestFixtures.properties()
 		);
 		CreatedReadingResponse legacy = reading(schemaVersion, "failed");
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(legacy));
@@ -139,7 +146,8 @@ class ReadingRecordsServiceTests {
 			repository,
 			org.mockito.Mockito.mock(ReadingCreationWorkflow.class),
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			org.mockito.Mockito.mock(ReadingInputRestorer.class)
+			org.mockito.Mockito.mock(ReadingInputRestorer.class),
+			ReadingCreditTestFixtures.properties()
 		);
 	}
 

@@ -1,22 +1,34 @@
 package com.myeongro.api.domain.reading.controller;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
+import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
+
 @RestControllerAdvice(annotations = ReadingApiController.class)
 public class ReadingExceptionHandler {
+
+	private final ReadingCreditService creditService;
+
+	public ReadingExceptionHandler(ReadingCreditService creditService) {
+		this.creditService = creditService;
+	}
 
 	@ExceptionHandler(RequiredConsentMissingException.class)
 	public ResponseEntity<Map<String, String>> forbidden(Exception exception) {
@@ -36,6 +48,36 @@ public class ReadingExceptionHandler {
 	@ExceptionHandler(ReadingRetryNotAllowedException.class)
 	public ResponseEntity<Map<String, String>> retryConflict(Exception exception) {
 		return ResponseEntity.status(409).body(Map.of("error", "재시도할 수 없는 리딩입니다."));
+	}
+
+	@ExceptionHandler(ReadingGenerationInProgressException.class)
+	public ResponseEntity<Map<String, String>> generationInProgress(
+		ReadingGenerationInProgressException exception
+	) {
+		return ResponseEntity.status(409).body(Map.of(
+			"code", "READING_GENERATION_IN_PROGRESS",
+			"message", exception.getMessage()
+		));
+	}
+
+	@ExceptionHandler(InsufficientReadingCreditsException.class)
+	public ResponseEntity<Map<String, Object>> insufficientCredits(
+		InsufficientReadingCreditsException exception
+	) {
+		var status = creditService.getStatus(exception.getUserId());
+		long retryAfter = Math.max(
+			1,
+			Duration.between(java.time.Instant.now(), status.nextResetAt()).toSeconds()
+		);
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("code", "INSUFFICIENT_READING_CREDITS");
+		body.put("message", exception.getMessage());
+		body.put("required", exception.getRequired());
+		body.put("balance", status.balance());
+		body.put("nextResetAt", status.nextResetAt());
+		return ResponseEntity.status(429)
+			.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfter))
+			.body(body);
 	}
 
 	@ExceptionHandler(OpenAiReadingGenerationException.class)

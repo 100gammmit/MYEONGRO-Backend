@@ -17,6 +17,7 @@ public record PendingReadingCommand(
 	Map<String, Object> input,
 	String provider,
 	String model,
-	String promptVersion
+	String promptVersion,
+	int creditCost
 ) {
 }

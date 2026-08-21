@@ -44,6 +44,7 @@ import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
 import org.springframework.core.io.ClassPathResource;
+import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
 
 class ReadingCreationWorkflowTests {
 
@@ -88,6 +89,7 @@ class ReadingCreationWorkflowTests {
 		assertThat(command.getValue().spreadType())
 			.isEqualTo(TarotSpreadType.RELATIONSHIP_THREE_CARD.value());
 		assertThat(command.getValue().schemaVersion()).isEqualTo(1);
+		assertThat(command.getValue().creditCost()).isEqualTo(2);
 		assertThat(command.getValue().input()).containsOnlyKeys("question", "cards");
 	}
 
@@ -150,6 +152,7 @@ class ReadingCreationWorkflowTests {
 		assertThat(command.getValue().kind()).isEqualTo(ReadingKind.SAJU);
 		assertThat(command.getValue().spreadType()).isNull();
 		assertThat(command.getValue().schemaVersion()).isEqualTo(ReadingSchemaVersions.SAJU);
+		assertThat(command.getValue().creditCost()).isEqualTo(4);
 		assertThat(command.getValue().input()).containsOnlyKeys(
 			"question", "focusArea", "birthProfile", "targetYear", "calculationSnapshot"
 		);
@@ -327,7 +330,8 @@ class ReadingCreationWorkflowTests {
 			repository,
 			generator,
 			new ObjectMapper(),
-			metadataResolver
+			metadataResolver,
+			ReadingCreditTestFixtures.properties()
 		);
 		SajuBirthPlaceCatalog birthPlaceCatalog = new SajuBirthPlaceCatalog(
 			new ObjectMapper(),

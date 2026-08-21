@@ -33,6 +33,10 @@ import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
 import com.myeongro.api.domain.saju.controller.SajuReadingController;
 import com.myeongro.api.domain.saju.controller.SajuReadingCreateRequest;
 import com.myeongro.api.domain.saju.controller.SajuReadingExceptionHandler;
+import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
+import com.myeongro.api.domain.readingcredit.dto.ReadingCreditStatusResponse;
+import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
 import com.myeongro.api.domain.tarot.controller.TarotReadingController;
 import com.myeongro.api.domain.tarot.controller.TarotReadingCreateRequest;
@@ -53,6 +57,7 @@ class ReadingEndpointContractTests {
 	private TarotReadingCreationService tarotCreationService;
 	private SajuReadingCreationService sajuCreationService;
 	private AuthenticatedUserResolver userResolver;
+	private ReadingCreditService creditService;
 	private MockMvc mockMvc;
 
 	@BeforeEach
@@ -60,6 +65,7 @@ class ReadingEndpointContractTests {
 		tarotCreationService = org.mockito.Mockito.mock(TarotReadingCreationService.class);
 		sajuCreationService = org.mockito.Mockito.mock(SajuReadingCreationService.class);
 		userResolver = org.mockito.Mockito.mock(AuthenticatedUserResolver.class);
+		creditService = org.mockito.Mockito.mock(ReadingCreditService.class);
 		mockMvc = MockMvcBuilders.standaloneSetup(
 			new TarotReadingController(tarotCreationService, userResolver),
 			new SajuReadingController(sajuCreationService, userResolver),
@@ -67,8 +73,68 @@ class ReadingEndpointContractTests {
 				org.mockito.Mockito.mock(ReadingRecordsService.class), userResolver
 			)
 		).setControllerAdvice(
-			new ReadingExceptionHandler(), new SajuReadingExceptionHandler()
+			new ReadingExceptionHandler(creditService),
+			new SajuReadingExceptionHandler()
 		).build();
+	}
+
+	@Test
+	void returnsStableConflictWhenAnotherReadingIsGenerating() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(tarotCreationService.create(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(TarotReadingCreateRequest.class)
+		)).thenThrow(new ReadingGenerationInProgressException());
+
+		mockMvc.perform(post("/api/tarot/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validTarotRequest()))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("READING_GENERATION_IN_PROGRESS"))
+			.andExpect(jsonPath("$.message").value("이미 생성 중인 리딩이 있습니다."));
+	}
+
+	@Test
+	void returnsCreditBalanceAndRetryAfterWhenCreditsAreInsufficient() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(tarotCreationService.create(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(TarotReadingCreateRequest.class)
+		)).thenThrow(new InsufficientReadingCreditsException(USER_ID, 2));
+		when(creditService.getStatus(USER_ID)).thenReturn(new ReadingCreditStatusResponse(
+			10,
+			ReadingCreditStatusResponse.Balance.of(1, 0),
+			Instant.now().plusSeconds(3600),
+			false,
+			new ReadingCreditStatusResponse.Costs(Map.of(), 4)
+		));
+
+		mockMvc.perform(post("/api/tarot/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validTarotRequest()))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+				.exists("Retry-After"))
+			.andExpect(jsonPath("$.code").value("INSUFFICIENT_READING_CREDITS"))
+			.andExpect(jsonPath("$.required").value(2))
+			.andExpect(jsonPath("$.balance.total").value(1));
+	}
+
+	private String validTarotRequest() {
+		return """
+			{
+			  "spreadType":"relationship_three_card",
+			  "question":"관계의 흐름이 궁금해요.",
+			  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+			  "selectedSlots":[4,1,5]
+			}
+			""";
 	}
 
 	@Test

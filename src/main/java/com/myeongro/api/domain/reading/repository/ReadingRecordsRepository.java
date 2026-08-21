@@ -18,6 +18,8 @@ public interface ReadingRecordsRepository {
 	PendingReadingCreation startFailedRetry(
 		UUID userId,
 		UUID readingId,
-		ReadingGenerationMetadata metadata
+		ReadingGenerationMetadata metadata,
+		int creditCost,
+		int dailyFreeGrant
 	);
 }
