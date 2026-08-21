@@ -37,4 +37,12 @@ out/
 .vscode/
 
 ### secret ###
-applicaiton-secret.yaml
+application-secret.yaml
+.env
+
+### local ###
+application-dev.yaml
+AGENTS.md
+
+### docs ###
+/docs/
