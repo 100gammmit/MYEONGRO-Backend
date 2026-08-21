@@ -56,6 +56,7 @@ drop function public.create_pending_reading(
   uuid, uuid, text, public.reading_kind, text, integer, jsonb, text, text, text
 );
 drop function public.complete_reading_generation(uuid, bigint, text, jsonb);
+drop function public.fail_reading_generation(uuid, bigint, text);
 drop function public.start_failed_reading_retry(uuid, uuid, text, text, text);
 
 create or replace function public.apply_daily_reading_credit_reset(
@@ -282,6 +283,7 @@ set search_path = pg_catalog
 as $$
 declare
   owned_reading public.readings%rowtype;
+  reading_user_id uuid;
   free_balance integer;
   paid_balance integer;
   free_debit integer;
@@ -289,6 +291,17 @@ declare
   balance_mismatch boolean := false;
   changed_rows integer;
 begin
+  select readings.user_id into reading_user_id
+  from public.readings
+  where readings.id = requested_reading_id;
+  if not found then
+    raise exception 'READING_STATE_CONFLICT' using errcode = 'RL108';
+  end if;
+
+  perform pg_advisory_xact_lock(
+    hashtextextended('reading-credit:' || reading_user_id::text, 0)
+  );
+
   select * into owned_reading
   from public.readings
   where readings.id = requested_reading_id
@@ -336,6 +349,57 @@ begin
   where readings.id = requested_reading_id;
 
   return balance_mismatch;
+end;
+$$;
+
+create or replace function public.fail_reading_generation(
+  requested_reading_id uuid,
+  requested_generation_id bigint,
+  requested_error_code text
+)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $$
+declare
+  reading_user_id uuid;
+  changed_rows integer;
+begin
+  select readings.user_id into reading_user_id
+  from public.readings
+  where readings.id = requested_reading_id;
+  if not found then
+    raise exception 'READING_STATE_CONFLICT' using errcode = 'RL108';
+  end if;
+
+  perform pg_advisory_xact_lock(
+    hashtextextended('reading-credit:' || reading_user_id::text, 0)
+  );
+
+  perform 1
+  from public.readings
+  where readings.id = requested_reading_id
+    and readings.status = 'generating'
+    and readings.deleted_at is null
+  for update;
+  if not found then
+    raise exception 'READING_STATE_CONFLICT' using errcode = 'RL108';
+  end if;
+
+  update public.generation_records
+  set status = 'failed', error_code = requested_error_code
+  where generation_records.id = requested_generation_id
+    and generation_records.reading_id = requested_reading_id
+    and generation_records.status = 'pending';
+  get diagnostics changed_rows = row_count;
+  if changed_rows <> 1 then
+    raise exception 'GENERATION_STATE_CONFLICT' using errcode = 'RL107';
+  end if;
+
+  update public.readings
+  set status = 'failed'
+  where readings.id = requested_reading_id;
 end;
 $$;
 
@@ -426,6 +490,7 @@ set search_path = pg_catalog
 as $$
 declare
   candidate record;
+  locked_reading_status text;
   failed_count integer := 0;
 begin
   if requested_stale_after is null or requested_stale_after <= interval '0 seconds' then
@@ -433,7 +498,7 @@ begin
   end if;
 
   for candidate in
-    select gr.id as generation_id, gr.reading_id
+    select gr.id as generation_id, gr.reading_id, r.user_id
     from public.generation_records gr
     join public.readings r on r.id = gr.reading_id
     where gr.status = 'pending'
@@ -441,8 +506,23 @@ begin
       and r.deleted_at is null
       and gr.created_at < current_timestamp - requested_stale_after
     order by gr.created_at
-    for update of gr, r skip locked
   loop
+    if not pg_try_advisory_xact_lock(
+      hashtextextended('reading-credit:' || candidate.user_id::text, 0)
+    ) then
+      continue;
+    end if;
+
+    select readings.status::text into locked_reading_status
+    from public.readings
+    where readings.id = candidate.reading_id
+      and readings.status = 'generating'
+      and readings.deleted_at is null
+    for update;
+    if not found then
+      continue;
+    end if;
+
     update public.generation_records
     set status = 'failed', error_code = 'GENERATION_TIMEOUT'
     where generation_records.id = candidate.generation_id
@@ -483,6 +563,9 @@ grant execute on function public.create_pending_reading(
 ) to service_role;
 grant execute on function public.complete_reading_generation(
   uuid, bigint, text, jsonb, integer
+) to service_role;
+grant execute on function public.fail_reading_generation(
+  uuid, bigint, text
 ) to service_role;
 grant execute on function public.start_failed_reading_retry(
   uuid, uuid, text, text, text, integer, integer

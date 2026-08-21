@@ -96,7 +96,9 @@ class FlywayFreshPostgresReplayTests {
 
 		UUID completedRequestId = UUID.randomUUID();
 		PendingReading completed = createPending(jdbcUrl, username, password, userId, completedRequestId, "hash-a");
-		complete(jdbcUrl, username, password, completed);
+		verifyCompletionAndReplayDoNotDeadlock(
+			jdbcUrl, username, password, userId, completedRequestId, completed
+		);
 		assertBalances(jdbcUrl, username, password, userId, 9, 0);
 
 		PendingReading reused = createPending(jdbcUrl, username, password, userId, completedRequestId, "hash-a");
@@ -180,6 +182,109 @@ class FlywayFreshPostgresReplayTests {
 			}
 		}
 		verifyStaleCleanup(jdbcUrl, username, password, userId, requestId);
+	}
+
+	private void verifyCompletionAndReplayDoNotDeadlock(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId,
+		UUID requestId,
+		PendingReading pending
+	) throws Exception {
+		var executor = Executors.newFixedThreadPool(2);
+		try (var blocker = DriverManager.getConnection(jdbcUrl, username, password)) {
+			blocker.setAutoCommit(false);
+			try (var lock = blocker.prepareStatement("""
+				 select id from public.readings where id = ? for update
+				 """)) {
+				lock.setObject(1, pending.readingId());
+				try (var resultSet = lock.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+				}
+			}
+
+			var completion = executor.submit(() -> {
+				complete(jdbcUrl, username, password, pending);
+				return "completed";
+			});
+			awaitUserAdvisoryLock(jdbcUrl, username, password, userId);
+
+			var replay = executor.submit(() -> createPending(
+				jdbcUrl, username, password, userId, requestId, "hash-a"
+			));
+			awaitAdvisoryWaiter(jdbcUrl, username, password);
+
+			blocker.commit();
+			assertThat(completion.get(5, TimeUnit.SECONDS)).isEqualTo("completed");
+			assertThat(replay.get(5, TimeUnit.SECONDS)).isEqualTo(
+				new PendingReading(pending.readingId(), pending.generationId(), false)
+			);
+		} finally {
+			executor.shutdownNow();
+			assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+		}
+	}
+
+	private void awaitUserAdvisoryLock(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId
+	) throws Exception {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+				 var statement = connection.prepareStatement("""
+					 select pg_try_advisory_lock(
+					   hashtextextended('reading-credit:' || ?::text, 0)
+					 )
+					 """)) {
+				statement.setObject(1, userId);
+				try (var resultSet = statement.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					if (!resultSet.getBoolean(1)) {
+						return;
+					}
+				}
+				try (var unlock = connection.prepareStatement("""
+					 select pg_advisory_unlock(
+					   hashtextextended('reading-credit:' || ?::text, 0)
+					 )
+					 """)) {
+					unlock.setObject(1, userId);
+					unlock.execute();
+				}
+			}
+			Thread.sleep(25);
+		}
+		throw new AssertionError("Completion did not acquire the user advisory lock first");
+	}
+
+	private void awaitAdvisoryWaiter(
+		String jdbcUrl,
+		String username,
+		String password
+	) throws Exception {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+				 var statement = connection.prepareStatement("""
+					 select exists (
+					   select 1 from pg_locks
+					   where locktype = 'advisory' and not granted
+					 )
+					 """)) {
+				try (var resultSet = statement.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					if (resultSet.getBoolean(1)) {
+						return;
+					}
+				}
+			}
+			Thread.sleep(25);
+		}
+		throw new AssertionError("Replay did not wait for the user advisory lock");
 	}
 
 	private String reservationOutcome(
