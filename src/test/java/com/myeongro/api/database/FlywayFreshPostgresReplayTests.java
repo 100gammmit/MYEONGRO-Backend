@@ -83,7 +83,31 @@ class FlywayFreshPostgresReplayTests {
 			}
 		}
 
+		verifyFailureFunctionPrivileges(jdbcUrl, username, password);
 		verifyReadingCreationContract(jdbcUrl, username, password);
+	}
+
+	private void verifyFailureFunctionPrivileges(String jdbcUrl, String username, String password)
+		throws SQLException {
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var statement = connection.createStatement();
+			 var resultSet = statement.executeQuery("""
+				 select
+				   has_function_privilege(
+				     'anon', 'public.fail_reading_generation(uuid,bigint,text)', 'EXECUTE'
+				   ),
+				   has_function_privilege(
+				     'authenticated', 'public.fail_reading_generation(uuid,bigint,text)', 'EXECUTE'
+				   ),
+				   has_function_privilege(
+				     'service_role', 'public.fail_reading_generation(uuid,bigint,text)', 'EXECUTE'
+				   )
+				 """)) {
+			assertThat(resultSet.next()).isTrue();
+			assertThat(resultSet.getBoolean(1)).isFalse();
+			assertThat(resultSet.getBoolean(2)).isFalse();
+			assertThat(resultSet.getBoolean(3)).isTrue();
+		}
 	}
 
 	private void verifyReadingCreationContract(String jdbcUrl, String username, String password) throws Exception {

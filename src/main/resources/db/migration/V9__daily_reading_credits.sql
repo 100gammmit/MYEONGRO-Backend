@@ -548,6 +548,9 @@ revoke all on function public.create_pending_reading(
 revoke all on function public.complete_reading_generation(
   uuid, bigint, text, jsonb, integer
 ) from public;
+revoke all on function public.fail_reading_generation(
+  uuid, bigint, text
+) from public;
 revoke all on function public.start_failed_reading_retry(
   uuid, uuid, text, text, text, integer, integer
 ) from public;

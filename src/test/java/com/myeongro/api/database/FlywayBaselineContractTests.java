@@ -189,6 +189,7 @@ class FlywayBaselineContractTests {
             .contains("readings_one_generating_per_user_uq")
             .contains("create or replace function public.get_reading_credit_status")
             .contains("create or replace function public.fail_stale_reading_generations")
+            .contains("revoke all on function public.fail_reading_generation")
             .contains("GENERATION_TIMEOUT")
             .contains("INSUFFICIENT_READING_CREDITS")
             .doesNotContain("create table public.reading_credit");
