@@ -16,6 +16,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.myeongro.api.domain.consent.controller.ConsentController;
 import com.myeongro.api.domain.consent.service.ConsentService;
+import com.myeongro.api.domain.dailycard.controller.DailyCardSelectionController;
+import com.myeongro.api.domain.dailycard.service.DailyCardSelectionService;
 import com.myeongro.api.domain.reading.controller.ReadingRecordsController;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
@@ -34,7 +36,8 @@ import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 	TarotReadingController.class,
 	SajuReadingController.class,
 	ReadingRecordsController.class,
-	SajuBirthPlaceController.class
+	SajuBirthPlaceController.class,
+	DailyCardSelectionController.class
 })
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {
@@ -68,6 +71,9 @@ class AuthenticatedReadingSecurityTests {
 
 	@MockitoBean
 	private ReadingCreditService readingCreditService;
+
+	@MockitoBean
+	private DailyCardSelectionService dailyCardSelectionService;
 
 	@MockitoBean
 	private SajuBirthPlaceCatalog sajuBirthPlaceCatalog;
@@ -110,6 +116,20 @@ class AuthenticatedReadingSecurityTests {
 			.andExpect(status().isUnauthorized());
 
 		verifyNoInteractions(tarotReadingCreationService, sajuReadingCreationService, userResolver);
+	}
+
+	@Test
+	void unauthenticatedDailyCardSelectionReachesPublicController() throws Exception {
+		mockMvc.perform(post("/api/tarot/daily-card-selections")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "drawId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "selectedSlot":3,
+					  "contentVersion":"daily-one-card-static-v1"
+					}
+					"""))
+			.andExpect(status().isOk());
 	}
 
 	@Test

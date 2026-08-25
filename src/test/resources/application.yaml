@@ -27,6 +27,9 @@ spring:
             user-name-attribute: id
 
 app:
+  daily-card:
+    content-version: daily-one-card-static-v1
+    variant-count: 6
 
   reading:
     tarot-selection-secret: test-only-tarot-selection-secret-32-bytes
@@ -51,7 +54,6 @@ app:
     daily-free-grant: 10
     costs:
       tarot:
-        daily-one-card: 1
         mind-three-card: 2
         relationship-three-card: 2
         choice-five-card: 3

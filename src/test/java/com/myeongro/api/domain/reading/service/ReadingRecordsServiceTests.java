@@ -141,6 +141,38 @@ class ReadingRecordsServiceTests {
 			.isInstanceOf(ReadingRetryNotAllowedException.class);
 	}
 
+	@Test
+	void rejectsRetryForLegacyDailyOneCardFailures() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingInputRestorer restorer = org.mockito.Mockito.mock(ReadingInputRestorer.class);
+		ReadingGenerationMetadataResolver metadataResolver = org.mockito.Mockito.mock(
+			ReadingGenerationMetadataResolver.class
+		);
+		ReadingRecordsService service = new ReadingRecordsService(
+			repository,
+			org.mockito.Mockito.mock(ReadingCreationWorkflow.class),
+			metadataResolver,
+			restorer,
+			ReadingCreditTestFixtures.properties()
+		);
+		CreatedReadingResponse failed = reading(1, "failed");
+		NormalizedReadingInput dailyInput = new NormalizedReadingInput(
+			ReadingKind.TAROT,
+			TarotSpreadType.DAILY_ONE_CARD.value(),
+			1,
+			"오늘의 흐름",
+			failed.input(),
+			failed.input()
+		);
+		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(failed));
+		when(restorer.restore(failed)).thenReturn(dailyInput);
+
+		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))
+			.isInstanceOf(ReadingRetryNotAllowedException.class);
+
+		org.mockito.Mockito.verifyNoInteractions(metadataResolver);
+	}
+
 	private ReadingRecordsService service(ReadingRecordsRepository repository) {
 		return new ReadingRecordsService(
 			repository,

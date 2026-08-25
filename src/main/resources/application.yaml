@@ -90,6 +90,10 @@ management:
 app:
   frontend-origin: ${frontend.origin:http://localhost:3000}
 
+  daily-card:
+    content-version: daily-one-card-static-v1
+    variant-count: 6
+
   reading:
     tarot-selection-secret: ${tarot.selection-secret}
     openai:
@@ -113,7 +117,6 @@ app:
     daily-free-grant: ${reading.credits.daily-free-grant:10}
     costs:
       tarot:
-        daily-one-card: ${reading.credits.costs.tarot.daily-one-card:1}
         mind-three-card: ${reading.credits.costs.tarot.mind-three-card:2}
         relationship-three-card: ${reading.credits.costs.tarot.relationship-three-card:2}
         choice-five-card: ${reading.credits.costs.tarot.choice-five-card:3}

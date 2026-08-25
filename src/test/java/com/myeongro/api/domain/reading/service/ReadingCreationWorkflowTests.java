@@ -30,6 +30,7 @@ import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
@@ -40,6 +41,7 @@ import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
 import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
 import com.myeongro.api.domain.saju.service.SajuReadingInputNormalizer;
 import com.myeongro.api.domain.tarot.service.TarotCardSelector;
+import com.myeongro.api.domain.tarot.selection.TarotCardRanker;
 import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
@@ -91,6 +93,28 @@ class ReadingCreationWorkflowTests {
 		assertThat(command.getValue().schemaVersion()).isEqualTo(1);
 		assertThat(command.getValue().creditCost()).isEqualTo(2);
 		assertThat(command.getValue().input()).containsOnlyKeys("question", "cards");
+	}
+
+	@Test
+	void rejectsDailyOneCardFromTheAiReadingWorkflow() {
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(
+			ReadingCreationRepository.class
+		);
+		TarotReadingCreateRequest dailyRequest = new TarotReadingCreateRequest(
+			"daily_one_card",
+			"오늘의 흐름이 궁금해요.",
+			REQUEST_ID,
+			List.of(1),
+			null
+		);
+
+		assertThatThrownBy(() -> service(
+			acceptedConsent(), repository, successfulGenerator()
+		).createTarotReading(USER_ID, REQUEST_ID, dailyRequest))
+			.isInstanceOf(InvalidReadingRequestException.class)
+			.hasMessageContaining("무료 카드 선택 화면");
+
+		verifyNoInteractions(repository);
 	}
 
 	@Test
@@ -341,7 +365,9 @@ class ReadingCreationWorkflowTests {
 			workflow,
 			new TarotReadingCreationService(
 				workflow,
-				new TarotCardSelector("test-only-tarot-selection-secret-32-bytes"),
+				new TarotCardSelector(new TarotCardRanker(
+					"test-only-tarot-selection-secret-32-bytes"
+				)),
 				new TarotReadingInputNormalizer()
 			),
 			new SajuReadingCreationService(

@@ -45,14 +45,15 @@ public record ReadingCreditProperties(
 	}
 
 	public record Tarot(
-		@Positive int dailyOneCard,
 		@Positive int mindThreeCard,
 		@Positive int relationshipThreeCard,
 		@Positive int choiceFiveCard
 	) {
 		public int cost(TarotSpreadType spreadType) {
 			return switch (spreadType) {
-				case DAILY_ONE_CARD -> dailyOneCard;
+				case DAILY_ONE_CARD -> throw new IllegalArgumentException(
+					"Daily one card is not an AI-generated reading"
+				);
 				case MIND_THREE_CARD -> mindThreeCard;
 				case RELATIONSHIP_THREE_CARD -> relationshipThreeCard;
 				case CHOICE_FIVE_CARD -> choiceFiveCard;

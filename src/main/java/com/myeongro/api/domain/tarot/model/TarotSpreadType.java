@@ -96,6 +96,10 @@ public enum TarotSpreadType {
 		return maxOutputTokens;
 	}
 
+	public boolean supportsAiGeneration() {
+		return this != DAILY_ONE_CARD;
+	}
+
 	@JsonCreator
 	public static TarotSpreadType fromValue(String value) {
 		return Arrays.stream(values())

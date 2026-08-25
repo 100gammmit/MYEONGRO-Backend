@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
+import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.service.ReadingCreationWorkflow;
 import com.myeongro.api.domain.tarot.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
@@ -36,6 +37,13 @@ public class TarotReadingCreationService {
 			requestId,
 			() -> {
 				TarotSpreadType spread = TarotSpreadType.fromValue(request.spreadType());
+				if (!spread.supportsAiGeneration()) {
+					throw new InvalidReadingRequestException(
+						"STATIC_DAILY_CARD_ONLY",
+						"spreadType",
+						"오늘의 한 장은 무료 카드 선택 화면을 이용해 주세요."
+					);
+				}
 				var cardIds = cardSelector.select(
 					userId, requestId, spread, request.selectedSlots()
 				);
