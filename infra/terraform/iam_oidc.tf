@@ -1,0 +1,115 @@
+# GitHub's OIDC token endpoint. Thumbprints are GitHub's well-known intermediate
+# and root CA fingerprints for token.actions.githubusercontent.com.
+resource "aws_iam_openid_connect_provider" "github" {
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd",
+  ]
+}
+
+# Both roles trust the same OIDC provider and differ only in which GitHub
+# `sub` claim they accept — factored into one for_each'd document so a future
+# trust-condition change (e.g. an added `iss` check) can't be applied to one
+# role's policy and forgotten on the other.
+locals {
+  oidc_trust_subjects = {
+    publish = "repo:${var.github_repository}:ref:refs/heads/main"
+    deploy  = "repo:${var.github_repository}:environment:production"
+  }
+}
+
+data "aws_iam_policy_document" "oidc_trust" {
+  for_each = local.oidc_trust_subjects
+
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = [each.value]
+    }
+  }
+}
+
+# --- publish role: ECR push only, restricted to the main branch ref ---
+
+resource "aws_iam_role" "publish" {
+  name               = "${var.project_name}-backend-github-publish"
+  assume_role_policy = data.aws_iam_policy_document.oidc_trust["publish"].json
+}
+
+data "aws_iam_policy_document" "publish_permissions" {
+  source_policy_documents = [data.aws_iam_policy_document.ecr_auth.json]
+
+  statement {
+    sid    = "EcrPush"
+    effect = "Allow"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:PutImage",
+    ]
+    resources = [aws_ecr_repository.backend.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "publish" {
+  name   = "ecr-push"
+  role   = aws_iam_role.publish.id
+  policy = data.aws_iam_policy_document.publish_permissions.json
+}
+
+# --- deploy role: SSM Run Command only, restricted to the protected production environment ---
+
+resource "aws_iam_role" "deploy" {
+  name               = "${var.project_name}-backend-github-deploy"
+  assume_role_policy = data.aws_iam_policy_document.oidc_trust["deploy"].json
+}
+
+# Mirrors the example policy documented in deploy/README.md (dev branch, which
+# this branch was forked before and doesn't carry). Keep the two in sync by hand
+# until the branches converge; that file has no automated link to this one.
+data "aws_iam_policy_document" "deploy_permissions" {
+  statement {
+    sid     = "SendBackendDeployCommand"
+    effect  = "Allow"
+    actions = ["ssm:SendCommand"]
+    resources = [
+      aws_instance.backend.arn,
+      "arn:${data.aws_partition.current.partition}:ssm:${var.aws_region}::document/AWS-RunShellScript",
+    ]
+  }
+
+  statement {
+    sid    = "InspectAndCancelBackendDeployCommand"
+    effect = "Allow"
+    actions = [
+      "ssm:GetCommandInvocation",
+      "ssm:CancelCommand",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "deploy" {
+  name   = "ssm-deploy"
+  role   = aws_iam_role.deploy.id
+  policy = data.aws_iam_policy_document.deploy_permissions.json
+}
