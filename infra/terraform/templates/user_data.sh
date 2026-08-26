@@ -1,6 +1,13 @@
 #!/bin/bash
 set -euxo pipefail
 
+# Best-effort: apply whatever patches exist at boot time. `|| true` keeps a
+# transient failure on some unrelated package from aborting the whole
+# bootstrap (the actual risk that got this line removed once already) --
+# without it, this instance would never get patched at all, since the AMI is
+# frozen after creation (see aws_instance.backend's lifecycle block) and
+# user_data only runs on first boot.
+dnf update -y || true
 dnf install -y docker unzip
 
 systemctl enable --now docker
