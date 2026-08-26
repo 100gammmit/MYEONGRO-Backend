@@ -67,7 +67,7 @@ resource "aws_iam_instance_profile" "backend_host" {
 }
 
 resource "aws_instance" "backend" {
-  ami           = data.aws_ami.al2023.id
+  ami           = data.aws_ssm_parameter.al2023_ami.value
   instance_type = var.instance_type
   # sort() keeps this deterministic across applies; DescribeSubnets does not
   # guarantee a stable order, and subnet_id is ForceNew on aws_instance.

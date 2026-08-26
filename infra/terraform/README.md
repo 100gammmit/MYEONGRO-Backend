@@ -24,7 +24,15 @@ provider authenticates as the named profile in `var.aws_profile` (default `myeon
 whatever `AWS_PROFILE` happens to be set to — this is deliberate, so a stray default AWS
 profile in your shell can't cause `apply` to silently run against the wrong account. Configure
 that profile (`aws configure --profile myeongro` or `aws sso login --profile myeongro`), or
-override it with `-var="aws_profile=<name>"` if you use a different profile name.
+override it with `-var="aws_profile=<name>"` if you use a different profile name. `apply`
+also refuses to run against any account other than `var.aws_account_id` (default the
+`myeongro` account), so a repointed/misconfigured profile fails loudly instead of silently
+changing the wrong account's infrastructure.
+
+The target account/region must have a default VPC — AWS creates one automatically for new
+accounts/regions unless it was deliberately deleted. If `plan`/`apply` fails on
+`data.aws_vpc.default` with "no matching VPC found", create one (`aws ec2
+create-default-vpc`) or point this module at a different, existing VPC/subnets instead.
 
 ## After `terraform apply`
 
@@ -51,3 +59,14 @@ override it with `-var="aws_profile=<name>"` if you use a different profile name
    See `deploy/README.md` (on the `dev` branch) for the required dotenv keys.
 4. Point `DATABASE_URL` in that dotenv at a Postgres instance (RDS or otherwise) — this
    module does not provision one.
+
+## AMI updates
+
+`aws_instance.backend` ignores AMI changes after creation (see the `lifecycle` block in
+`ec2.tf`) so a routine `apply` after AWS republishes the `al2023` AMI doesn't
+destroy/recreate the running instance. To deliberately move to a newer AMI, run:
+```sh
+terraform apply -replace=aws_instance.backend
+```
+This replaces the instance (new EBS root volume, loses anything not in `/opt/myeongro/env`'s
+SSM-backed state) and re-runs `templates/user_data.sh` from scratch.

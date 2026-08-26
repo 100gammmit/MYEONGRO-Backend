@@ -9,9 +9,20 @@ resource "aws_iam_openid_connect_provider" "github" {
   ]
 }
 
-# --- publish role: ECR push only, restricted to the main branch ref ---
+# Both roles trust the same OIDC provider and differ only in which GitHub
+# `sub` claim they accept — factored into one for_each'd document so a future
+# trust-condition change (e.g. an added `iss` check) can't be applied to one
+# role's policy and forgotten on the other.
+locals {
+  oidc_trust_subjects = {
+    publish = "repo:${var.github_repository}:ref:refs/heads/main"
+    deploy  = "repo:${var.github_repository}:environment:production"
+  }
+}
 
-data "aws_iam_policy_document" "publish_trust" {
+data "aws_iam_policy_document" "oidc_trust" {
+  for_each = local.oidc_trust_subjects
+
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -30,14 +41,16 @@ data "aws_iam_policy_document" "publish_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/main"]
+      values   = [each.value]
     }
   }
 }
 
+# --- publish role: ECR push only, restricted to the main branch ref ---
+
 resource "aws_iam_role" "publish" {
   name               = "${var.project_name}-backend-github-publish"
-  assume_role_policy = data.aws_iam_policy_document.publish_trust.json
+  assume_role_policy = data.aws_iam_policy_document.oidc_trust["publish"].json
 }
 
 data "aws_iam_policy_document" "publish_permissions" {
@@ -70,35 +83,14 @@ resource "aws_iam_role_policy" "publish" {
 
 # --- deploy role: SSM Run Command only, restricted to the protected production environment ---
 
-data "aws_iam_policy_document" "deploy_trust" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-
-    principals {
-      type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:aud"
-      values   = ["sts.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:environment:production"]
-    }
-  }
-}
-
 resource "aws_iam_role" "deploy" {
   name               = "${var.project_name}-backend-github-deploy"
-  assume_role_policy = data.aws_iam_policy_document.deploy_trust.json
+  assume_role_policy = data.aws_iam_policy_document.oidc_trust["deploy"].json
 }
 
+# Mirrors the example policy documented in deploy/README.md (dev branch, which
+# this branch was forked before and doesn't carry). Keep the two in sync by hand
+# until the branches converge; that file has no automated link to this one.
 data "aws_iam_policy_document" "deploy_permissions" {
   statement {
     sid     = "SendBackendDeployCommand"

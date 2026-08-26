@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euxo pipefail
 
-dnf update -y
 dnf install -y docker unzip
 
 systemctl enable --now docker
@@ -19,5 +18,8 @@ if ! command -v aws >/dev/null 2>&1; then
   rm -rf /tmp/awscliv2.zip /tmp/aws
 fi
 
+# These paths/modes are also hardcoded in deploy/send-ssm-command.sh and
+# deploy/deploy.sh (dev branch, not present here) — keep all three in sync by
+# hand until the branches converge.
 install -d -m 755 /opt/myeongro/releases
 install -d -m 700 /opt/myeongro/env

@@ -10,6 +10,12 @@ variable "aws_profile" {
   default     = "myeongro"
 }
 
+variable "aws_account_id" {
+  description = "Expected AWS account ID. Belt-and-suspenders alongside var.aws_profile: if that profile is ever repointed at a different account (re-run of aws sso login, rotated/misconfigured credentials), apply refuses to run instead of silently changing the wrong account's infrastructure."
+  type        = string
+  default     = "985950391107"
+}
+
 variable "project_name" {
   description = "Prefix used for resource names and tags"
   type        = string
