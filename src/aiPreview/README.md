@@ -56,14 +56,13 @@ src/aiPreview/resources/ai-preview/cases/saju/
 바로 복사해 수정할 수 있는 sample fixture는 다음과 같다.
 
 ```text
-tarot/sample-daily-one-card.json
 tarot/sample-mind-three-card.json
 tarot/sample-relationship-three-card.json
 tarot/sample-choice-five-card.json
 saju/sample.json
 ```
 
-Tarot sample은 각 스프레드의 실제 카드 수와 canonical position 순서를 사용하며,
+Tarot sample은 AI 생성 대상인 세 스프레드의 실제 카드 수와 canonical position 순서를 사용하며,
 choice sample에는 운영 입력과 동일한 `choiceOptions.a`, `choiceOptions.b`가 포함된다.
 
 sample을 복사하거나 수정한 뒤에는 실제 호출 전에 운영 코드와의 입력 계약을
