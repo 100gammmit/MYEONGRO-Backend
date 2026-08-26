@@ -19,8 +19,12 @@ terraform plan
 terraform apply
 ```
 
-Requires AWS credentials with sufficient privileges (IAM, EC2, ECR, SSM, KMS read) in your
-environment (e.g. `AWS_PROFILE` or `aws sso login`).
+Requires AWS credentials with sufficient privileges (IAM, EC2, ECR, SSM, KMS read). The
+provider authenticates as the named profile in `var.aws_profile` (default `myeongro`), not
+whatever `AWS_PROFILE` happens to be set to — this is deliberate, so a stray default AWS
+profile in your shell can't cause `apply` to silently run against the wrong account. Configure
+that profile (`aws configure --profile myeongro` or `aws sso login --profile myeongro`), or
+override it with `-var="aws_profile=<name>"` if you use a different profile name.
 
 ## After `terraform apply`
 

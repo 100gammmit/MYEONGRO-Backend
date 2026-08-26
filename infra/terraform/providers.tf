@@ -1,6 +1,6 @@
 provider "aws" {
   region  = var.aws_region
-  profile = "myeongro"
+  profile = var.aws_profile
 
   default_tags {
     tags = {

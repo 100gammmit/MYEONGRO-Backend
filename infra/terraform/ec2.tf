@@ -26,7 +26,7 @@ data "aws_iam_policy_document" "backend_host_permissions" {
     sid       = "ReadBackendEnvParameter"
     effect    = "Allow"
     actions   = ["ssm:GetParameter"]
-    resources = ["arn:${data.aws_partition.current.partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_parameter_name}"]
+    resources = [aws_ssm_parameter.backend_env.arn]
   }
 
   statement {
@@ -90,5 +90,13 @@ resource "aws_instance" "backend" {
 
   tags = {
     Name = "${var.project_name}-backend"
+  }
+
+  # AWS republishes a new al2023 AMI regularly; without this, a plain `terraform
+  # apply` after one ships would destroy/recreate this instance for an AMI bump
+  # nobody asked for. Replace deliberately (taint/apply with a new default) when
+  # you actually want to move to a newer AMI.
+  lifecycle {
+    ignore_changes = [ami]
   }
 }

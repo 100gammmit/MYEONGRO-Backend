@@ -4,6 +4,12 @@ variable "aws_region" {
   default     = "ap-northeast-2"
 }
 
+variable "aws_profile" {
+  description = "Named AWS CLI profile the provider authenticates as. Set explicitly (rather than left to AWS_PROFILE/the default profile) so a misconfigured shell can't silently apply against the wrong AWS account."
+  type        = string
+  default     = "myeongro"
+}
+
 variable "project_name" {
   description = "Prefix used for resource names and tags"
   type        = string
