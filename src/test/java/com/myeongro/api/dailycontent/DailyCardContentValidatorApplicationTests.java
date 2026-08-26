@@ -112,6 +112,25 @@ class DailyCardContentValidatorApplicationTests {
 			.hasMessageContaining("exactly one declarative sentence");
 	}
 
+	@Test
+	void doesNotTreatACardNameInsideAnotherWordAsEvidence() {
+		List<DailyCardContentValidatorApplication.Content> content =
+			new ArrayList<>(content(List.of("major-18-moon")));
+		var first = content.getFirst();
+		content.set(0, new DailyCardContentValidatorApplication.Content(
+			first.cardId(), first.variantIndex(), first.title(),
+			new DailyCardContentValidatorApplication.Today(
+				first.today().heading(), "달빛이 synthetic evidence를 보여줘요."
+			),
+			first.guidance(), first.disclaimer()
+		));
+
+		assertThatThrownBy(() -> validatePilot(content, List.of("major-18-moon")))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("major-18-moon#0")
+			.hasMessageContaining("Card name evidence is not exactly once");
+	}
+
 	private void validatePilot(
 		List<DailyCardContentValidatorApplication.Content> content,
 		List<String> cards

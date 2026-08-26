@@ -178,7 +178,11 @@ public final class DailyCardContentValidatorApplication {
 	}
 
 	private static int occurrences(String text, String target) {
-		return text.split(Pattern.quote(target), -1).length - 1;
+		Pattern cardNameMention = Pattern.compile(
+			"(?<![가-힣])" + Pattern.quote(target)
+				+ "(?=(?:은|는|이|가|의|을|를|과|와|에서|에게|으로|로|처럼)?(?:\\s|[,.!?:;]|$))"
+		);
+		return Math.toIntExact(cardNameMention.matcher(text).results().count());
 	}
 
 	static String cardName(String cardId) {

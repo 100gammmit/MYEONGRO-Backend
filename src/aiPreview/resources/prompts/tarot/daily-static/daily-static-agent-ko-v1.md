@@ -3,6 +3,7 @@
 ## 작업 입력
 
 - 카드별 해석 근거는 활성 카드 사전 `src/main/resources/prompts/tarot/arcana/major/major-arcana-ko-v4.md`에서 해당 카드 섹션만 읽어 사용하세요.
+- 카드 사전에 없는 고전 덱의 그림, 인물 자세, 색, 소품, 동물이나 배경을 알고 있더라도 추가하지 마세요. 카드 근거는 사전에 적힌 추상 의미를 생활 언어로 풀어 쓰세요.
 - Preview는 지정된 1~10장, 실사용 세트는 Major Arcana 22장을 대상으로 카드당 서로 다른 결과 6개를 작성하세요.
 - OpenAI API나 다른 외부 생성 API를 호출하지 마세요.
 
