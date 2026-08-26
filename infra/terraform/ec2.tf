@@ -22,6 +22,8 @@ resource "aws_iam_role_policy_attachment" "backend_host_ssm_core" {
 }
 
 data "aws_iam_policy_document" "backend_host_permissions" {
+  source_policy_documents = [data.aws_iam_policy_document.ecr_auth.json]
+
   statement {
     sid       = "ReadBackendEnvParameter"
     effect    = "Allow"
@@ -34,13 +36,6 @@ data "aws_iam_policy_document" "backend_host_permissions" {
     effect    = "Allow"
     actions   = ["kms:Decrypt"]
     resources = [data.aws_kms_key.ssm.arn]
-  }
-
-  statement {
-    sid       = "EcrAuth"
-    effect    = "Allow"
-    actions   = ["ecr:GetAuthorizationToken"]
-    resources = ["*"]
   }
 
   statement {

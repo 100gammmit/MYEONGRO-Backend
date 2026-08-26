@@ -54,12 +54,7 @@ resource "aws_iam_role" "publish" {
 }
 
 data "aws_iam_policy_document" "publish_permissions" {
-  statement {
-    sid       = "EcrAuth"
-    effect    = "Allow"
-    actions   = ["ecr:GetAuthorizationToken"]
-    resources = ["*"]
-  }
+  source_policy_documents = [data.aws_iam_policy_document.ecr_auth.json]
 
   statement {
     sid    = "EcrPush"
@@ -97,7 +92,7 @@ data "aws_iam_policy_document" "deploy_permissions" {
     effect  = "Allow"
     actions = ["ssm:SendCommand"]
     resources = [
-      "arn:${data.aws_partition.current.partition}:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${aws_instance.backend.id}",
+      aws_instance.backend.arn,
       "arn:${data.aws_partition.current.partition}:ssm:${var.aws_region}::document/AWS-RunShellScript",
     ]
   }

@@ -1,5 +1,3 @@
-data "aws_caller_identity" "current" {}
-
 data "aws_partition" "current" {}
 
 data "aws_vpc" "default" {
@@ -29,4 +27,17 @@ data "aws_ssm_parameter" "al2023_ami" {
 
 data "aws_kms_key" "ssm" {
   key_id = "alias/aws/ssm"
+}
+
+# Shared by the publish role (iam_oidc.tf) and the EC2 host role (ec2.tf), both
+# of which need this to authenticate to ECR -- factored out once via
+# source_policy_documents so a future change (e.g. scoping the resource) can't
+# be applied to one copy and forgotten on the other.
+data "aws_iam_policy_document" "ecr_auth" {
+  statement {
+    sid       = "EcrAuth"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
 }
