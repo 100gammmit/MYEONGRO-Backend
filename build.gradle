@@ -117,17 +117,20 @@ tasks.register('aiPreview', JavaExec) {
     }
 }
 
-tasks.register('dailyCardContentGenerate', JavaExec) {
-    group = 'content generation'
-    description = 'Generate the reviewed static daily-card content set offline.'
+tasks.register('dailyCardContentValidate', JavaExec) {
+    group = 'verification'
+    description = 'Validate agent-authored pilot or release daily-card content without an AI API call.'
     dependsOn tasks.named('aiPreviewClasses')
     classpath = sourceSets.aiPreview.runtimeClasspath
-    mainClass = 'com.myeongro.api.dailycontent.DailyCardContentGeneratorApplication'
+    mainClass = 'com.myeongro.api.dailycontent.DailyCardContentValidatorApplication'
 
-    systemProperty 'spring.config.import', 'optional:file:./config/application-secret.yaml'
-    systemProperty 'spring.main.banner-mode', 'off'
-    systemProperty 'logging.level.root', 'warn'
-    systemProperty 'daily-content.output-dir',
-        project.findProperty('outputDir') ?: 'build/daily-card-content'
+    doFirst {
+        if (!project.hasProperty('inputFile') || project.property('inputFile').toString().isBlank()) {
+            throw new GradleException('dailyCardContentValidate requires -PinputFile=...')
+        }
+    }
+
+    systemProperty 'daily-content.input-file', project.findProperty('inputFile') ?: ''
+    systemProperty 'daily-content.mode', project.findProperty('mode') ?: 'pilot'
     systemProperty 'daily-content.cards', project.findProperty('cards') ?: ''
 }
