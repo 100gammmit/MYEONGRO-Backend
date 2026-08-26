@@ -103,7 +103,6 @@ app:
         common: classpath:prompts/tarot/common-ko-v18.md
         cards: classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md
         spreads:
-          daily-one-card: classpath:prompts/tarot/spreads/daily-one-card/daily-one-card-ko-v6.md
           mind-three-card: classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v8.md
           relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v8.md
           choice-five-card: classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v8.md

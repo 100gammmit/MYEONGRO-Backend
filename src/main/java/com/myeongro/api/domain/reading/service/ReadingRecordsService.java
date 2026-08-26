@@ -14,7 +14,6 @@ import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 import com.myeongro.api.domain.readingcredit.config.ReadingCreditProperties;
-import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 
 @Service
 public class ReadingRecordsService {
@@ -64,10 +63,6 @@ public class ReadingRecordsService {
 		try {
 			input = inputRestorer.restore(currentReading);
 		} catch (IllegalArgumentException exception) {
-			throw new ReadingRetryNotAllowedException();
-		}
-		if (input.kind() == ReadingKind.TAROT
-			&& TarotSpreadType.DAILY_ONE_CARD.value().equals(input.spreadType())) {
 			throw new ReadingRetryNotAllowedException();
 		}
 		ReadingGenerationMetadata generationMetadata =

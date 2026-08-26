@@ -38,7 +38,6 @@ class ApplicationYamlContractTests {
 		List<String> promptKeys = List.of(
 			"app.reading.prompts.tarot.common",
 			"app.reading.prompts.tarot.cards",
-			"app.reading.prompts.tarot.spreads.daily-one-card",
 			"app.reading.prompts.tarot.spreads.mind-three-card",
 			"app.reading.prompts.tarot.spreads.relationship-three-card",
 			"app.reading.prompts.tarot.spreads.choice-five-card",

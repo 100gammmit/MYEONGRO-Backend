@@ -96,28 +96,6 @@ class ReadingCreationWorkflowTests {
 	}
 
 	@Test
-	void rejectsDailyOneCardFromTheAiReadingWorkflow() {
-		ReadingCreationRepository repository = org.mockito.Mockito.mock(
-			ReadingCreationRepository.class
-		);
-		TarotReadingCreateRequest dailyRequest = new TarotReadingCreateRequest(
-			"daily_one_card",
-			"오늘의 흐름이 궁금해요.",
-			REQUEST_ID,
-			List.of(1),
-			null
-		);
-
-		assertThatThrownBy(() -> service(
-			acceptedConsent(), repository, successfulGenerator()
-		).createTarotReading(USER_ID, REQUEST_ID, dailyRequest))
-			.isInstanceOf(InvalidReadingRequestException.class)
-			.hasMessageContaining("무료 카드 선택 화면");
-
-		verifyNoInteractions(repository);
-	}
-
-	@Test
 	void completesDeclinedReadingInsteadOfMarkingGenerationFailed() {
 		ConsentService consentService = acceptedConsent();
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);

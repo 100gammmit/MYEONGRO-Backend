@@ -360,7 +360,7 @@ class FlywayFreshPostgresReplayTests {
 			statement.setObject(2, requestId);
 			statement.setString(3, inputHash);
 			statement.setString(4, "tarot");
-			statement.setString(5, "daily_one_card");
+			statement.setString(5, "mind_three_card");
 			statement.setInt(6, 1);
 			statement.setString(7, "{}");
 			statement.setString(8, "openai");

@@ -203,12 +203,12 @@ class ReadingEndpointContractTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "spreadType":"daily_one_card",
-					  "question":"오늘의 마음은?",
+					  "spreadType":"mind_three_card",
+					  "question":"마음을 정리하고 싶어요.",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "selectedSlots":[1],
+					  "selectedSlots":[1,2,3],
 					  "candidateSets":[],
-					  "position":"today"
+					  "position":"emotion"
 					}
 					"""))
 			.andExpect(status().isBadRequest());
@@ -238,10 +238,10 @@ class ReadingEndpointContractTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "spreadType":"daily_one_card",
+					  "spreadType":"mind_three_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "selectedSlots":[1],
+					  "selectedSlots":[1,2,3],
 					  "cardIds":["major-00-fool"]
 					}
 					"""))
@@ -255,10 +255,10 @@ class ReadingEndpointContractTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "spreadType":"daily_one_card",
+					  "spreadType":"mind_three_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "selectedSlots":[1],
+					  "selectedSlots":[1,2,3],
 					  "drawSessionId":"legacy"
 					}
 					"""))
@@ -282,10 +282,10 @@ class ReadingEndpointContractTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "spreadType":"daily_one_card",
+					  "spreadType":"mind_three_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "selectedSlots":[0]
+					  "selectedSlots":[0,1,2]
 					}
 					"""))
 			.andExpect(status().isBadRequest());
@@ -306,10 +306,10 @@ class ReadingEndpointContractTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "spreadType":"daily_one_card",
+					  "spreadType":"mind_three_card",
 					  "question":"question",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "selectedSlots":[1]
+					  "selectedSlots":[1,2,3]
 					}
 					"""))
 			.andExpect(status().isBadGateway())
@@ -479,10 +479,10 @@ class ReadingEndpointContractTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "spreadType":"daily_one_card",
+					  "spreadType":"mind_three_card",
 					  "question":"질문",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "selectedSlots":[1],
+					  "selectedSlots":[1,2,3],
 					  "birthProfile":{}
 					}
 					"""))
@@ -499,7 +499,7 @@ class ReadingEndpointContractTests {
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
 					  "focusArea":"career",
 					  "birthProfile":{},
-					  "spreadType":"daily_one_card"
+					  "spreadType":"mind_three_card"
 					}
 					"""))
 			.andExpect(status().isBadRequest())

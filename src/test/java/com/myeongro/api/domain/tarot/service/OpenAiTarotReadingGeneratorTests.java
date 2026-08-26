@@ -137,9 +137,9 @@ class OpenAiTarotReadingGeneratorTests {
 	void identifiesProviderAndResponseParseFailureStages() {
 		assertThatThrownBy(() -> generator(new ThrowingChatModel()).generate(
 			ReadingKind.TAROT,
-			TarotSpreadType.DAILY_ONE_CARD.value(),
+			TarotSpreadType.MIND_THREE_CARD.value(),
 			"질문",
-			input(TarotSpreadType.DAILY_ONE_CARD)
+			input(TarotSpreadType.MIND_THREE_CARD)
 		)).isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception -> {
 			assertThat(exception.getStage()).isEqualTo(OpenAiReadingGenerationStage.PROVIDER_CALL);
 			assertThat(exception.getCauseType()).isEqualTo("IllegalStateException");
@@ -147,9 +147,9 @@ class OpenAiTarotReadingGeneratorTests {
 
 		assertThatThrownBy(() -> generator(new CapturingChatModel("not-json")).generate(
 			ReadingKind.TAROT,
-			TarotSpreadType.DAILY_ONE_CARD.value(),
+			TarotSpreadType.MIND_THREE_CARD.value(),
 			"질문",
-			input(TarotSpreadType.DAILY_ONE_CARD)
+			input(TarotSpreadType.MIND_THREE_CARD)
 		)).isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
 			assertThat(exception.getStage()).isEqualTo(OpenAiReadingGenerationStage.RESPONSE_PARSE)
 		);
@@ -200,7 +200,6 @@ class OpenAiTarotReadingGeneratorTests {
 		return new TarotPromptCatalog(
 			new ClassPathResource("prompts/tarot/common-ko-v6.md"),
 			new ClassPathResource("prompts/tarot/arcana/major/major-arcana-ko-v4.md"),
-			new ClassPathResource("prompts/tarot/spreads/daily-one-card/daily-one-card-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v4.md")

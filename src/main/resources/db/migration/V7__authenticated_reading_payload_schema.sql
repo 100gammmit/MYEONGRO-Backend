@@ -78,7 +78,6 @@ alter table public.readings
         (
           kind = 'tarot'
           and spread_type in (
-            'daily_one_card',
             'mind_three_card',
             'relationship_three_card',
             'choice_five_card'
@@ -257,7 +256,6 @@ begin
   if requested_kind = 'tarot' and (
     requested_spread_type is null
     or requested_spread_type not in (
-      'daily_one_card',
       'mind_three_card',
       'relationship_three_card',
       'choice_five_card'

@@ -26,7 +26,6 @@ public class TarotPromptCatalog {
 	public TarotPromptCatalog(
 		@Value("${app.reading.prompts.tarot.common}") Resource common,
 		@Value("${app.reading.prompts.tarot.cards}") Resource cards,
-		@Value("${app.reading.prompts.tarot.spreads.daily-one-card}") Resource daily,
 		@Value("${app.reading.prompts.tarot.spreads.mind-three-card}") Resource mind,
 		@Value("${app.reading.prompts.tarot.spreads.relationship-three-card}") Resource relationship,
 		@Value("${app.reading.prompts.tarot.spreads.choice-five-card}") Resource choice
@@ -36,7 +35,6 @@ public class TarotPromptCatalog {
 		this.cardPromptParts = parseCards(this.cards.content());
 		EnumMap<TarotSpreadType, PromptPart> configured =
 			new EnumMap<>(TarotSpreadType.class);
-		configured.put(TarotSpreadType.DAILY_ONE_CARD, read(daily));
 		configured.put(TarotSpreadType.MIND_THREE_CARD, read(mind));
 		configured.put(TarotSpreadType.RELATIONSHIP_THREE_CARD, read(relationship));
 		configured.put(TarotSpreadType.CHOICE_FIVE_CARD, read(choice));

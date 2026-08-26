@@ -21,7 +21,7 @@ class TarotPromptCatalogParserTests {
 		TarotPromptCatalog catalog = catalog(cardsPrompt(MajorArcana.all()));
 
 		String prompt = catalog.prompt(
-			TarotSpreadType.DAILY_ONE_CARD,
+			TarotSpreadType.MIND_THREE_CARD,
 			List.of("major-02-high-priestess", "major-00-fool")
 		);
 
@@ -81,7 +81,6 @@ class TarotPromptCatalogParserTests {
 		return new TarotPromptCatalog(
 			resource("synthetic-common.md", "synthetic-common"),
 			resource("synthetic-cards.md", cards),
-			resource("synthetic-daily.md", "synthetic-daily-spread"),
 			resource("synthetic-mind.md", "synthetic-mind-spread"),
 			resource("synthetic-relationship.md", "synthetic-relationship-spread"),
 			resource("synthetic-choice.md", "synthetic-choice-spread")

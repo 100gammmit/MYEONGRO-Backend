@@ -62,7 +62,7 @@ class JpaReadingRecordsRepositoryTests {
 		CreatedReadingResponse reading = readings.getFirst();
 		assertThat(reading.id()).isEqualTo(READING_ID);
 		assertThat(reading.errorCode()).isEqualTo("LATEST_ERROR");
-		assertThat(reading.spreadType()).isEqualTo("daily_one_card");
+		assertThat(reading.spreadType()).isEqualTo("mind_three_card");
 		assertThat(reading.schemaVersion()).isEqualTo(1);
 		assertThat(reading.input()).containsEntry("question", "How is today?");
 		assertThat(reading.createdAt()).isEqualTo(Instant.parse("2026-06-15T00:00:00Z"));
@@ -141,7 +141,7 @@ class JpaReadingRecordsRepositoryTests {
 				status, title, input_payload, result_payload,
 				deleted_at, created_at, updated_at
 			)
-			values (?, ?, 'tarot', 'daily_one_card', ?, ?, 'A title', ?, ?, ?, ?, ?)
+			values (?, ?, 'tarot', 'mind_three_card', ?, ?, 'A title', ?, ?, ?, ?, ?)
 			""",
 			readingId,
 			userId,

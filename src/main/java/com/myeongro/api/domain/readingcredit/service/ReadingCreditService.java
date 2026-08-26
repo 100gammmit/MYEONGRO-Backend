@@ -59,9 +59,6 @@ public class ReadingCreditService {
 	private Map<String, Integer> tarotCosts() {
 		Map<String, Integer> costs = new LinkedHashMap<>();
 		for (TarotSpreadType spreadType : TarotSpreadType.values()) {
-			if (!spreadType.supportsAiGeneration()) {
-				continue;
-			}
 			costs.put(spreadType.value(), properties.costs().tarot().cost(spreadType));
 		}
 		return Map.copyOf(costs);

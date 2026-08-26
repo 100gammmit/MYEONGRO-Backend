@@ -107,10 +107,10 @@ class AuthenticatedReadingSecurityTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
-					  "spreadType":"daily_one_card",
-					  "question":"오늘의 마음은?",
+					  "spreadType":"mind_three_card",
+					  "question":"마음을 정리하고 싶어요.",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "cardIds":["major-00-fool"]
+					  "selectedSlots":[1,2,3]
 					}
 					"""))
 			.andExpect(status().isUnauthorized());
