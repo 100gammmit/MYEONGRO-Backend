@@ -4,7 +4,7 @@ services:
   api:
     image: ${IMAGE_URI:?IMAGE_URI is required}
     env_file:
-      - /opt/myeongro/env/backend.env
+      - ${MYEONGRO_ENV_DIR:?MYEONGRO_ENV_DIR is required}/backend.env
     environment:
       SPRING_PROFILES_ACTIVE: prod
       REDIS_HOST: redis

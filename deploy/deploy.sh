@@ -14,7 +14,11 @@ bundle_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
 . "$bundle_dir/paths.sh"
 deploy_dir="$MYEONGRO_DEPLOY_DIR"
 compose_file="$bundle_dir/compose.prod.yaml"
-env_dir="$deploy_dir/env"
+env_dir="$MYEONGRO_ENV_DIR"
+# compose.prod.yaml's env_file path is ${MYEONGRO_ENV_DIR}-substituted by
+# docker compose, not hardcoded -- export so every compose invocation below
+# picks it up.
+export MYEONGRO_ENV_DIR
 env_file="$env_dir/backend.env"
 previous_env_file="$env_dir/backend.env.previous"
 current_image_file="$deploy_dir/current-image"

@@ -20,7 +20,7 @@ data "aws_subnets" "default" {
 # `aws_ami` lookup (e.g. "al2023-ami-*-x86_64") also matches non-standard editions
 # (minimal, ecs-neuron, ...) published under the same prefix, so `most_recent`
 # can silently resolve to one of those instead of the base image this module
-# assumes user_data.sh is bootstrapping.
+# assumes templates/user_data.sh.tftpl is bootstrapping.
 data "aws_ssm_parameter" "al2023_ami" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }

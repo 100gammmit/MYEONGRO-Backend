@@ -60,10 +60,10 @@ The deploy role requires exactly these Run Command actions:
 policy statement must use `"Resource": "*"`. `SendCommand` stays in a separate statement scoped to
 the production instance and document.
 
-Both the deploy role's exact permissions policy and its trust policy (scoped to
-`repo:100gammmit/MYEONGRO-Backend:environment:production`) are defined in
-`infra/terraform/iam_oidc.tf` (`deploy_permissions` / `deploy_trust`) -- that Terraform module is
-what actually applies them; this file no longer keeps its own copy that could drift from it.
+Both the deploy role's exact permissions policy (`deploy_permissions`) and its trust policy
+(`oidc_trust["deploy"]`, scoped to `repo:100gammmit/MYEONGRO-Backend:environment:production`) are
+defined in `infra/terraform/iam_oidc.tf` -- that Terraform module is what actually applies them;
+this file no longer keeps its own copy that could drift from it.
 
 All third-party Actions are pinned to full commit SHAs. Dependabot checks GitHub Actions updates weekly.
 
