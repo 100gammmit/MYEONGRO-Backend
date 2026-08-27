@@ -69,7 +69,9 @@ resource "aws_instance" "backend" {
   subnet_id              = sort(data.aws_subnets.default.ids)[0]
   vpc_security_group_ids = [aws_security_group.backend.id]
   iam_instance_profile   = aws_iam_instance_profile.backend_host.name
-  user_data              = file("${path.module}/templates/user_data.sh")
+  user_data = templatefile("${path.module}/templates/user_data.sh.tftpl", {
+    paths_sh = file("${path.module}/../../deploy/lib/paths.sh")
+  })
 
   associate_public_ip_address = true
 

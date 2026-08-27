@@ -69,4 +69,4 @@ destroy/recreate the running instance. To deliberately move to a newer AMI, run:
 terraform apply -replace=aws_instance.backend
 ```
 This replaces the instance (new EBS root volume, loses anything not in `/opt/myeongro/env`'s
-SSM-backed state) and re-runs `templates/user_data.sh` from scratch.
+SSM-backed state) and re-runs `templates/user_data.sh.tftpl` from scratch.

@@ -8,8 +8,8 @@ set -euxo pipefail
 # frozen after creation (see aws_instance.backend's lifecycle block) and
 # user_data only runs on first boot.
 dnf update -y || true
-# util-linux (flock) and curl are required by deploy/deploy.sh (dev branch) --
-# install them explicitly rather than relying on them happening to ship with
+# util-linux (flock) and curl are required by deploy/deploy.sh -- install
+# them explicitly rather than relying on them happening to ship with
 # whichever al2023 edition data.tf's SSM parameter currently resolves to.
 dnf install -y docker unzip util-linux curl
 
@@ -28,8 +28,9 @@ if ! command -v aws >/dev/null 2>&1; then
   rm -rf /tmp/awscliv2.zip /tmp/aws
 fi
 
-# These paths/modes are also hardcoded in deploy/send-ssm-command.sh and
-# deploy/deploy.sh (dev branch, not present here) — keep all three in sync by
-# hand until the branches converge.
-install -d -m 755 /opt/myeongro/releases
-install -d -m 700 /opt/myeongro/env
+# Single source of truth: deploy/lib/paths.sh, spliced in verbatim below by
+# ec2.tf's templatefile() call -- deploy.sh and send-ssm-command.sh source the
+# same file directly, so none of the three can drift from the others.
+${paths_sh}
+install -d -m 755 "$MYEONGRO_RELEASES_DIR"
+install -d -m 700 "$MYEONGRO_ENV_DIR"

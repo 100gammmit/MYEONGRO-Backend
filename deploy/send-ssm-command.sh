@@ -11,6 +11,8 @@ aws_region="$2"
 image_uri="$3"
 env_parameter="$4"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/paths.sh
+. "$script_dir/lib/paths.sh"
 image_tag="${image_uri##*:}"
 
 if [[ ! "$image_tag" =~ ^[0-9a-f]{40}$ ]]; then
@@ -19,9 +21,10 @@ if [[ ! "$image_tag" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 
 bundle_id="$image_tag-$(date +%s)-$RANDOM"
-remote_bundle="/opt/myeongro/releases/$bundle_id"
+remote_bundle="$MYEONGRO_RELEASES_DIR/$bundle_id"
 compose_base64="$(base64 -w 0 "$script_dir/compose.prod.yaml")"
 deploy_base64="$(base64 -w 0 "$script_dir/deploy.sh")"
+paths_base64="$(base64 -w 0 "$script_dir/lib/paths.sh")"
 quoted_image="$(printf '%q' "$image_uri")"
 quoted_region="$(printf '%q' "$aws_region")"
 quoted_parameter="$(printf '%q' "$env_parameter")"
@@ -33,13 +36,16 @@ trap 'rm -f "$parameters_file"' EXIT
 jq -n \
   --arg compose "$compose_base64" \
   --arg deploy "$deploy_base64" \
+  --arg paths "$paths_base64" \
   --arg bundle "$remote_bundle" \
+  --arg releases_dir "$MYEONGRO_RELEASES_DIR" \
   --arg run "$quoted_bundle/deploy.sh $quoted_image $quoted_region $quoted_parameter" \
   '{commands: [
-    "install -d -m 755 /opt/myeongro/releases",
+    ("install -d -m 755 " + ($releases_dir | @sh)),
     ("install -d -m 755 " + ($bundle | @sh)),
     ("printf %s " + ($compose | @sh) + " | base64 -d > " + ($bundle | @sh) + "/compose.prod.yaml"),
     ("printf %s " + ($deploy | @sh) + " | base64 -d > " + ($bundle | @sh) + "/deploy.sh"),
+    ("printf %s " + ($paths | @sh) + " | base64 -d > " + ($bundle | @sh) + "/paths.sh"),
     ("chmod 700 " + ($bundle | @sh) + "/deploy.sh"),
     $run
   ], executionTimeout: ["600"]}' > "$parameters_file"

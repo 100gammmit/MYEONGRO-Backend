@@ -83,9 +83,9 @@ resource "aws_iam_role" "deploy" {
   assume_role_policy = data.aws_iam_policy_document.oidc_trust["deploy"].json
 }
 
-# Mirrors the example policy documented in deploy/README.md (dev branch, which
-# this branch was forked before and doesn't carry). Keep the two in sync by hand
-# until the branches converge; that file has no automated link to this one.
+# deploy/README.md points here as the source of truth for this policy rather
+# than embedding its own copy -- see that file's "GitHub OIDC and production
+# boundary" section.
 data "aws_iam_policy_document" "deploy_permissions" {
   statement {
     sid     = "SendBackendDeployCommand"

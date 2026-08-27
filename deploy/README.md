@@ -57,58 +57,13 @@ The deploy role requires exactly these Run Command actions:
 - `ssm:CancelCommand` to stop a deployment after the workflow timeout
 
 `GetCommandInvocation` and `CancelCommand` do not support resource-level permissions, so their
-policy statement must use `"Resource": "*"`. Keep `SendCommand` in a separate statement scoped to
-the production instance and document. For example, replace the placeholders in this deploy-role
-permissions policy:
+policy statement must use `"Resource": "*"`. `SendCommand` stays in a separate statement scoped to
+the production instance and document.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "SendBackendDeployCommand",
-      "Effect": "Allow",
-      "Action": "ssm:SendCommand",
-      "Resource": [
-        "arn:aws:ec2:<region>:<account-id>:instance/<instance-id>",
-        "arn:aws:ssm:<region>::document/AWS-RunShellScript"
-      ]
-    },
-    {
-      "Sid": "InspectAndCancelBackendDeployCommand",
-      "Effect": "Allow",
-      "Action": [
-        "ssm:GetCommandInvocation",
-        "ssm:CancelCommand"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-The deploy role trust policy must also limit GitHub OIDC to the protected production environment:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": "repo:100gammmit/MYEONGRO-Backend:environment:production"
-        }
-      }
-    }
-  ]
-}
-```
+Both the deploy role's exact permissions policy and its trust policy (scoped to
+`repo:100gammmit/MYEONGRO-Backend:environment:production`) are defined in
+`infra/terraform/iam_oidc.tf` (`deploy_permissions` / `deploy_trust`) -- that Terraform module is
+what actually applies them; this file no longer keeps its own copy that could drift from it.
 
 All third-party Actions are pinned to full commit SHAs. Dependabot checks GitHub Actions updates weekly.
 
