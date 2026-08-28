@@ -61,6 +61,6 @@ app:
     cleanup-cron: "0 */5 * * * *"
   consent:
     versions:
-      terms: 2026-06-10
+      terms: 2026-08-28
       privacy: 2026-06-10
       sensitive-data: 2026-06-10

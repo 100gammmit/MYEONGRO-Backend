@@ -34,6 +34,15 @@ class ConsentServiceTests {
 	}
 
 	@Test
+	void requiresReacceptanceWhenTermsVersionChanges() {
+		ConsentRepository repository = org.mockito.Mockito.mock(ConsentRepository.class);
+		when(repository.findByUserId(USER_ID)).thenReturn(Optional.of(currentConsent()));
+
+		assertThat(service(repository, "2026-08-28").getUserStatus(USER_ID).hasAcceptedRequired())
+			.isFalse();
+	}
+
+	@Test
 	void createsOneUserOwnedConsentRow() {
 		ConsentRepository repository = org.mockito.Mockito.mock(ConsentRepository.class);
 		when(repository.findByUserId(USER_ID)).thenReturn(Optional.empty());
@@ -57,10 +66,14 @@ class ConsentServiceTests {
 	}
 
 	private ConsentService service(ConsentRepository repository) {
+		return service(repository, "2026-06-10");
+	}
+
+	private ConsentService service(ConsentRepository repository, String termsVersion) {
 		return new ConsentService(
 			repository,
 			Map.of(
-				ConsentDocumentType.TERMS, "2026-06-10",
+				ConsentDocumentType.TERMS, termsVersion,
 				ConsentDocumentType.PRIVACY, "2026-06-10",
 				ConsentDocumentType.SENSITIVE_DATA, "2026-06-10"
 			),
