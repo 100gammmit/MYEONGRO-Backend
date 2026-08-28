@@ -44,7 +44,6 @@ class ReadingCreditServiceTests {
 		assertThat(response.generationInProgress()).isTrue();
 		assertThat(response.costs().tarot()).containsExactlyInAnyOrderEntriesOf(
 			java.util.Map.of(
-				"daily_one_card", 1,
 				"mind_three_card", 2,
 				"relationship_three_card", 2,
 				"choice_five_card", 3

@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import com.myeongro.api.domain.tarot.model.MajorArcana;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
+import com.myeongro.api.domain.tarot.selection.TarotCardRanker;
 
 class TarotCardSelectorTests {
 
@@ -22,7 +23,7 @@ class TarotCardSelectorTests {
 		"82ed11d5-2269-438c-9815-42e6f13735f4"
 	);
 	private final TarotCardSelector selector = new TarotCardSelector(
-		"test-only-tarot-selection-secret-32-bytes"
+		new TarotCardRanker("test-only-tarot-selection-secret-32-bytes")
 	);
 
 	@ParameterizedTest
@@ -75,7 +76,7 @@ class TarotCardSelectorTests {
 
 	@Test
 	void rejectsShortSecrets() {
-		assertThatThrownBy(() -> new TarotCardSelector("too-short"))
+		assertThatThrownBy(() -> new TarotCardRanker("too-short"))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 }

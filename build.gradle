@@ -116,3 +116,21 @@ tasks.register('aiPreview', JavaExec) {
         systemProperty 'app.reading.openai.model', previewModel
     }
 }
+
+tasks.register('dailyCardContentValidate', JavaExec) {
+    group = 'verification'
+    description = 'Validate agent-authored pilot or release daily-card content without an AI API call.'
+    dependsOn tasks.named('aiPreviewClasses')
+    classpath = sourceSets.aiPreview.runtimeClasspath
+    mainClass = 'com.myeongro.api.dailycontent.DailyCardContentValidatorApplication'
+
+    doFirst {
+        if (!project.hasProperty('inputFile') || project.property('inputFile').toString().isBlank()) {
+            throw new GradleException('dailyCardContentValidate requires -PinputFile=...')
+        }
+    }
+
+    systemProperty 'daily-content.input-file', project.findProperty('inputFile') ?: ''
+    systemProperty 'daily-content.mode', project.findProperty('mode') ?: 'pilot'
+    systemProperty 'daily-content.cards', project.findProperty('cards') ?: ''
+}

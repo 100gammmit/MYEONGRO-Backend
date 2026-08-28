@@ -151,9 +151,9 @@ class ReadingInputNormalizationContractTests {
 	@Test
 	void acceptsChoiceOptionsOnlyForChoiceSpread() {
 		assertThatThrownBy(() -> tarotNormalizer.normalize(tarotRequest(
-			TarotSpreadType.DAILY_ONE_CARD,
+			TarotSpreadType.MIND_THREE_CARD,
 			new ChoiceOptionsRequest("A", "B")
-		), TarotSpreadType.DAILY_ONE_CARD, List.of("major-00-fool")))
+		), TarotSpreadType.MIND_THREE_CARD, cards(3)))
 			.isInstanceOf(IllegalArgumentException.class);
 
 		assertThatThrownBy(() -> tarotNormalizer.normalize(tarotRequest(
@@ -177,15 +177,16 @@ class ReadingInputNormalizationContractTests {
 			List.of("major-00-fool", "major-00-fool", "major-01-magician")))
 			.isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> tarotNormalizer.normalize(tarotRequest(
-			TarotSpreadType.DAILY_ONE_CARD,
+			TarotSpreadType.MIND_THREE_CARD,
 			null
-		), TarotSpreadType.DAILY_ONE_CARD, List.of("not-a-card")))
+		), TarotSpreadType.MIND_THREE_CARD, List.of(
+			"major-00-fool", "major-01-magician", "not-a-card"
+		)))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	static java.util.stream.Stream<Arguments> spreadRequests() {
 		return java.util.stream.Stream.of(
-			Arguments.of(TarotSpreadType.DAILY_ONE_CARD, cards(1), null),
 			Arguments.of(TarotSpreadType.MIND_THREE_CARD, cards(3), null),
 			Arguments.of(TarotSpreadType.RELATIONSHIP_THREE_CARD, cards(3), null),
 			Arguments.of(

@@ -33,7 +33,7 @@ class ReadingCreditControllerTests {
 			ReadingCreditStatusResponse.Balance.of(7, 5),
 			Instant.parse("2026-08-21T15:00:00Z"),
 			false,
-			new ReadingCreditStatusResponse.Costs(Map.of("daily_one_card", 1), 4)
+			new ReadingCreditStatusResponse.Costs(Map.of("mind_three_card", 2), 4)
 		);
 		when(resolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(userId));
 		when(service.getStatus(userId)).thenReturn(status);

@@ -122,7 +122,7 @@ class JdbcReadingCreationRepositoryTests {
 			REQUEST_ID,
 			"input-hash",
 			"tarot",
-			"daily_one_card",
+			"mind_three_card",
 			1,
 			"{\"question\":\"How is today?\"}",
 			"openai",
@@ -251,7 +251,7 @@ class JdbcReadingCreationRepositoryTests {
 			.requestId(REQUEST_ID)
 			.inputHash("input-hash")
 			.kind(ReadingKind.TAROT)
-			.spreadType(TarotSpreadType.DAILY_ONE_CARD.value())
+			.spreadType(TarotSpreadType.MIND_THREE_CARD.value())
 			.schemaVersion(1)
 			.input(Map.of("question", "How is today?"))
 			.provider("openai")
@@ -283,7 +283,7 @@ class JdbcReadingCreationRepositoryTests {
 		ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
 		when(resultSet.getObject("id", UUID.class)).thenReturn(READING_ID);
 		when(resultSet.getString("kind")).thenReturn("tarot");
-		when(resultSet.getString("spread_type")).thenReturn("daily_one_card");
+		when(resultSet.getString("spread_type")).thenReturn("mind_three_card");
 		when(resultSet.getInt("schema_version")).thenReturn(1);
 		when(resultSet.getString("status")).thenReturn("generating");
 		when(resultSet.getString("title")).thenReturn("Generating...");

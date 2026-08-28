@@ -27,7 +27,7 @@ class ReadingCreditPropertiesTests {
 		var invalid = new ReadingCreditProperties(
 			-1,
 			new ReadingCreditProperties.Costs(
-				new ReadingCreditProperties.Tarot(0, 0, 0, 0), 0
+				new ReadingCreditProperties.Tarot(0, 0, 0), 0
 			),
 			Duration.ofMinutes(5),
 			"0 */5 * * * *"
@@ -40,7 +40,6 @@ class ReadingCreditPropertiesTests {
 				.contains(
 					"dailyFreeGrant",
 					"costs.saju",
-					"costs.tarot.dailyOneCard",
 					"costs.tarot.mindThreeCard",
 					"costs.tarot.relationshipThreeCard",
 					"costs.tarot.choiceFiveCard"
@@ -52,7 +51,7 @@ class ReadingCreditPropertiesTests {
 		return new ReadingCreditProperties(
 			10,
 			new ReadingCreditProperties.Costs(
-				new ReadingCreditProperties.Tarot(1, 2, 2, 3), 4
+				new ReadingCreditProperties.Tarot(2, 2, 3), 4
 			),
 			staleAfter,
 			cleanupCron

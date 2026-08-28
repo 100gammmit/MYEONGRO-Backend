@@ -8,13 +8,6 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum TarotSpreadType {
 
-	DAILY_ONE_CARD(
-		"daily_one_card",
-		List.of(new TarotPosition("today", "오늘의 흐름")),
-		1,
-		1,
-		800
-	),
 	MIND_THREE_CARD(
 		"mind_three_card",
 		List.of(
@@ -95,7 +88,6 @@ public enum TarotSpreadType {
 	public int maxOutputTokens() {
 		return maxOutputTokens;
 	}
-
 	@JsonCreator
 	public static TarotSpreadType fromValue(String value) {
 		return Arrays.stream(values())

@@ -90,6 +90,10 @@ management:
 app:
   frontend-origin: ${frontend.origin:http://localhost:3000}
 
+  daily-card:
+    content-version: daily-one-card-static-v1
+    variant-count: 6
+
   reading:
     tarot-selection-secret: ${tarot.selection-secret}
     openai:
@@ -99,7 +103,6 @@ app:
         common: classpath:prompts/tarot/common-ko-v18.md
         cards: classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md
         spreads:
-          daily-one-card: classpath:prompts/tarot/spreads/daily-one-card/daily-one-card-ko-v6.md
           mind-three-card: classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v8.md
           relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v8.md
           choice-five-card: classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v8.md
@@ -113,7 +116,6 @@ app:
     daily-free-grant: ${reading.credits.daily-free-grant:10}
     costs:
       tarot:
-        daily-one-card: ${reading.credits.costs.tarot.daily-one-card:1}
         mind-three-card: ${reading.credits.costs.tarot.mind-three-card:2}
         relationship-three-card: ${reading.credits.costs.tarot.relationship-three-card:2}
         choice-five-card: ${reading.credits.costs.tarot.choice-five-card:3}

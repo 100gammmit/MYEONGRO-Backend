@@ -30,6 +30,7 @@ import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
@@ -40,6 +41,7 @@ import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
 import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
 import com.myeongro.api.domain.saju.service.SajuReadingInputNormalizer;
 import com.myeongro.api.domain.tarot.service.TarotCardSelector;
+import com.myeongro.api.domain.tarot.selection.TarotCardRanker;
 import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
@@ -341,7 +343,9 @@ class ReadingCreationWorkflowTests {
 			workflow,
 			new TarotReadingCreationService(
 				workflow,
-				new TarotCardSelector("test-only-tarot-selection-secret-32-bytes"),
+				new TarotCardSelector(new TarotCardRanker(
+					"test-only-tarot-selection-secret-32-bytes"
+				)),
 				new TarotReadingInputNormalizer()
 			),
 			new SajuReadingCreationService(
