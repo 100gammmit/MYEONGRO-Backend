@@ -21,6 +21,7 @@ import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
+import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
 import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
 
@@ -113,8 +114,46 @@ class ReadingRecordsServiceTests {
 
 		service.retry(USER_ID, READING_ID);
 
+		verify(creationWorkflow).validateInput(input);
 		verify(repository).startFailedRetry(USER_ID, READING_ID, metadata, 2, 10);
 		verify(creationWorkflow).generatePending(input, pending);
+	}
+
+	@Test
+	void rejectsBlockedStoredInputBeforeRetryReservation() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingCreationWorkflow creationWorkflow = org.mockito.Mockito.mock(ReadingCreationWorkflow.class);
+		ReadingGenerationMetadataResolver metadataResolver =
+			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
+		ReadingInputRestorer restorer = org.mockito.Mockito.mock(ReadingInputRestorer.class);
+		ReadingRecordsService service = new ReadingRecordsService(
+			repository, creationWorkflow, metadataResolver, restorer,
+			ReadingCreditTestFixtures.properties()
+		);
+		CreatedReadingResponse reading = reading(1, "failed");
+		NormalizedReadingInput input = new NormalizedReadingInput(
+			ReadingKind.TAROT,
+			TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
+			1,
+			"우울증 진단받았어",
+			Map.of("question", "우울증 진단받았어"),
+			Map.of("question", "우울증 진단받았어")
+		);
+		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading));
+		when(restorer.restore(reading)).thenReturn(input);
+		org.mockito.Mockito.doThrow(new InvalidReadingRequestException(
+			"SENSITIVE_HEALTH_INFORMATION", "question", "민감정보는 입력할 수 없습니다."
+		)).when(creationWorkflow).validateInput(input);
+
+		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))
+			.isInstanceOf(InvalidReadingRequestException.class);
+
+		verify(repository, org.mockito.Mockito.never()).startFailedRetry(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(),
+			org.mockito.ArgumentMatchers.anyInt()
+		);
+		org.mockito.Mockito.verifyNoInteractions(metadataResolver);
 	}
 
 	@ParameterizedTest

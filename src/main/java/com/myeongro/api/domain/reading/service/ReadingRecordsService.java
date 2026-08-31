@@ -65,6 +65,7 @@ public class ReadingRecordsService {
 		} catch (IllegalArgumentException exception) {
 			throw new ReadingRetryNotAllowedException();
 		}
+		creationWorkflow.validateInput(input);
 		ReadingGenerationMetadata generationMetadata =
 			generationMetadataResolver.resolve(input.kind(), input.spreadType());
 		PendingReadingCreation pending = repository.startFailedRetry(

@@ -32,6 +32,7 @@ public class ReadingCreationWorkflow {
 	private final ObjectMapper objectMapper;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 	private final ReadingCreditProperties creditProperties;
+	private final SensitiveReadingInputGuard sensitiveInputGuard;
 
 	public ReadingCreationWorkflow(
 		ConsentService consentService,
@@ -39,7 +40,8 @@ public class ReadingCreationWorkflow {
 		ReadingGenerator generator,
 		ObjectMapper objectMapper,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
-		ReadingCreditProperties creditProperties
+		ReadingCreditProperties creditProperties,
+		SensitiveReadingInputGuard sensitiveInputGuard
 	) {
 		this.consentService = consentService;
 		this.repository = repository;
@@ -47,6 +49,7 @@ public class ReadingCreationWorkflow {
 		this.objectMapper = objectMapper;
 		this.generationMetadataResolver = generationMetadataResolver;
 		this.creditProperties = creditProperties;
+		this.sensitiveInputGuard = sensitiveInputGuard;
 	}
 
 	public CreatedReadingResponse create(
@@ -57,6 +60,7 @@ public class ReadingCreationWorkflow {
 	) {
 		requireCreationAllowed(userId, requestId);
 		NormalizedReadingInput input = inputSupplier.get();
+		validateInput(input);
 		String inputHash = inputHash(input.hashMaterial());
 		var existing = repository.findExisting(userId, requestId, inputHash);
 		if (existing.isPresent()) {
@@ -109,6 +113,10 @@ public class ReadingCreationWorkflow {
 			throw exception;
 		}
 		return repository.completePending(pending, result);
+	}
+
+	public void validateInput(NormalizedReadingInput input) {
+		sensitiveInputGuard.validate(input);
 	}
 
 	String inputHash(Map<String, Object> input) {

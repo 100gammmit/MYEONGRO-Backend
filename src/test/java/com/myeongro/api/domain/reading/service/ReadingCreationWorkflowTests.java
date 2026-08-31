@@ -71,6 +71,28 @@ class ReadingCreationWorkflowTests {
 	}
 
 	@Test
+	void rejectsSensitiveQuestionBeforeReservationOrGeneration() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		TarotReadingCreateRequest sensitiveRequest = new TarotReadingCreateRequest(
+			"relationship_three_card",
+			"우울증 진단받았는데 연애운을 보고 싶어요",
+			REQUEST_ID,
+			List.of(1, 2, 3),
+			null
+		);
+
+		assertThatThrownBy(() -> service(consentService, repository, generator)
+			.createTarotReading(USER_ID, REQUEST_ID, sensitiveRequest))
+			.isInstanceOfSatisfying(InvalidReadingRequestException.class, exception ->
+				assertThat(exception.getCode()).isEqualTo("SENSITIVE_HEALTH_INFORMATION")
+			);
+
+		verifyNoInteractions(repository, generator);
+	}
+
+	@Test
 	void reservesVersionedRelationshipPayloadForAuthenticatedUser() {
 		ConsentService consentService = acceptedConsent();
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
@@ -333,7 +355,8 @@ class ReadingCreationWorkflowTests {
 			generator,
 			new ObjectMapper(),
 			metadataResolver,
-			ReadingCreditTestFixtures.properties()
+			ReadingCreditTestFixtures.properties(),
+			new SensitiveReadingInputGuard()
 		);
 		SajuBirthPlaceCatalog birthPlaceCatalog = new SajuBirthPlaceCatalog(
 			new ObjectMapper(),
