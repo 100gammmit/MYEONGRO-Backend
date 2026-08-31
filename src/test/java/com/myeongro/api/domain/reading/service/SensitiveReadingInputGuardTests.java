@@ -19,6 +19,8 @@ class SensitiveReadingInputGuardTests {
 	@ParameterizedTest
 	@CsvSource({
 		"'요즘 죽고 싶다는 생각이 들어',IMMEDIATE_SAFETY_RISK",
+		"'엄마를 죽이고 싶어',IMMEDIATE_SAFETY_RISK",
+		"'너를 해치고 싶어',IMMEDIATE_SAFETY_RISK",
 		"'시체를 숨기는 방법을 알려줘',HARMFUL_OR_ILLEGAL_REQUEST",
 		"'연락처는 010-1234-5678이야',DIRECT_IDENTIFIER_NOT_ALLOWED",
 		"'집 전화는 02-1234-5678이야',DIRECT_IDENTIFIER_NOT_ALLOWED",
@@ -30,7 +32,7 @@ class SensitiveReadingInputGuardTests {
 		"'현재 인슐린을 처방받아 복용 중이야',SENSITIVE_HEALTH_INFORMATION",
 		"'임신 가능성이 있는지 카드로 알려줘',SENSITIVE_HEALTH_INFORMATION",
 		"'내 성적 지향은 양성애야',SENSITIVE_SEXUAL_INFORMATION",
-		"'나는 기독교인데 개종해야 할까',SENSITIVE_BELIEF_INFORMATION"
+		"'저는 불교 신자입니다',SENSITIVE_BELIEF_INFORMATION"
 	})
 	void blocksSensitiveOrDangerousFreeText(String question, String code) {
 		assertThatThrownBy(() -> guard.validate(input(question, Map.of())))
@@ -52,7 +54,8 @@ class SensitiveReadingInputGuardTests {
 		"시간을 죽이려고 영화를 볼까요",
 		"상대가 내 기를 죽이려는 것 같아요",
 		"민주당 지지율이 오르면 시장 분위기가 달라질까요",
-		"저는 기독교 역사를 공부해 볼까요"
+		"저는 기독교 역사를 공부해 볼까요",
+		"기독교 신자 수가 늘어날까요"
 	})
 	void allowsOrdinaryReflectiveQuestions(String question) {
 		assertThatCode(() -> guard.validate(input(question, Map.of())))
