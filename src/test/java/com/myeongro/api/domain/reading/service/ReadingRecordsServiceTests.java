@@ -142,7 +142,7 @@ class ReadingRecordsServiceTests {
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading));
 		when(restorer.restore(reading)).thenReturn(input);
 		org.mockito.Mockito.doThrow(new InvalidReadingRequestException(
-			"SENSITIVE_HEALTH_INFORMATION", "question", "민감정보는 입력할 수 없습니다."
+			"DIRECT_IDENTIFIER_NOT_ALLOWED", "question", "식별정보는 입력할 수 없습니다."
 		)).when(creationWorkflow).validateInput(input);
 
 		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))

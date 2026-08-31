@@ -32,7 +32,7 @@ public class ReadingCreationWorkflow {
 	private final ObjectMapper objectMapper;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 	private final ReadingCreditProperties creditProperties;
-	private final SensitiveReadingInputGuard sensitiveInputGuard;
+	private final DirectIdentifierInputGuard directIdentifierInputGuard;
 
 	public ReadingCreationWorkflow(
 		ConsentService consentService,
@@ -41,7 +41,7 @@ public class ReadingCreationWorkflow {
 		ObjectMapper objectMapper,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
 		ReadingCreditProperties creditProperties,
-		SensitiveReadingInputGuard sensitiveInputGuard
+		DirectIdentifierInputGuard directIdentifierInputGuard
 	) {
 		this.consentService = consentService;
 		this.repository = repository;
@@ -49,7 +49,7 @@ public class ReadingCreationWorkflow {
 		this.objectMapper = objectMapper;
 		this.generationMetadataResolver = generationMetadataResolver;
 		this.creditProperties = creditProperties;
-		this.sensitiveInputGuard = sensitiveInputGuard;
+		this.directIdentifierInputGuard = directIdentifierInputGuard;
 	}
 
 	public CreatedReadingResponse create(
@@ -116,7 +116,7 @@ public class ReadingCreationWorkflow {
 	}
 
 	public void validateInput(NormalizedReadingInput input) {
-		sensitiveInputGuard.validate(input);
+		directIdentifierInputGuard.validate(input);
 	}
 
 	String inputHash(Map<String, Object> input) {

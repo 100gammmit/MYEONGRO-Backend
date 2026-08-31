@@ -71,22 +71,22 @@ class ReadingCreationWorkflowTests {
 	}
 
 	@Test
-	void rejectsSensitiveQuestionBeforeReservationOrGeneration() {
+	void rejectsDirectIdentifierBeforeReservationOrGeneration() {
 		ConsentService consentService = acceptedConsent();
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
-		TarotReadingCreateRequest sensitiveRequest = new TarotReadingCreateRequest(
+		TarotReadingCreateRequest identifierRequest = new TarotReadingCreateRequest(
 			"relationship_three_card",
-			"우울증 진단받았는데 연애운을 보고 싶어요",
+			"연락처는 010-1234-5678이고 연애운을 보고 싶어요",
 			REQUEST_ID,
 			List.of(1, 2, 3),
 			null
 		);
 
 		assertThatThrownBy(() -> service(consentService, repository, generator)
-			.createTarotReading(USER_ID, REQUEST_ID, sensitiveRequest))
+			.createTarotReading(USER_ID, REQUEST_ID, identifierRequest))
 			.isInstanceOfSatisfying(InvalidReadingRequestException.class, exception ->
-				assertThat(exception.getCode()).isEqualTo("SENSITIVE_HEALTH_INFORMATION")
+				assertThat(exception.getCode()).isEqualTo("DIRECT_IDENTIFIER_NOT_ALLOWED")
 			);
 
 		verifyNoInteractions(repository, generator);
@@ -356,7 +356,7 @@ class ReadingCreationWorkflowTests {
 			new ObjectMapper(),
 			metadataResolver,
 			ReadingCreditTestFixtures.properties(),
-			new SensitiveReadingInputGuard()
+			new DirectIdentifierInputGuard()
 		);
 		SajuBirthPlaceCatalog birthPlaceCatalog = new SajuBirthPlaceCatalog(
 			new ObjectMapper(),
