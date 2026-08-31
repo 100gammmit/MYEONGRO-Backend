@@ -21,6 +21,10 @@ class SensitiveReadingInputGuardTests {
 		"'요즘 죽고 싶다는 생각이 들어',IMMEDIATE_SAFETY_RISK",
 		"'시체를 숨기는 방법을 알려줘',HARMFUL_OR_ILLEGAL_REQUEST",
 		"'연락처는 010-1234-5678이야',DIRECT_IDENTIFIER_NOT_ALLOWED",
+		"'집 전화는 02-1234-5678이야',DIRECT_IDENTIFIER_NOT_ALLOWED",
+		"'회사 번호는 031-123-4567이야',DIRECT_IDENTIFIER_NOT_ALLOWED",
+		"'대표번호는 1588-1234야',DIRECT_IDENTIFIER_NOT_ALLOWED",
+		"'해외 표기는 +82 10-1234-5678이야',DIRECT_IDENTIFIER_NOT_ALLOWED",
 		"'내 이메일은 reader@example.com이야',DIRECT_IDENTIFIER_NOT_ALLOWED",
 		"'우울증 진단받았는데 연애운은 어때',SENSITIVE_HEALTH_INFORMATION",
 		"'현재 인슐린을 처방받아 복용 중이야',SENSITIVE_HEALTH_INFORMATION",
@@ -44,7 +48,11 @@ class SensitiveReadingInputGuardTests {
 		"올해 건강운과 회복 흐름이 궁금해요",
 		"관계에서 제 마음을 어떻게 정리하면 좋을까요",
 		"직장에서 중요한 선택을 앞두고 있어요",
-		"종교 행사에 갈지 약속을 지킬지 고민돼요"
+		"종교 행사에 갈지 약속을 지킬지 고민돼요",
+		"시간을 죽이려고 영화를 볼까요",
+		"상대가 내 기를 죽이려는 것 같아요",
+		"민주당 지지율이 오르면 시장 분위기가 달라질까요",
+		"저는 기독교 역사를 공부해 볼까요"
 	})
 	void allowsOrdinaryReflectiveQuestions(String question) {
 		assertThatCode(() -> guard.validate(input(question, Map.of())))
