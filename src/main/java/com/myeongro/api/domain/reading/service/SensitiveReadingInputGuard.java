@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
@@ -14,16 +16,25 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 @Component
 public class SensitiveReadingInputGuard {
 
+	private static final Rule IMMEDIATE_SAFETY_RISK = new Rule(
+		"IMMEDIATE_SAFETY_RISK",
+		"위급하거나 즉각적인 도움이 필요한 내용은 리딩으로 다룰 수 없습니다. 긴급한 상황이라면 112 또는 119에 연락해 주세요.",
+		Pattern.compile(
+			"자살|죽고싶|죽어버리|목숨(?:을)?끊|극단적선택|자해|내몸(?:을)?해치|"
+				+ "(?:나는|내가|저는|제가)(?:죽이고싶|해치고싶)"
+		)
+	);
+	private static final Pattern EXPLICIT_HARM_DESIRE = Pattern.compile(
+		"([\\p{L}]{1,30})(?:을|를)(?:죽이(?:고싶|려)|죽일(?:거|꺼)|해치(?:고싶|려)|해칠(?:거|꺼))"
+	);
+	private static final Set<String> NON_PERSON_HARM_OBJECT_SUFFIXES = Set.of(
+		"시간", "세월", "무료함", "심심함", "기", "기세", "분위기", "가능성", "희망",
+		"불씨", "숨", "소리", "불", "맛", "개성", "버그", "프로세스", "작업", "프로그램",
+		"서버", "앱", "게임캐릭터", "캐릭터", "몬스터", "좀비", "악당", "모기", "벌레",
+		"세균", "바이러스", "암세포"
+	);
 	private static final List<Rule> RULES = List.of(
-		new Rule(
-			"IMMEDIATE_SAFETY_RISK",
-			"위급하거나 즉각적인 도움이 필요한 내용은 리딩으로 다룰 수 없습니다. 긴급한 상황이라면 112 또는 119에 연락해 주세요.",
-			Pattern.compile(
-				"자살|죽고싶|죽어버리|목숨(?:을)?끊|극단적선택|자해|내몸(?:을)?해치|"
-					+ "(?:사람|상대|그|그녀|가족|친구|동료|연인|누군가|타인|남편|아내|부모|엄마|아빠|어머니|아버지|형|오빠|누나|언니|동생|아이|자식|너|당신|걔|쟤)(?:을|를).{0,6}(?:죽이|해치)|"
-					+ "(?:나는|내가|저는|제가)(?:(?:누군가|사람)(?:을|를)?|상대를)?(?:죽이고싶|해치고싶)"
-			)
-		),
+		IMMEDIATE_SAFETY_RISK,
 		new Rule(
 			"HARMFUL_OR_ILLEGAL_REQUEST",
 			"다른 사람에게 해를 주거나 불법 행위를 실행·은폐하는 내용은 리딩으로 다룰 수 없습니다.",
@@ -73,15 +84,35 @@ public class SensitiveReadingInputGuard {
 		for (FreeTextField field : freeTextFields(input)) {
 			String normalized = normalize(field.value());
 			String compact = normalized.replaceAll("[^\\p{L}\\p{N}@._%+\\-]", "");
+			if (containsExplicitHarmDesire(compact)) {
+				reject(IMMEDIATE_SAFETY_RISK, field);
+			}
 			for (Rule rule : RULES) {
 				if (rule.pattern().matcher(normalized).find()
 					|| rule.pattern().matcher(compact).find()) {
-					throw new InvalidReadingRequestException(
-						rule.code(), field.name(), rule.message()
-					);
+					reject(rule, field);
 				}
 			}
 		}
+	}
+
+	private boolean containsExplicitHarmDesire(String compact) {
+		Matcher matcher = EXPLICIT_HARM_DESIRE.matcher(compact);
+		while (matcher.find()) {
+			String objectPhrase = matcher.group(1);
+			boolean knownNonPersonObject = NON_PERSON_HARM_OBJECT_SUFFIXES.stream()
+				.anyMatch(objectPhrase::endsWith);
+			if (!knownNonPersonObject) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void reject(Rule rule, FreeTextField field) {
+		throw new InvalidReadingRequestException(
+			rule.code(), field.name(), rule.message()
+		);
 	}
 
 	private List<FreeTextField> freeTextFields(NormalizedReadingInput input) {
