@@ -126,8 +126,8 @@ app:
   consent:
     versions:
       terms: 2026-08-28
-      privacy: 2026-06-10
-      sensitive-data: 2026-06-10
+      ai-overseas-transfer: draft-2026-09-07
+      saju-input: draft-2026-09-07
 
   account:
     retention:

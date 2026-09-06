@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
@@ -55,10 +56,11 @@ public class ReadingCreationWorkflow {
 	public CreatedReadingResponse create(
 		UUID userId,
 		UUID requestId,
+		ConsentScope consentScope,
 		Supplier<NormalizedReadingInput> inputSupplier,
 		UnaryOperator<NormalizedReadingInput> pendingInputFinalizer
 	) {
-		requireCreationAllowed(userId, requestId);
+		requireCreationAllowed(userId, requestId, consentScope);
 		NormalizedReadingInput input = inputSupplier.get();
 		validateInput(input);
 		String inputHash = inputHash(input.hashMaterial());
@@ -119,6 +121,12 @@ public class ReadingCreationWorkflow {
 		directIdentifierInputGuard.validate(input);
 	}
 
+	public void requireConsent(UUID userId, ConsentScope consentScope) {
+		if (!consentService.hasAccepted(userId, consentScope)) {
+			throw new RequiredConsentMissingException("필수 동의가 필요합니다.");
+		}
+	}
+
 	String inputHash(Map<String, Object> input) {
 		try {
 			byte[] json = objectMapper.writer()
@@ -131,15 +139,17 @@ public class ReadingCreationWorkflow {
 		}
 	}
 
-	private void requireCreationAllowed(UUID userId, UUID requestId) {
+	private void requireCreationAllowed(
+		UUID userId,
+		UUID requestId,
+		ConsentScope consentScope
+	) {
 		if (userId == null) {
 			throw new IllegalArgumentException("User id is required");
 		}
 		if (requestId == null) {
 			throw new IllegalArgumentException("Request id is required");
 		}
-		if (!consentService.getUserStatus(userId).hasAcceptedRequired()) {
-			throw new RequiredConsentMissingException("필수 동의가 필요합니다.");
-		}
+		requireConsent(userId, consentScope);
 	}
 }

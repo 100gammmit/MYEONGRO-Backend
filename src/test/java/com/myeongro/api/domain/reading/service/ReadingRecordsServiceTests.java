@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
@@ -114,6 +115,7 @@ class ReadingRecordsServiceTests {
 
 		service.retry(USER_ID, READING_ID);
 
+		verify(creationWorkflow).requireConsent(USER_ID, ConsentScope.TAROT);
 		verify(creationWorkflow).validateInput(input);
 		verify(repository).startFailedRetry(USER_ID, READING_ID, metadata, 2, 10);
 		verify(creationWorkflow).generatePending(input, pending);
@@ -148,6 +150,7 @@ class ReadingRecordsServiceTests {
 		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))
 			.isInstanceOf(InvalidReadingRequestException.class);
 
+		verify(creationWorkflow).requireConsent(USER_ID, ConsentScope.TAROT);
 		verify(repository, org.mockito.Mockito.never()).startFailedRetry(
 			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(),

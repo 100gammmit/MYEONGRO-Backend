@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
@@ -65,6 +66,10 @@ public class ReadingRecordsService {
 		} catch (IllegalArgumentException exception) {
 			throw new ReadingRetryNotAllowedException();
 		}
+		creationWorkflow.requireConsent(
+			userId,
+			input.kind() == ReadingKind.TAROT ? ConsentScope.TAROT : ConsentScope.SAJU
+		);
 		creationWorkflow.validateInput(input);
 		ReadingGenerationMetadata generationMetadata =
 			generationMetadataResolver.resolve(input.kind(), input.spreadType());

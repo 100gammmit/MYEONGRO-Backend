@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.service.ReadingCreationWorkflow;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationRules;
@@ -52,6 +53,7 @@ public class SajuReadingCreationService {
 		return workflow.create(
 			userId,
 			requestId,
+			ConsentScope.SAJU,
 			() -> inputNormalizer.normalize(request),
 			input -> inputAssembler.assemble(input, targetYear)
 		);

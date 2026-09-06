@@ -20,8 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.myeongro.api.domain.consent.dto.ConsentStatus;
-import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.saju.controller.SajuReadingCreateRequest;
 import com.myeongro.api.domain.tarot.controller.TarotReadingCreateRequest;
@@ -58,15 +57,14 @@ class ReadingCreationWorkflowTests {
 	@Test
 	void rejectsUserWithoutRequiredConsentBeforeReservation() {
 		ConsentService consentService = org.mockito.Mockito.mock(ConsentService.class);
-		when(consentService.getUserStatus(USER_ID)).thenReturn(new ConsentStatus(
-			List.of(), ConsentDocumentType.required(), false
-		));
+		when(consentService.hasAccepted(USER_ID, ConsentScope.TAROT)).thenReturn(false);
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 
 		assertThatThrownBy(() -> service(consentService, repository, successfulGenerator())
 			.createTarotReading(USER_ID, REQUEST_ID, request()))
 			.isInstanceOf(RequiredConsentMissingException.class);
 
+		verify(consentService).hasAccepted(USER_ID, ConsentScope.TAROT);
 		org.mockito.Mockito.verifyNoInteractions(repository);
 	}
 
@@ -181,6 +179,7 @@ class ReadingCreationWorkflowTests {
 			"question", "focusArea", "birthProfile", "targetYear", "calculationSnapshot"
 		);
 		assertThat(command.getValue().input()).containsEntry("targetYear", 2026);
+		verify(consentService).hasAccepted(USER_ID, ConsentScope.SAJU);
 	}
 
 	@Test
@@ -382,9 +381,8 @@ class ReadingCreationWorkflowTests {
 
 	private ConsentService acceptedConsent() {
 		ConsentService service = org.mockito.Mockito.mock(ConsentService.class);
-		when(service.getUserStatus(USER_ID)).thenReturn(new ConsentStatus(
-			ConsentDocumentType.required(), ConsentDocumentType.required(), true
-		));
+		when(service.hasAccepted(USER_ID, ConsentScope.TAROT)).thenReturn(true);
+		when(service.hasAccepted(USER_ID, ConsentScope.SAJU)).thenReturn(true);
 		return service;
 	}
 

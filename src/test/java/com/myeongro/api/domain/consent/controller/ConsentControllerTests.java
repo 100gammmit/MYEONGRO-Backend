@@ -2,6 +2,7 @@ package com.myeongro.api.domain.consent.controller;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,7 +22,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.myeongro.api.domain.consent.dto.ConsentAcceptance;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
 import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.service.ConsentService;
+import com.myeongro.api.domain.consent.service.ConsentVersionMismatchException;
 import com.myeongro.api.global.auth.AuthenticatedUser;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
@@ -46,57 +49,105 @@ class ConsentControllerTests {
 	}
 
 	@Test
-	void returnsAuthenticatedUsersConsentStatus() throws Exception {
+	void returnsConsentStatusForTheRequestedFeatureScope() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(consentService.getUserStatus(USER_ID)).thenReturn(new ConsentStatus(
-			ConsentDocumentType.required(),
-			ConsentDocumentType.required(),
-			true
-		));
+		when(consentService.getUserStatus(USER_ID, ConsentScope.TAROT))
+			.thenReturn(new ConsentStatus(
+				List.of(ConsentDocumentType.TERMS),
+				ConsentScope.TAROT.requiredDocuments(),
+				false
+			));
 
-		mockMvc.perform(get("/api/consents").principal(authentication))
+		mockMvc.perform(get("/api/consents?scope=tarot").principal(authentication))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.status.hasAcceptedRequired").value(true));
+			.andExpect(jsonPath("$.status.hasAcceptedRequired").value(false))
+			.andExpect(jsonPath("$.status.requiredDocumentTypes[1]")
+				.value("ai-overseas-transfer"));
 
-		verify(consentService).getUserStatus(USER_ID);
+		verify(consentService).getUserStatus(USER_ID, ConsentScope.TAROT);
 	}
 
 	@Test
-	void recordsRequiredConsentForAuthenticatedUser() throws Exception {
+	void recordsOneReviewedDocumentAtItsExactVersion() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(consentService.acceptRequiredForUser(USER_ID, ConsentDocumentType.required()))
-			.thenReturn(List.of(new ConsentAcceptance(
-				ConsentDocumentType.TERMS,
-				"2026-06-10",
-				Instant.parse("2026-06-15T00:00:00Z")
-			)));
+		when(consentService.acceptForUser(
+			USER_ID,
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
+			"draft-2026-09-07"
+		)).thenReturn(new ConsentAcceptance(
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
+			"draft-2026-09-07",
+			Instant.parse("2026-09-07T00:00:00Z")
+		));
 
-		mockMvc.perform(post("/api/consents")
+		mockMvc.perform(post("/api/consents/ai-overseas-transfer")
 				.principal(authentication)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"acceptedDocumentTypes":["terms","privacy","sensitive-data"]}
+					{"documentVersion":"draft-2026-09-07"}
 					"""))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.consents[0].documentType").value("terms"));
-
-		verify(consentService).acceptRequiredForUser(USER_ID, ConsentDocumentType.required());
+			.andExpect(jsonPath("$.consent.documentType")
+				.value("ai-overseas-transfer"));
 	}
 
 	@Test
-	void rejectsUnknownConsentField() throws Exception {
-		mockMvc.perform(post("/api/consents")
+	void returnsConflictWhenTheReviewedVersionIsNoLongerCurrent() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(consentService.acceptForUser(
+			USER_ID,
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
+			"outdated"
+		)).thenThrow(new ConsentVersionMismatchException());
+
+		mockMvc.perform(post("/api/consents/ai-overseas-transfer")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"documentVersion":"outdated"}
+					"""))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("CONSENT_VERSION_MISMATCH"));
+	}
+
+	@Test
+	void withdrawsFeatureConsentIndependently() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+
+		mockMvc.perform(delete("/api/consents/ai-overseas-transfer")
+				.principal(authentication))
+			.andExpect(status().isNoContent());
+
+		verify(consentService).withdrawForUser(
+			USER_ID,
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER
+		);
+	}
+
+	@Test
+	void rejectsUnknownAcceptanceFields() throws Exception {
+		mockMvc.perform(post("/api/consents/terms")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{
-					  "acceptedDocumentTypes":["terms","privacy","sensitive-data"],
-					  "acceptedAt":"2026-06-15T00:00:00Z"
-					}
+					{"documentVersion":"2026-08-28","acceptedAt":"2026-09-07T00:00:00Z"}
 					"""))
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void rejectsAMissingDocumentVersion() throws Exception {
+		mockMvc.perform(post("/api/consents/terms")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isBadRequest());
+
+		org.mockito.Mockito.verifyNoInteractions(consentService);
 	}
 
 	private TestingAuthenticationToken authentication() {

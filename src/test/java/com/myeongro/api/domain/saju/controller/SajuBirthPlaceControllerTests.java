@@ -14,8 +14,7 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import com.myeongro.api.domain.consent.dto.ConsentStatus;
-import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.global.auth.AuthenticatedUser;
@@ -47,9 +46,7 @@ class SajuBirthPlaceControllerTests {
 
 	@Test
 	void returnsVersionedProvinceCatalogAfterRequiredConsent() throws Exception {
-		when(consentService.getUserStatus(USER_ID)).thenReturn(new ConsentStatus(
-			ConsentDocumentType.required(), ConsentDocumentType.required(), true
-		));
+		when(consentService.hasAccepted(USER_ID, ConsentScope.SAJU)).thenReturn(true);
 		when(catalog.version()).thenReturn("kr-admin-v1-province");
 		when(catalog.provinces()).thenReturn(List.of(
 			new SajuBirthPlaceCatalog.ProvinceView("11", "서울특별시")
@@ -65,9 +62,7 @@ class SajuBirthPlaceControllerTests {
 
 	@Test
 	void rejectsCatalogAccessBeforeRequiredConsent() throws Exception {
-		when(consentService.getUserStatus(USER_ID)).thenReturn(new ConsentStatus(
-			List.of(), ConsentDocumentType.required(), false
-		));
+		when(consentService.hasAccepted(USER_ID, ConsentScope.SAJU)).thenReturn(false);
 
 		mockMvc.perform(get("/api/saju/birth-places").principal(authentication))
 			.andExpect(status().isForbidden())

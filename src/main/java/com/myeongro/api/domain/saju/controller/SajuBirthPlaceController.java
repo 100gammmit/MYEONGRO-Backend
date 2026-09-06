@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
@@ -41,7 +42,7 @@ public class SajuBirthPlaceController {
 	@Operation(summary = "국내 출생지 목록 조회")
 	public ResponseEntity<Map<String, Object>> list(Authentication authentication) {
 		UUID userId = userResolver.requireUser(authentication).id();
-		if (!consentService.getUserStatus(userId).hasAcceptedRequired()) {
+		if (!consentService.hasAccepted(userId, ConsentScope.SAJU)) {
 			throw new RequiredConsentMissingException("필수 동의가 필요합니다.");
 		}
 		return ResponseEntity.ok(Map.of(

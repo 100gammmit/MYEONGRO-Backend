@@ -58,9 +58,11 @@ class SecurityConfigTests {
 
 	@Test
 	void requiresAuthenticationForConsentEndpoints() throws Exception {
-		mockMvc.perform(get("/api/consents"))
+		mockMvc.perform(get("/api/consents?scope=tarot"))
 			.andExpect(status().isUnauthorized());
-		mockMvc.perform(post("/api/consents"))
+		mockMvc.perform(post("/api/consents/ai-overseas-transfer"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(delete("/api/consents/ai-overseas-transfer"))
 			.andExpect(status().isUnauthorized());
 	}
 

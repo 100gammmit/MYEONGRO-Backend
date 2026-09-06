@@ -89,12 +89,12 @@ class AuthenticatedReadingSecurityTests {
 
 	@Test
 	void unauthenticatedConsentRequestsStopBeforeService() throws Exception {
-		mockMvc.perform(get("/api/consents"))
+		mockMvc.perform(get("/api/consents?scope=tarot"))
 			.andExpect(status().isUnauthorized());
-		mockMvc.perform(post("/api/consents")
+		mockMvc.perform(post("/api/consents/ai-overseas-transfer")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"acceptedDocumentTypes":["terms","privacy","sensitive-data"]}
+					{"documentVersion":"draft-2026-09-07"}
 					"""))
 			.andExpect(status().isUnauthorized());
 

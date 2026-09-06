@@ -195,4 +195,25 @@ class FlywayBaselineContractTests {
             .doesNotContain("create table public.reading_credit");
     }
 
+    @Test
+    void v10MigratesLegacyConsentIntoAppendOnlyVersionedEvents() throws IOException {
+        var migration = Files.list(MIGRATION_DIRECTORY)
+            .filter(path -> path.getFileName().toString()
+                .startsWith("V10__versioned_consent_events"))
+            .findFirst()
+            .orElseThrow();
+
+        var sql = Files.readString(migration);
+
+        assertThat(sql)
+            .contains("create table public.consent_events")
+            .contains("AI_OVERSEAS_TRANSFER")
+            .contains("SAJU_INPUT")
+            .contains("action in ('ACCEPTED', 'WITHDRAWN')")
+            .contains("consent_events_user_document_latest_idx")
+            .contains("from public.consents")
+            .contains("'legacy-migration'")
+            .doesNotContain("drop table public.consents");
+    }
+
 }

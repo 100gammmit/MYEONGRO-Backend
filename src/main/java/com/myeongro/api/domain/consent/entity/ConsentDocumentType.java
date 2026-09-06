@@ -9,9 +9,15 @@ public enum ConsentDocumentType {
 
 	TERMS("terms"),
 	PRIVACY("privacy"),
-	SENSITIVE_DATA("sensitive-data");
+	SENSITIVE_DATA("sensitive-data"),
+	AI_OVERSEAS_TRANSFER("ai-overseas-transfer"),
+	SAJU_INPUT("saju-input");
 
-	private static final List<ConsentDocumentType> REQUIRED = List.of(values());
+	private static final List<ConsentDocumentType> ACTIVE = List.of(
+		TERMS,
+		AI_OVERSEAS_TRANSFER,
+		SAJU_INPUT
+	);
 
 	private final String value;
 
@@ -29,8 +35,12 @@ public enum ConsentDocumentType {
 		throw new IllegalArgumentException("Unknown consent document type: " + value);
 	}
 
-	public static List<ConsentDocumentType> required() {
-		return REQUIRED;
+	public static List<ConsentDocumentType> active() {
+		return ACTIVE;
+	}
+
+	public boolean canBeWithdrawn() {
+		return this == AI_OVERSEAS_TRANSFER;
 	}
 
 	@JsonValue

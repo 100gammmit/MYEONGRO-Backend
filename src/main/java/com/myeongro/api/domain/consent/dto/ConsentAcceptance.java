@@ -3,7 +3,7 @@ package com.myeongro.api.domain.consent.dto;
 import java.time.Instant;
 
 import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
-import com.myeongro.api.domain.consent.entity.ConsentEntity;
+import com.myeongro.api.domain.consent.entity.ConsentEventEntity;
 
 public record ConsentAcceptance(
 	ConsentDocumentType documentType,
@@ -11,14 +11,11 @@ public record ConsentAcceptance(
 	Instant acceptedAt
 ) {
 
-	public static ConsentAcceptance from(
-		ConsentEntity consent,
-		ConsentDocumentType documentType
-	) {
+	public static ConsentAcceptance from(ConsentEventEntity event) {
 		return new ConsentAcceptance(
-			documentType,
-			consent.versionOf(documentType),
-			consent.acceptedAtOf(documentType)
+			event.getDocumentType(),
+			event.getDocumentVersion(),
+			event.getOccurredAt()
 		);
 	}
 }

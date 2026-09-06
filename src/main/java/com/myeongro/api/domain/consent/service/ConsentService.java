@@ -1,10 +1,9 @@
 package com.myeongro.api.domain.consent.service;
 
 import java.time.Clock;
-import java.time.Instant;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,37 +13,39 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.myeongro.api.domain.consent.dto.ConsentAcceptance;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
+import com.myeongro.api.domain.consent.entity.ConsentAction;
 import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
-import com.myeongro.api.domain.consent.entity.ConsentEntity;
-import com.myeongro.api.domain.consent.repository.ConsentRepository;
+import com.myeongro.api.domain.consent.entity.ConsentEventEntity;
+import com.myeongro.api.domain.consent.entity.ConsentScope;
+import com.myeongro.api.domain.consent.repository.ConsentEventRepository;
 
 @Service
 public class ConsentService {
 
-	private final ConsentRepository repository;
+	private final ConsentEventRepository repository;
 	private final Map<ConsentDocumentType, String> versions;
 	private final Clock clock;
 
 	@Autowired
 	public ConsentService(
-		ConsentRepository repository,
+		ConsentEventRepository repository,
 		@Value("${app.consent.versions.terms}") String termsVersion,
-		@Value("${app.consent.versions.privacy}") String privacyVersion,
-		@Value("${app.consent.versions.sensitive-data}") String sensitiveDataVersion
+		@Value("${app.consent.versions.ai-overseas-transfer}") String overseasTransferVersion,
+		@Value("${app.consent.versions.saju-input}") String sajuInputVersion
 	) {
 		this(
 			repository,
 			Map.of(
 				ConsentDocumentType.TERMS, termsVersion,
-				ConsentDocumentType.PRIVACY, privacyVersion,
-				ConsentDocumentType.SENSITIVE_DATA, sensitiveDataVersion
+				ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasTransferVersion,
+				ConsentDocumentType.SAJU_INPUT, sajuInputVersion
 			),
 			Clock.systemUTC()
 		);
 	}
 
 	ConsentService(
-		ConsentRepository repository,
+		ConsentEventRepository repository,
 		Map<ConsentDocumentType, String> versions,
 		Clock clock
 	) {
@@ -54,91 +55,91 @@ public class ConsentService {
 	}
 
 	@Transactional(readOnly = true)
-	public ConsentStatus getUserStatus(UUID userId) {
-		Optional<ConsentEntity> stored = repository.findByUserId(userId);
-		return toStatus(stored);
+	public ConsentStatus getUserStatus(UUID userId, ConsentScope scope) {
+		Map<ConsentDocumentType, ConsentEventEntity> latest = latestEvents(userId);
+		List<ConsentDocumentType> required = scope.requiredDocuments();
+		List<ConsentDocumentType> accepted = required.stream()
+			.filter(type -> isCurrentAcceptance(latest.get(type), type))
+			.toList();
+		return new ConsentStatus(accepted, required, accepted.size() == required.size());
 	}
 
-	private ConsentStatus toStatus(Optional<ConsentEntity> stored) {
-		List<ConsentDocumentType> accepted = ConsentDocumentType.required().stream()
-			.filter(type -> stored
-				.map(consent -> versions.get(type).equals(consent.versionOf(type)))
-				.orElse(false))
-			.toList();
-		return new ConsentStatus(
-			accepted,
-			ConsentDocumentType.required(),
-			accepted.size() == ConsentDocumentType.required().size()
-		);
+	@Transactional(readOnly = true)
+	public boolean hasAccepted(UUID userId, ConsentScope scope) {
+		return getUserStatus(userId, scope).hasAcceptedRequired();
 	}
 
 	@Transactional
-	public List<ConsentAcceptance> acceptRequiredForUser(
+	public ConsentAcceptance acceptForUser(
 		UUID userId,
-		List<ConsentDocumentType> acceptedDocumentTypes
+		ConsentDocumentType documentType,
+		String documentVersion
 	) {
-		validateAcceptedRequired(acceptedDocumentTypes);
-		Instant acceptedAt = clock.instant();
-		ConsentEntity stored = repository.findByUserId(userId)
-			.map(consent -> acceptCurrentVersions(consent, acceptedAt))
-			.orElseGet(() -> ConsentEntity.acceptedForUser(
-				userId,
-				termsVersion(),
-				privacyVersion(),
-				sensitiveDataVersion(),
-				acceptedAt
-			));
-		ConsentEntity saved = repository.save(stored);
+		validateActive(documentType);
+		String currentVersion = versions.get(documentType);
+		if (!currentVersion.equals(documentVersion)) {
+			throw new ConsentVersionMismatchException();
+		}
 
-		return ConsentDocumentType.required().stream()
-			.map(type -> ConsentAcceptance.from(saved, type))
-			.toList();
+		ConsentEventEntity current = latestEvents(userId).get(documentType);
+		if (isCurrentAcceptance(current, documentType)) {
+			return ConsentAcceptance.from(current);
+		}
+
+		ConsentEventEntity accepted = repository.save(ConsentEventEntity.accepted(
+			userId,
+			documentType,
+			currentVersion,
+			clock.instant()
+		));
+		return ConsentAcceptance.from(accepted);
 	}
 
-	private void validateAcceptedRequired(List<ConsentDocumentType> acceptedDocumentTypes) {
-		List<ConsentDocumentType> accepted = acceptedDocumentTypes == null
-			? List.of()
-			: acceptedDocumentTypes.stream().distinct().toList();
-		for (ConsentDocumentType required : ConsentDocumentType.required()) {
-			if (!accepted.contains(required)) {
-				throw new IllegalArgumentException(
-					"Missing required consent: " + required.value()
-				);
-			}
-		}
-		if (accepted.size() != ConsentDocumentType.required().size()) {
-			throw new IllegalArgumentException("Only required consent documents are allowed");
-		}
-	}
-
-	private ConsentEntity acceptCurrentVersions(
-		ConsentEntity consent,
-		Instant acceptedAt
-	) {
-		if (!consent.hasAcceptedCurrentVersions(
-			termsVersion(),
-			privacyVersion(),
-			sensitiveDataVersion()
-		)) {
-			consent.acceptOutdatedVersions(
-				termsVersion(),
-				privacyVersion(),
-				sensitiveDataVersion(),
-				acceptedAt
+	@Transactional
+	public void withdrawForUser(UUID userId, ConsentDocumentType documentType) {
+		validateActive(documentType);
+		if (!documentType.canBeWithdrawn()) {
+			throw new IllegalArgumentException(
+				"Consent cannot be withdrawn independently: " + documentType.value()
 			);
 		}
-		return consent;
+
+		ConsentEventEntity current = latestEvents(userId).get(documentType);
+		if (current == null || current.getAction() == ConsentAction.WITHDRAWN) {
+			return;
+		}
+		repository.save(ConsentEventEntity.withdrawn(
+			userId,
+			documentType,
+			current.getDocumentVersion(),
+			clock.instant()
+		));
 	}
 
-	private String termsVersion() {
-		return versions.get(ConsentDocumentType.TERMS);
+	private Map<ConsentDocumentType, ConsentEventEntity> latestEvents(UUID userId) {
+		Map<ConsentDocumentType, ConsentEventEntity> latest =
+			new EnumMap<>(ConsentDocumentType.class);
+		for (ConsentEventEntity event
+			: repository.findAllByUserIdOrderByOccurredAtDescIdDesc(userId)) {
+			latest.putIfAbsent(event.getDocumentType(), event);
+		}
+		return latest;
 	}
 
-	private String privacyVersion() {
-		return versions.get(ConsentDocumentType.PRIVACY);
+	private boolean isCurrentAcceptance(
+		ConsentEventEntity event,
+		ConsentDocumentType documentType
+	) {
+		return event != null
+			&& event.getAction() == ConsentAction.ACCEPTED
+			&& versions.get(documentType).equals(event.getDocumentVersion());
 	}
 
-	private String sensitiveDataVersion() {
-		return versions.get(ConsentDocumentType.SENSITIVE_DATA);
+	private void validateActive(ConsentDocumentType documentType) {
+		if (!ConsentDocumentType.active().contains(documentType)) {
+			throw new IllegalArgumentException(
+				"Consent document is not independently accepted: " + documentType.value()
+			);
+		}
 	}
 }

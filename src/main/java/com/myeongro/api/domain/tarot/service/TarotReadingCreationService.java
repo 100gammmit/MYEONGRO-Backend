@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.service.ReadingCreationWorkflow;
 import com.myeongro.api.domain.tarot.controller.TarotReadingCreateRequest;
@@ -34,6 +35,7 @@ public class TarotReadingCreationService {
 		return workflow.create(
 			userId,
 			requestId,
+			ConsentScope.TAROT,
 			() -> {
 				TarotSpreadType spread = TarotSpreadType.fromValue(request.spreadType());
 				var cardIds = cardSelector.select(
