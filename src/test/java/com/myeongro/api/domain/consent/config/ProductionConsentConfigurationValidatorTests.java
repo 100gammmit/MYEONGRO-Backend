@@ -10,6 +10,7 @@ class ProductionConsentConfigurationValidatorTests {
 	@Test
 	void acceptsReleasedDocumentVersions() {
 		var validator = new ProductionConsentConfigurationValidator(
+			"2026-08-28",
 			"2026-09-20",
 			"2026-09-20"
 		);
@@ -20,6 +21,7 @@ class ProductionConsentConfigurationValidatorTests {
 	@Test
 	void rejectsDraftDocumentVersionsInProduction() {
 		var validator = new ProductionConsentConfigurationValidator(
+			"2026-08-28",
 			"draft-2026-09-07",
 			"2026-09-20"
 		);
@@ -27,5 +29,18 @@ class ProductionConsentConfigurationValidatorTests {
 		assertThatThrownBy(validator::validate)
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessageContaining("ai-overseas-transfer");
+	}
+
+	@Test
+	void rejectsADraftTermsVersionInProduction() {
+		var validator = new ProductionConsentConfigurationValidator(
+			"draft-terms",
+			"2026-09-20",
+			"2026-09-20"
+		);
+
+		assertThatThrownBy(validator::validate)
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("terms");
 	}
 }

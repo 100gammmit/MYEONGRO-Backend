@@ -10,19 +10,23 @@ import jakarta.annotation.PostConstruct;
 @Profile("prod")
 public class ProductionConsentConfigurationValidator {
 
+	private final String termsVersion;
 	private final String overseasTransferVersion;
 	private final String sajuInputVersion;
 
 	public ProductionConsentConfigurationValidator(
+		@Value("${app.consent.versions.terms}") String termsVersion,
 		@Value("${app.consent.versions.ai-overseas-transfer}") String overseasTransferVersion,
 		@Value("${app.consent.versions.saju-input}") String sajuInputVersion
 	) {
+		this.termsVersion = termsVersion;
 		this.overseasTransferVersion = overseasTransferVersion;
 		this.sajuInputVersion = sajuInputVersion;
 	}
 
 	@PostConstruct
 	void validate() {
+		validateReleaseVersion("terms", termsVersion);
 		validateReleaseVersion("ai-overseas-transfer", overseasTransferVersion);
 		validateReleaseVersion("saju-input", sajuInputVersion);
 	}
