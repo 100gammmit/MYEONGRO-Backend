@@ -18,23 +18,27 @@ import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.entity.ConsentEventEntity;
 import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.repository.ConsentEventRepository;
+import com.myeongro.api.domain.consent.repository.ConsentTransitionLock;
 
 @Service
 public class ConsentService {
 
 	private final ConsentEventRepository repository;
+	private final ConsentTransitionLock transitionLock;
 	private final Map<ConsentDocumentType, String> versions;
 	private final Clock clock;
 
 	@Autowired
 	public ConsentService(
 		ConsentEventRepository repository,
+		ConsentTransitionLock transitionLock,
 		@Value("${app.consent.versions.terms}") String termsVersion,
 		@Value("${app.consent.versions.ai-overseas-transfer}") String overseasTransferVersion,
 		@Value("${app.consent.versions.saju-input}") String sajuInputVersion
 	) {
 		this(
 			repository,
+			transitionLock,
 			Map.of(
 				ConsentDocumentType.TERMS, termsVersion,
 				ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasTransferVersion,
@@ -46,10 +50,12 @@ public class ConsentService {
 
 	ConsentService(
 		ConsentEventRepository repository,
+		ConsentTransitionLock transitionLock,
 		Map<ConsentDocumentType, String> versions,
 		Clock clock
 	) {
 		this.repository = repository;
+		this.transitionLock = transitionLock;
 		this.versions = Map.copyOf(versions);
 		this.clock = clock;
 	}
@@ -81,6 +87,7 @@ public class ConsentService {
 			throw new ConsentVersionMismatchException();
 		}
 
+		transitionLock.lock(userId, documentType);
 		ConsentEventEntity current = latestEvents(userId).get(documentType);
 		if (isCurrentAcceptance(current, documentType)) {
 			return ConsentAcceptance.from(current);
@@ -104,6 +111,7 @@ public class ConsentService {
 			);
 		}
 
+		transitionLock.lock(userId, documentType);
 		ConsentEventEntity current = latestEvents(userId).get(documentType);
 		if (current == null || current.getAction() == ConsentAction.WITHDRAWN) {
 			return;

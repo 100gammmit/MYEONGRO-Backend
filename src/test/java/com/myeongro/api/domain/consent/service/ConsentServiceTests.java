@@ -3,6 +3,8 @@ package com.myeongro.api.domain.consent.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,6 +21,7 @@ import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.entity.ConsentEventEntity;
 import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.repository.ConsentEventRepository;
+import com.myeongro.api.domain.consent.repository.ConsentTransitionLock;
 
 class ConsentServiceTests {
 
@@ -97,6 +100,28 @@ class ConsentServiceTests {
 	}
 
 	@Test
+	void locksTheUserDocumentBeforeReadingAndRecordingAcceptance() {
+		ConsentEventRepository repository = repositoryWith();
+		ConsentTransitionLock transitionLock = mock(ConsentTransitionLock.class);
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
+
+		service(repository, transitionLock).acceptForUser(
+			USER_ID,
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
+			overseasVersion()
+		);
+
+		var ordered = inOrder(transitionLock, repository);
+		ordered.verify(transitionLock).lock(
+			USER_ID,
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER
+		);
+		ordered.verify(repository).findAllByUserIdOrderByOccurredAtDescIdDesc(USER_ID);
+		ordered.verify(repository).save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class));
+	}
+
+	@Test
 	void keepsARepeatedCurrentAcceptanceIdempotent() {
 		ConsentEventEntity current = accepted(
 			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
@@ -146,6 +171,29 @@ class ConsentServiceTests {
 	}
 
 	@Test
+	void locksTheUserDocumentBeforeReadingAndRecordingWithdrawal() {
+		ConsentEventRepository repository = repositoryWith(
+			accepted(ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasVersion())
+		);
+		ConsentTransitionLock transitionLock = mock(ConsentTransitionLock.class);
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
+
+		service(repository, transitionLock).withdrawForUser(
+			USER_ID,
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER
+		);
+
+		var ordered = inOrder(transitionLock, repository);
+		ordered.verify(transitionLock).lock(
+			USER_ID,
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER
+		);
+		ordered.verify(repository).findAllByUserIdOrderByOccurredAtDescIdDesc(USER_ID);
+		ordered.verify(repository).save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class));
+	}
+
+	@Test
 	void rejectsIndependentWithdrawalWithoutACompleteCleanupContract() {
 		assertThatThrownBy(() -> service(repositoryWith()).withdrawForUser(
 			USER_ID,
@@ -166,8 +214,16 @@ class ConsentServiceTests {
 	}
 
 	private ConsentService service(ConsentEventRepository repository) {
+		return service(repository, mock(ConsentTransitionLock.class));
+	}
+
+	private ConsentService service(
+		ConsentEventRepository repository,
+		ConsentTransitionLock transitionLock
+	) {
 		return new ConsentService(
 			repository,
+			transitionLock,
 			Map.of(
 				ConsentDocumentType.TERMS, termsVersion(),
 				ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasVersion(),

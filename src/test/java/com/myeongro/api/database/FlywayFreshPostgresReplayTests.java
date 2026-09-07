@@ -48,7 +48,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(8);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(10);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -85,6 +85,105 @@ class FlywayFreshPostgresReplayTests {
 
 		verifyFailureFunctionPrivileges(jdbcUrl, username, password);
 		verifyReadingCreationContract(jdbcUrl, username, password);
+		verifyConsentTransitionSerialization(jdbcUrl, username, password);
+	}
+
+	private void verifyConsentTransitionSerialization(
+		String jdbcUrl,
+		String username,
+		String password
+	) throws Exception {
+		UUID userId = UUID.randomUUID();
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var profile = connection.prepareStatement(
+				 "insert into public.profiles (id) values (?)");
+			 var withdrawn = connection.prepareStatement("""
+				 insert into public.consent_events (
+				   user_id, document_type, document_version, action, occurred_at, method
+				 ) values (?, 'AI_OVERSEAS_TRANSFER', '2026-09-20', 'WITHDRAWN',
+				   clock_timestamp() - interval '1 minute', 'test')
+				 """)) {
+			profile.setObject(1, userId);
+			profile.executeUpdate();
+			withdrawn.setObject(1, userId);
+			withdrawn.executeUpdate();
+		}
+
+		var executor = Executors.newSingleThreadExecutor();
+		try (var acceptance = DriverManager.getConnection(jdbcUrl, username, password)) {
+			acceptance.setAutoCommit(false);
+			lockConsentTransition(acceptance, userId);
+			assertThat(latestConsentAction(acceptance, userId)).isEqualTo("WITHDRAWN");
+
+			var withdrawal = executor.submit(() -> {
+				try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+					connection.setAutoCommit(false);
+					lockConsentTransition(connection, userId);
+					String observedAction = latestConsentAction(connection, userId);
+					insertConsentEvent(connection, userId, "WITHDRAWN");
+					connection.commit();
+					return observedAction;
+				}
+			});
+			awaitAdvisoryWaiter(jdbcUrl, username, password);
+
+			insertConsentEvent(acceptance, userId, "ACCEPTED");
+			acceptance.commit();
+
+			assertThat(withdrawal.get(5, TimeUnit.SECONDS)).isEqualTo("ACCEPTED");
+		} finally {
+			executor.shutdownNow();
+			assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+		}
+
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			assertThat(latestConsentAction(connection, userId)).isEqualTo("WITHDRAWN");
+		}
+	}
+
+	private void lockConsentTransition(Connection connection, UUID userId) throws SQLException {
+		try (var statement = connection.prepareStatement("""
+			select pg_advisory_xact_lock(
+			  hashtextextended(
+			    'consent:' || cast(? as text) || ':AI_OVERSEAS_TRANSFER', 0
+			  )
+			)
+			""")) {
+			statement.setObject(1, userId);
+			statement.execute();
+		}
+	}
+
+	private String latestConsentAction(Connection connection, UUID userId) throws SQLException {
+		try (var statement = connection.prepareStatement("""
+			select action
+			from public.consent_events
+			where user_id = ? and document_type = 'AI_OVERSEAS_TRANSFER'
+			order by occurred_at desc, id desc
+			limit 1
+			""")) {
+			statement.setObject(1, userId);
+			try (var resultSet = statement.executeQuery()) {
+				assertThat(resultSet.next()).isTrue();
+				return resultSet.getString("action");
+			}
+		}
+	}
+
+	private void insertConsentEvent(
+		Connection connection,
+		UUID userId,
+		String action
+	) throws SQLException {
+		try (var statement = connection.prepareStatement("""
+			insert into public.consent_events (
+			  user_id, document_type, document_version, action, occurred_at, method
+			) values (?, 'AI_OVERSEAS_TRANSFER', '2026-09-20', ?, clock_timestamp(), 'test')
+			""")) {
+			statement.setObject(1, userId);
+			statement.setString(2, action);
+			statement.executeUpdate();
+		}
 	}
 
 	private void verifyFailureFunctionPrivileges(String jdbcUrl, String username, String password)
