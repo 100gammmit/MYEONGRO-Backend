@@ -16,9 +16,8 @@ public interface OAuthAccountJpaRepository extends JpaRepository<OAuthAccountEnt
 		join fetch account.profile profile
 		where account.provider = :provider
 		  and account.providerUserId = :providerUserId
-		  and profile.deletedAt is null
 		""")
-	Optional<OAuthAccountEntity> findActiveByProviderAccount(
+	Optional<OAuthAccountEntity> findByProviderAccount(
 		@Param("provider") String provider,
 		@Param("providerUserId") String providerUserId
 	);

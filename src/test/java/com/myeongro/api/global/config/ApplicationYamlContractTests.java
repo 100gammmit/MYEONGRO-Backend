@@ -61,13 +61,13 @@ class ApplicationYamlContractTests {
 	}
 
 	@Test
-	void redisSessionStoreIsTheDefaultRuntimeSessionStore() throws Exception {
+	void redisSessionStoreSupportsPrincipalIndexedRevocation() throws Exception {
 		String applicationYaml = Files.readString(
 			Path.of("src/main/resources/application.yaml"),
 			StandardCharsets.UTF_8
 		);
 
-		assertThat(applicationYaml).contains("repository-type: default");
+		assertThat(applicationYaml).contains("repository-type: indexed");
 		assertThat(applicationYaml).contains("namespace: myeongro:session");
 		assertThat(applicationYaml).contains("flush-mode: on_save");
 		assertThat(applicationYaml).contains("timeout: 30m");

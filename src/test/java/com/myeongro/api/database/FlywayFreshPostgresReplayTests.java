@@ -25,19 +25,37 @@ class FlywayFreshPostgresReplayTests {
 		assumeTrue(jdbcUrl != null && username != null && password != null,
 			"Set freshPostgresJdbcUrl, freshPostgresUsername, and freshPostgresPassword to run");
 
-		Flyway flyway = Flyway.configure()
+		Flyway migrationThroughV10 = Flyway.configure()
+			.dataSource(jdbcUrl, username, password)
+			.locations("classpath:db/migration")
+			.defaultSchema("public")
+			.schemas("public", "auth")
+			.cleanDisabled(false)
+			.target("10")
+			.load();
+
+		migrationThroughV10.clean();
+		var result = migrationThroughV10.migrate();
+
+		assertThat(result.success).isTrue();
+		assertThat(result.migrationsExecuted).isGreaterThanOrEqualTo(10);
+
+		UUID withdrawnUserId = seedWithdrawnAccount(jdbcUrl, username, password);
+		UUID activeUserId = seedActiveAccount(jdbcUrl, username, password);
+		Flyway latest = Flyway.configure()
 			.dataSource(jdbcUrl, username, password)
 			.locations("classpath:db/migration")
 			.defaultSchema("public")
 			.schemas("public", "auth")
 			.cleanDisabled(false)
 			.load();
+		var latestResult = latest.migrate();
 
-		flyway.clean();
-		var result = flyway.migrate();
-
-		assertThat(result.success).isTrue();
-		assertThat(result.migrationsExecuted).isGreaterThan(0);
+		assertThat(latestResult.success).isTrue();
+		assertThat(latestResult.migrationsExecuted).isEqualTo(1);
+		verifyImmediateDeletionMigration(
+			jdbcUrl, username, password, withdrawnUserId, activeUserId
+		);
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
 			 var statement = connection.createStatement();
@@ -48,7 +66,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(10);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(11);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -75,10 +93,15 @@ class FlywayFreshPostgresReplayTests {
 				   ) is not null,
 				   to_regprocedure(
 				     'public.fail_reading_generation(uuid,bigint,text)'
-				   ) is not null
+				   ) is not null,
+				   not exists (
+				     select 1 from information_schema.columns
+				     where table_schema = 'public' and table_name = 'profiles'
+				       and column_name in ('deleted_at', 'purge_after', 'purged_at')
+				   )
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			for (int column = 1; column <= 9; column++) {
+			for (int column = 1; column <= 10; column++) {
 				assertThat(resultSet.getBoolean(column)).isTrue();
 			}
 		}
@@ -86,6 +109,96 @@ class FlywayFreshPostgresReplayTests {
 		verifyFailureFunctionPrivileges(jdbcUrl, username, password);
 		verifyReadingCreationContract(jdbcUrl, username, password);
 		verifyConsentTransitionSerialization(jdbcUrl, username, password);
+	}
+
+	private UUID seedWithdrawnAccount(
+		String jdbcUrl,
+		String username,
+		String password
+	) throws SQLException {
+		UUID userId = UUID.randomUUID();
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			try (var profile = connection.prepareStatement("""
+				insert into public.profiles (id, display_name, deleted_at, purge_after)
+				values (?, 'withdrawn', current_timestamp, current_timestamp + interval '30 days')
+				""")) {
+				profile.setObject(1, userId);
+				profile.executeUpdate();
+			}
+			try (var account = connection.prepareStatement("""
+				insert into public.oauth_accounts (profile_id, provider, provider_user_id)
+				values (?, 'google', ?)
+				""")) {
+				account.setObject(1, userId);
+				account.setString(2, "withdrawn-" + userId);
+				account.executeUpdate();
+			}
+			try (var consent = connection.prepareStatement("""
+				insert into public.consent_events (
+				  user_id, document_type, document_version, action, occurred_at, method
+				) values (?, 'TERMS', 'legacy-test', 'ACCEPTED', current_timestamp, 'test')
+				""")) {
+				consent.setObject(1, userId);
+				consent.executeUpdate();
+			}
+		}
+		return userId;
+	}
+
+	private UUID seedActiveAccount(
+		String jdbcUrl,
+		String username,
+		String password
+	) throws SQLException {
+		UUID userId = UUID.randomUUID();
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var profile = connection.prepareStatement(
+				 "insert into public.profiles (id, display_name) values (?, 'active')")) {
+			profile.setObject(1, userId);
+			profile.executeUpdate();
+		}
+		return userId;
+	}
+
+	private void verifyImmediateDeletionMigration(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID withdrawnUserId,
+		UUID activeUserId
+	) throws SQLException {
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			assertProfileCount(connection, withdrawnUserId, 0);
+			assertProfileCount(connection, activeUserId, 1);
+			try (var account = connection.prepareStatement(
+				"select count(*) from public.oauth_accounts where profile_id = ?")) {
+				account.setObject(1, withdrawnUserId);
+				try (var resultSet = account.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					assertThat(resultSet.getInt(1)).isZero();
+				}
+			}
+			try (var consent = connection.prepareStatement(
+				"select count(*) from public.consent_events where user_id = ?")) {
+				consent.setObject(1, withdrawnUserId);
+				try (var resultSet = consent.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					assertThat(resultSet.getInt(1)).isZero();
+				}
+			}
+		}
+	}
+
+	private void assertProfileCount(Connection connection, UUID userId, int expected)
+		throws SQLException {
+		try (var profile = connection.prepareStatement(
+			"select count(*) from public.profiles where id = ?")) {
+			profile.setObject(1, userId);
+			try (var resultSet = profile.executeQuery()) {
+				assertThat(resultSet.next()).isTrue();
+				assertThat(resultSet.getInt(1)).isEqualTo(expected);
+			}
+		}
 	}
 
 	private void verifyConsentTransitionSerialization(

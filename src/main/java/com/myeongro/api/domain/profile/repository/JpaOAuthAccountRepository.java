@@ -31,7 +31,7 @@ public class JpaOAuthAccountRepository implements OAuthAccountRepository {
 	@Transactional
 	public ProvisionedOAuthUser provision(OAuthProviderUserInfo userInfo) {
 		accountLock.lock(userInfo);
-		return accountRepository.findActiveByProviderAccount(
+		return accountRepository.findByProviderAccount(
 			userInfo.provider(),
 			userInfo.providerUserId()
 		)

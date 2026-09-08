@@ -1,4 +1,7 @@
 spring:
+  session:
+    redis:
+      repository-type: indexed
   flyway:
     enabled: false
   jpa:

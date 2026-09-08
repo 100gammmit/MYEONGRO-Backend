@@ -2,7 +2,6 @@ package com.myeongro.api.domain.profile.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import javax.sql.DataSource;
@@ -48,7 +47,7 @@ class JpaOAuthAccountRepositoryTests {
 
 	@Test
 	void returnsExistingActiveOauthAccount() {
-		insertProfile(ACTIVE_USER_ID, "Stored name", null);
+		insertProfile(ACTIVE_USER_ID, "Stored name");
 		insertOAuthAccount(ACTIVE_USER_ID, "kakao", "12345", "stored@example.com", "Provider name");
 
 		var user = repository.provision(new OAuthProviderUserInfo(
@@ -66,8 +65,10 @@ class JpaOAuthAccountRepositoryTests {
 	}
 
 	@Test
-	void ignoresWithdrawnProfilesAndCreatesNewProfileAccount() {
-		insertProfile(DELETED_USER_ID, "Withdrawn", "2026-07-01T00:00:00Z");
+	void createsNewProfileWhenTheSameProviderReturnsAfterPermanentDeletion() {
+		insertProfile(DELETED_USER_ID, "Deleted user");
+		insertOAuthAccount(DELETED_USER_ID, "google", "abcde", "old@example.com", "Deleted user");
+		jdbcTemplate.update("delete from public.profiles where id = ?", DELETED_USER_ID);
 
 		var user = repository.provision(new OAuthProviderUserInfo(
 			"google",
@@ -80,19 +81,18 @@ class JpaOAuthAccountRepositoryTests {
 		assertThat(user.displayName()).isEqualTo("New user");
 		assertThat(user.provider()).isEqualTo("google");
 		assertThat(user.providerUserId()).isEqualTo("abcde");
-		assertThat(countProfiles()).isEqualTo(2);
+		assertThat(countProfiles()).isEqualTo(1);
 		assertThat(countOAuthAccountsFor(user.userId())).isEqualTo(1);
 	}
 
-	private void insertProfile(UUID userId, String displayName, String deletedAt) {
+	private void insertProfile(UUID userId, String displayName) {
 		jdbcTemplate.update(
 			"""
-			insert into public.profiles (id, display_name, deleted_at)
-			values (?, ?, ?)
+			insert into public.profiles (id, display_name)
+			values (?, ?)
 			""",
 			userId,
-			displayName,
-			deletedAt == null ? null : OffsetDateTime.parse(deletedAt)
+			displayName
 		);
 	}
 

@@ -2,8 +2,6 @@ package com.myeongro.api.domain.profile.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import javax.sql.DataSource;
@@ -29,9 +27,6 @@ class JpaAccountWithdrawalRepositoryTests {
 		UUID.fromString("72e5cd7e-115d-432c-bfc2-1e9d3833a61d");
 	private static final UUID READING_ID =
 		UUID.fromString("a44f8964-5351-4a77-9b52-bc84d085f215");
-	private static final Instant PURGE_AFTER =
-		Instant.parse("2026-07-29T00:00:00Z");
-
 	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
@@ -43,44 +38,37 @@ class JpaAccountWithdrawalRepositoryTests {
 	}
 
 	@Test
-	void withdrawSoftDeletesProfileAndReadingsAndDeletesOauthAccounts() {
-		insertProfile(USER_ID, "Leaving user", null, null);
+	void withdrawPermanentlyDeletesProfileAndCascadesAccountData() {
+		insertProfile(USER_ID, "Leaving user");
 		insertOAuthAccount(USER_ID);
-		insertReading(READING_ID, USER_ID, null);
+		insertReading(READING_ID, USER_ID);
+		insertGenerationRecord(READING_ID);
+		insertConsentEvent(USER_ID);
 
-		repository.withdraw(USER_ID, PURGE_AFTER);
+		repository.deletePermanently(USER_ID);
 
 		assertThat(countOAuthAccounts(USER_ID)).isZero();
-		assertThat(readingDeletedAt(READING_ID)).isNotNull();
-		assertThat(profileDeletedAt(USER_ID)).isNotNull();
-		assertThat(profilePurgeAfter(USER_ID)).isEqualTo(PURGE_AFTER);
+		assertThat(countReadings(READING_ID)).isZero();
+		assertThat(countRows("generation_records")).isZero();
+		assertThat(countRows("consent_events")).isZero();
+		assertThat(countProfiles(USER_ID)).isZero();
 	}
 
 	@Test
-	void withdrawPreservesExistingPurgeDeadline() {
-		Instant existingPurgeAfter = Instant.parse("2026-07-20T00:00:00Z");
-		insertProfile(USER_ID, "Leaving user", null, existingPurgeAfter);
+	void deletingAMissingAccountIsIdempotent() {
+		repository.deletePermanently(USER_ID);
 
-		repository.withdraw(USER_ID, PURGE_AFTER);
-
-		assertThat(profilePurgeAfter(USER_ID)).isEqualTo(existingPurgeAfter);
+		assertThat(countProfiles(USER_ID)).isZero();
 	}
 
-	private void insertProfile(
-		UUID userId,
-		String displayName,
-		String deletedAt,
-		Instant purgeAfter
-	) {
+	private void insertProfile(UUID userId, String displayName) {
 		jdbcTemplate.update(
 			"""
-			insert into public.profiles (id, display_name, deleted_at, purge_after)
-			values (?, ?, ?, ?)
+			insert into public.profiles (id, display_name)
+			values (?, ?)
 			""",
 			userId,
-			displayName,
-			deletedAt == null ? null : OffsetDateTime.parse(deletedAt),
-			purgeAfter == null ? null : OffsetDateTime.parse(purgeAfter.toString())
+			displayName
 		);
 	}
 
@@ -94,15 +82,14 @@ class JpaAccountWithdrawalRepositoryTests {
 		);
 	}
 
-	private void insertReading(UUID readingId, UUID userId, String deletedAt) {
+	private void insertReading(UUID readingId, UUID userId) {
 		jdbcTemplate.update(
 			"""
-			insert into public.readings (id, user_id, deleted_at)
-			values (?, ?, ?)
+			insert into public.readings (id, user_id)
+			values (?, ?)
 			""",
 			readingId,
-			userId,
-			deletedAt == null ? null : OffsetDateTime.parse(deletedAt)
+			userId
 		);
 	}
 
@@ -114,27 +101,43 @@ class JpaAccountWithdrawalRepositoryTests {
 		);
 	}
 
-	private Instant readingDeletedAt(UUID readingId) {
+	private Integer countReadings(UUID readingId) {
 		return jdbcTemplate.queryForObject(
-			"select deleted_at from public.readings where id = ?",
-			(resultSet, rowNumber) -> resultSet.getTimestamp(1).toInstant(),
+			"select count(*) from public.readings where id = ?",
+			Integer.class,
 			readingId
 		);
 	}
 
-	private Instant profileDeletedAt(UUID userId) {
-		return jdbcTemplate.queryForObject(
-			"select deleted_at from public.profiles where id = ?",
-			(resultSet, rowNumber) -> resultSet.getTimestamp(1).toInstant(),
+	private void insertGenerationRecord(UUID readingId) {
+		jdbcTemplate.update(
+			"insert into public.generation_records (reading_id) values (?)",
+			readingId
+		);
+	}
+
+	private void insertConsentEvent(UUID userId) {
+		jdbcTemplate.update(
+			"""
+			insert into public.consent_events (user_id, document_type)
+			values (?, 'TERMS')
+			""",
 			userId
 		);
 	}
 
-	private Instant profilePurgeAfter(UUID userId) {
+	private Integer countProfiles(UUID userId) {
 		return jdbcTemplate.queryForObject(
-			"select purge_after from public.profiles where id = ?",
-			(resultSet, rowNumber) -> resultSet.getTimestamp(1).toInstant(),
+			"select count(*) from public.profiles where id = ?",
+			Integer.class,
 			userId
+		);
+	}
+
+	private Integer countRows(String tableName) {
+		return jdbcTemplate.queryForObject(
+			"select count(*) from public." + tableName,
+			Integer.class
 		);
 	}
 }

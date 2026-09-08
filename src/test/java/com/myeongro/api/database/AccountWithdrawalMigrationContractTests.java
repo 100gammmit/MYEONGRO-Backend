@@ -47,4 +47,23 @@ class AccountWithdrawalMigrationContractTests {
 			.contains("purge_after")
 			.contains("purged_at is null");
 	}
+
+	@Test
+	void v11PermanentlyDeletesWithdrawnAccountsAndRemovesRetentionColumns() throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V11__immediate_account_deletion"))
+			.findFirst()
+			.orElseThrow();
+
+		String sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("delete from public.profiles")
+			.contains("where deleted_at is not null")
+			.contains("drop index if exists public.profiles_purge_due_idx")
+			.contains("drop column if exists deleted_at")
+			.contains("drop column if exists purge_after")
+			.contains("drop column if exists purged_at");
+	}
 }

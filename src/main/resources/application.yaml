@@ -16,7 +16,7 @@ spring:
 
   session:
     redis:
-      repository-type: default
+      repository-type: indexed
       namespace: myeongro:session
       flush-mode: on_save
 
@@ -128,13 +128,6 @@ app:
       terms: 2026-08-28
       ai-overseas-transfer: draft-2026-09-07
       saju-input: draft-2026-09-07
-
-  account:
-    retention:
-      purge-delay: 30d
-      purge-enabled: false
-      purge-batch-size: 100
-      purge-cron: "0 0 4 * * *"
 
 springdoc:
   swagger-ui:

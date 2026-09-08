@@ -19,15 +19,6 @@ public class ProfileEntity {
 	@Column(name = "display_name")
 	private String displayName;
 
-	@Column(name = "deleted_at")
-	private Instant deletedAt;
-
-	@Column(name = "purge_after")
-	private Instant purgeAfter;
-
-	@Column(name = "purged_at")
-	private Instant purgedAt;
-
 	@Column(name = "free_credit_balance", nullable = false)
 	private int freeCreditBalance;
 
@@ -63,15 +54,4 @@ public class ProfileEntity {
 		return displayName;
 	}
 
-	public Instant getDeletedAt() {
-		return deletedAt;
-	}
-
-	public Instant getPurgeAfter() {
-		return purgeAfter;
-	}
-
-	public Instant getPurgedAt() {
-		return purgedAt;
-	}
 }
