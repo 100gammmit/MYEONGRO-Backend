@@ -17,7 +17,7 @@ spring:
   session:
     redis:
       repository-type: indexed
-      namespace: myeongro:session
+      namespace: myeongro:session:v2
       flush-mode: on_save
 
   jpa:

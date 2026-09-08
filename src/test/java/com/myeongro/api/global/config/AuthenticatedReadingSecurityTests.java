@@ -18,6 +18,7 @@ import com.myeongro.api.domain.consent.controller.ConsentController;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.dailycard.controller.DailyCardSelectionController;
 import com.myeongro.api.domain.dailycard.service.DailyCardSelectionService;
+import com.myeongro.api.domain.profile.repository.ProfileJpaRepository;
 import com.myeongro.api.domain.reading.controller.ReadingRecordsController;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
@@ -28,6 +29,7 @@ import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
 import com.myeongro.api.domain.tarot.controller.TarotReadingController;
 import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
+import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 
@@ -39,7 +41,7 @@ import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 	SajuBirthPlaceController.class,
 	DailyCardSelectionController.class
 })
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, ActiveAccountSessionFilter.class })
 @TestPropertySource(properties = {
 	"app.frontend-origin=http://localhost:3000",
 	"spring.security.oauth2.client.registration.kakao.client-id=test-client-id",
@@ -86,6 +88,9 @@ class AuthenticatedReadingSecurityTests {
 
 	@MockitoBean
 	private OidcSessionUserService oidcSessionUserService;
+
+	@MockitoBean
+	private ProfileJpaRepository profileRepository;
 
 	@Test
 	void unauthenticatedConsentRequestsStopBeforeService() throws Exception {

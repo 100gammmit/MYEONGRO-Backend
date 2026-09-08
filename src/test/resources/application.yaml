@@ -2,6 +2,7 @@ spring:
   session:
     redis:
       repository-type: indexed
+      namespace: myeongro:session:v2
   flyway:
     enabled: false
   jpa:

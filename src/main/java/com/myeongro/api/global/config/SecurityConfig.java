@@ -10,8 +10,10 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 
+import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OAuth2LoginSuccessHandler;
 import com.myeongro.api.global.auth.oauth.OAuth2NextRequestFilter;
@@ -28,15 +30,18 @@ public class SecurityConfig {
 	private final String frontendOrigin;
 	private final OAuth2SessionUserService oauth2SessionUserService;
 	private final OidcSessionUserService oidcSessionUserService;
+	private final ActiveAccountSessionFilter activeAccountSessionFilter;
 
 	public SecurityConfig(
 		@Value("${app.frontend-origin:http://localhost:3000}") String frontendOrigin,
 		OAuth2SessionUserService oauth2SessionUserService,
-		OidcSessionUserService oidcSessionUserService
+		OidcSessionUserService oidcSessionUserService,
+		ActiveAccountSessionFilter activeAccountSessionFilter
 	) {
 		this.frontendOrigin = frontendOrigin;
 		this.oauth2SessionUserService = oauth2SessionUserService;
 		this.oidcSessionUserService = oidcSessionUserService;
+		this.activeAccountSessionFilter = activeAccountSessionFilter;
 	}
 
 	@Bean
@@ -49,6 +54,10 @@ public class SecurityConfig {
 			.addFilterBefore(
 				new OAuth2NextRequestFilter(),
 				OAuth2AuthorizationRequestRedirectFilter.class
+			)
+			.addFilterAfter(
+				activeAccountSessionFilter,
+				SecurityContextHolderFilter.class
 			)
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(

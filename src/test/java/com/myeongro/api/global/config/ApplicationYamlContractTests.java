@@ -68,7 +68,7 @@ class ApplicationYamlContractTests {
 		);
 
 		assertThat(applicationYaml).contains("repository-type: indexed");
-		assertThat(applicationYaml).contains("namespace: myeongro:session");
+		assertThat(applicationYaml).contains("namespace: myeongro:session:v2");
 		assertThat(applicationYaml).contains("flush-mode: on_save");
 		assertThat(applicationYaml).contains("timeout: 30m");
 	}

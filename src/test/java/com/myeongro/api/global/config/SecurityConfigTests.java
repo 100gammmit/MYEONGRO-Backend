@@ -16,11 +16,17 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
+import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
+import com.myeongro.api.domain.profile.repository.ProfileJpaRepository;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 import com.myeongro.testsupport.SecurityConfigTestEndpoint;
 
 @WebMvcTest(controllers = SecurityConfigTestEndpoint.class)
-@Import({ SecurityConfig.class, SecurityConfigTestEndpoint.class })
+@Import({
+	SecurityConfig.class,
+	ActiveAccountSessionFilter.class,
+	SecurityConfigTestEndpoint.class
+})
 @TestPropertySource(properties = {
 	"app.frontend-origin=http://localhost:3000",
 	"spring.security.oauth2.client.registration.kakao.client-id=test-client-id",
@@ -44,6 +50,9 @@ class SecurityConfigTests {
 
 	@MockitoBean
 	private OidcSessionUserService oidcSessionUserService;
+
+	@MockitoBean
+	private ProfileJpaRepository profileRepository;
 
 	@MockitoBean
 	private ReadingCreditService readingCreditService;
