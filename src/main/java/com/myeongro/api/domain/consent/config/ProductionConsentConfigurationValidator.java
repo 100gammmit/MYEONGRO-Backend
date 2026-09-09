@@ -13,15 +13,18 @@ public class ProductionConsentConfigurationValidator {
 	private final String termsVersion;
 	private final String overseasTransferVersion;
 	private final String sajuInputVersion;
+	private final String adultEligibilityVersion;
 
 	public ProductionConsentConfigurationValidator(
 		@Value("${app.consent.versions.terms}") String termsVersion,
 		@Value("${app.consent.versions.ai-overseas-transfer}") String overseasTransferVersion,
-		@Value("${app.consent.versions.saju-input}") String sajuInputVersion
+		@Value("${app.consent.versions.saju-input}") String sajuInputVersion,
+		@Value("${app.eligibility.adult-policy-version}") String adultEligibilityVersion
 	) {
 		this.termsVersion = termsVersion;
 		this.overseasTransferVersion = overseasTransferVersion;
 		this.sajuInputVersion = sajuInputVersion;
+		this.adultEligibilityVersion = adultEligibilityVersion;
 	}
 
 	@PostConstruct
@@ -29,6 +32,7 @@ public class ProductionConsentConfigurationValidator {
 		validateReleaseVersion("terms", termsVersion);
 		validateReleaseVersion("ai-overseas-transfer", overseasTransferVersion);
 		validateReleaseVersion("saju-input", sajuInputVersion);
+		validateReleaseVersion("adult-eligibility", adultEligibilityVersion);
 	}
 
 	private void validateReleaseVersion(String documentType, String version) {

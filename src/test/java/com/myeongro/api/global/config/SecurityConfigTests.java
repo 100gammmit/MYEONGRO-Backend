@@ -17,6 +17,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
+import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
+import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.domain.profile.repository.ProfileJpaRepository;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 import com.myeongro.testsupport.SecurityConfigTestEndpoint;
@@ -25,10 +27,12 @@ import com.myeongro.testsupport.SecurityConfigTestEndpoint;
 @Import({
 	SecurityConfig.class,
 	ActiveAccountSessionFilter.class,
+	AdultEligibilitySessionFilter.class,
 	SecurityConfigTestEndpoint.class
 })
 @TestPropertySource(properties = {
 	"app.frontend-origin=http://localhost:3000",
+	"app.eligibility.adult-policy-version=2026-09-09",
 	"spring.security.oauth2.client.registration.kakao.client-id=test-client-id",
 	"spring.security.oauth2.client.registration.kakao.client-secret=test-client-secret",
 	"spring.security.oauth2.client.registration.kakao.redirect-uri=http://localhost/login/oauth2/code/kakao",
@@ -56,6 +60,9 @@ class SecurityConfigTests {
 
 	@MockitoBean
 	private ReadingCreditService readingCreditService;
+
+	@MockitoBean
+	private AdultEligibilityService adultEligibilityService;
 
 	@Test
 	void requiresAuthenticationForReadingCreationEndpoint() throws Exception {
@@ -111,6 +118,12 @@ class SecurityConfigTests {
 	void allowsCurrentUserEndpointWithoutSession() throws Exception {
 		mockMvc.perform(get("/api/auth/me"))
 			.andExpect(status().isOk());
+	}
+
+	@Test
+	void blocksDirectOauthAuthorizationWithoutAdultConfirmation() throws Exception {
+		mockMvc.perform(get("/oauth2/authorization/kakao"))
+			.andExpect(status().isForbidden());
 	}
 
 	@Test

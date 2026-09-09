@@ -18,6 +18,7 @@ import com.myeongro.api.domain.consent.controller.ConsentController;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.dailycard.controller.DailyCardSelectionController;
 import com.myeongro.api.domain.dailycard.service.DailyCardSelectionService;
+import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.domain.profile.repository.ProfileJpaRepository;
 import com.myeongro.api.domain.reading.controller.ReadingRecordsController;
 import com.myeongro.api.domain.reading.service.ReadingRecordsService;
@@ -30,6 +31,7 @@ import com.myeongro.api.domain.tarot.controller.TarotReadingController;
 import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
+import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 
@@ -41,9 +43,14 @@ import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 	SajuBirthPlaceController.class,
 	DailyCardSelectionController.class
 })
-@Import({ SecurityConfig.class, ActiveAccountSessionFilter.class })
+@Import({
+	SecurityConfig.class,
+	ActiveAccountSessionFilter.class,
+	AdultEligibilitySessionFilter.class
+})
 @TestPropertySource(properties = {
 	"app.frontend-origin=http://localhost:3000",
+	"app.eligibility.adult-policy-version=2026-09-09",
 	"spring.security.oauth2.client.registration.kakao.client-id=test-client-id",
 	"spring.security.oauth2.client.registration.kakao.client-secret=test-client-secret",
 	"spring.security.oauth2.client.registration.kakao.redirect-uri=http://localhost/login/oauth2/code/kakao",
@@ -91,6 +98,9 @@ class AuthenticatedReadingSecurityTests {
 
 	@MockitoBean
 	private ProfileJpaRepository profileRepository;
+
+	@MockitoBean
+	private AdultEligibilityService adultEligibilityService;
 
 	@Test
 	void unauthenticatedConsentRequestsStopBeforeService() throws Exception {

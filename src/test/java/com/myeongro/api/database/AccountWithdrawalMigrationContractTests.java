@@ -66,4 +66,24 @@ class AccountWithdrawalMigrationContractTests {
 			.contains("drop column if exists purge_after")
 			.contains("drop column if exists purged_at");
 	}
+
+	@Test
+	void v12StoresVersionedAdultEligibilityWithoutBirthData() throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V12__adult_eligibility_assertions"))
+			.findFirst()
+			.orElseThrow();
+
+		String sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("create table public.adult_eligibility_assertions")
+			.contains("user_id uuid not null references public.profiles(id) on delete cascade")
+			.contains("policy_version text not null")
+			.contains("confirmed_at timestamptz not null")
+			.contains("unique (user_id, policy_version)")
+			.doesNotContain("birth_date")
+			.doesNotContain("date_of_birth");
+	}
 }

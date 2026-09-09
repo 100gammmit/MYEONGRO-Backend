@@ -52,7 +52,7 @@ class FlywayFreshPostgresReplayTests {
 		var latestResult = latest.migrate();
 
 		assertThat(latestResult.success).isTrue();
-		assertThat(latestResult.migrationsExecuted).isEqualTo(1);
+		assertThat(latestResult.migrationsExecuted).isEqualTo(2);
 		verifyImmediateDeletionMigration(
 			jdbcUrl, username, password, withdrawnUserId, activeUserId
 		);
@@ -66,7 +66,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(11);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(12);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -98,10 +98,11 @@ class FlywayFreshPostgresReplayTests {
 				     select 1 from information_schema.columns
 				     where table_schema = 'public' and table_name = 'profiles'
 				       and column_name in ('deleted_at', 'purge_after', 'purged_at')
-				   )
+				   ),
+				   to_regclass('public.adult_eligibility_assertions') is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			for (int column = 1; column <= 10; column++) {
+			for (int column = 1; column <= 11; column++) {
 				assertThat(resultSet.getBoolean(column)).isTrue();
 			}
 		}

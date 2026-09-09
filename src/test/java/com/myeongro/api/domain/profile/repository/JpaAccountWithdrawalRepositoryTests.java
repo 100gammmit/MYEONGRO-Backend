@@ -44,6 +44,7 @@ class JpaAccountWithdrawalRepositoryTests {
 		insertReading(READING_ID, USER_ID);
 		insertGenerationRecord(READING_ID);
 		insertConsentEvent(USER_ID);
+		insertAdultEligibilityAssertion(USER_ID);
 
 		repository.deletePermanently(USER_ID);
 
@@ -51,6 +52,7 @@ class JpaAccountWithdrawalRepositoryTests {
 		assertThat(countReadings(READING_ID)).isZero();
 		assertThat(countRows("generation_records")).isZero();
 		assertThat(countRows("consent_events")).isZero();
+		assertThat(countRows("adult_eligibility_assertions")).isZero();
 		assertThat(countProfiles(USER_ID)).isZero();
 	}
 
@@ -121,6 +123,18 @@ class JpaAccountWithdrawalRepositoryTests {
 			"""
 			insert into public.consent_events (user_id, document_type)
 			values (?, 'TERMS')
+			""",
+			userId
+		);
+	}
+
+	private void insertAdultEligibilityAssertion(UUID userId) {
+		jdbcTemplate.update(
+			"""
+			insert into public.adult_eligibility_assertions (
+				user_id, policy_version, confirmed_at, method
+			)
+			values (?, '2026-09-09', current_timestamp, 'test')
 			""",
 			userId
 		);
