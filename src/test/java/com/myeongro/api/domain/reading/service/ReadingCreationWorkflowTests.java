@@ -27,9 +27,9 @@ import com.myeongro.api.domain.tarot.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.tarot.model.TarotSpreadType;
-import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
+import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
@@ -41,6 +41,7 @@ import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
 import com.myeongro.api.domain.saju.service.SajuReadingInputNormalizer;
 import com.myeongro.api.domain.tarot.service.TarotCardSelector;
 import com.myeongro.api.domain.tarot.selection.TarotCardRanker;
+import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
@@ -317,6 +318,28 @@ class ReadingCreationWorkflowTests {
 			.isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
 				assertThat(exception.getReadingId()).isEqualTo(READING_ID)
 			);
+
+		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
+		verifyNoInteractions(generator);
+	}
+
+	@Test
+	void repeatsGeneratingCreationAsStableInProgressWithoutNewReservation() {
+		ConsentService consentService = acceptedConsent();
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		when(repository.findExisting(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.eq(ReadingKind.TAROT),
+			org.mockito.ArgumentMatchers.eq(TarotSpreadType.RELATIONSHIP_THREE_CARD.value()),
+			org.mockito.ArgumentMatchers.eq(ReadingSchemaVersions.TAROT),
+			org.mockito.ArgumentMatchers.anyMap()
+		)).thenReturn(Optional.of(tarotReading("generating")));
+
+		assertThatThrownBy(() -> service(consentService, repository, generator)
+			.createTarotReading(USER_ID, REQUEST_ID, request()))
+			.isInstanceOf(ReadingGenerationInProgressException.class);
 
 		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
 		verifyNoInteractions(generator);

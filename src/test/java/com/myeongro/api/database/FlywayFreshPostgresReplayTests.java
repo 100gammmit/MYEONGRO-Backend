@@ -1,6 +1,7 @@
 package com.myeongro.api.database;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.sql.Connection;
@@ -19,8 +20,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.consent.entity.ConsentScope;
+import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.repository.JdbcReadingCreationRepository;
+import com.myeongro.api.domain.reading.service.DirectIdentifierInputGuard;
+import com.myeongro.api.domain.reading.service.NormalizedReadingInput;
+import com.myeongro.api.domain.reading.service.ReadingCreationWorkflow;
+import com.myeongro.api.domain.reading.service.ReadingGenerationMetadataResolver;
+import com.myeongro.api.domain.reading.service.ReadingGenerator;
 import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
 
 class FlywayFreshPostgresReplayTests {
@@ -51,10 +60,10 @@ class FlywayFreshPostgresReplayTests {
 		UUID withdrawnUserId = seedWithdrawnAccount(jdbcUrl, username, password);
 		UUID activeUserId = seedActiveAccount(jdbcUrl, username, password);
 		LegacySajuReading exactLegacy = seedLegacySajuReading(
-			jdbcUrl, username, password, activeUserId, "exact"
+			jdbcUrl, username, password, activeUserId, "exact", "generating"
 		);
 		LegacySajuReading unknownLegacy = seedLegacySajuReading(
-			jdbcUrl, username, password, activeUserId, "unknown"
+			jdbcUrl, username, password, activeUserId, "unknown", "completed"
 		);
 		Flyway latest = Flyway.configure()
 			.dataSource(jdbcUrl, username, password)
@@ -183,7 +192,8 @@ class FlywayFreshPostgresReplayTests {
 		String username,
 		String password,
 		UUID userId,
-		String precision
+		String precision,
+		String status
 	) throws SQLException {
 		UUID readingId = UUID.randomUUID();
 		UUID requestId = UUID.randomUUID();
@@ -212,15 +222,28 @@ class FlywayFreshPostgresReplayTests {
 				   input_payload, result_payload, spread_type, schema_version, credit_cost
 				 ) values (
 				   ?, ?, ?, 'legacy-question-derived-hash', cast('saju' as public.reading_kind),
-				   cast('completed' as public.reading_status), 'legacy saju',
-				   cast(? as jsonb), '{}'::jsonb, null, 2, 0
+				   cast(? as public.reading_status), 'legacy saju',
+				   cast(? as jsonb), cast(? as jsonb), null, 2, 0
 				 )
 				 """)) {
 			statement.setObject(1, readingId);
 			statement.setObject(2, userId);
 			statement.setObject(3, requestId);
-			statement.setString(4, payload);
+			statement.setString(4, status);
+			statement.setString(5, payload);
+			statement.setString(6, "completed".equals(status) ? "{}" : null);
 			statement.executeUpdate();
+			if ("generating".equals(status)) {
+				try (var generation = connection.prepareStatement("""
+					insert into public.generation_records (
+					  reading_id, provider, model, prompt_version, idempotency_key, status
+					) values (?, 'openai', 'legacy-model', 'legacy-prompt', ?, 'pending')
+					""")) {
+					generation.setObject(1, readingId);
+					generation.setString(2, "legacy-generation:" + readingId);
+					generation.executeUpdate();
+				}
+			}
 		}
 		return new LegacySajuReading(readingId, requestId);
 	}
@@ -263,24 +286,64 @@ class FlywayFreshPostgresReplayTests {
 			new ObjectMapper(),
 			ReadingCreditTestFixtures.properties()
 		);
+		Map<String, Object> currentInput = Map.of(
+			"focusArea", "career",
+			"birthProfile", Map.of(
+				"calendarType", "solar",
+				"birthDate", "1992-08-17",
+				"birthTime", "14:30",
+				"birthTimePrecision", "exact",
+				"provinceCode", "11",
+				"luckDirectionBasis", "female"
+			)
+		);
 		assertThat(repository.findExisting(
 			userId,
 			exactLegacy.requestId(),
 			ReadingKind.SAJU,
 			null,
 			4,
-			Map.of(
-				"focusArea", "career",
-				"birthProfile", Map.of(
-					"calendarType", "solar",
-					"birthDate", "1992-08-17",
-					"birthTime", "14:30",
-					"birthTimePrecision", "exact",
-					"provinceCode", "11",
-					"luckDirectionBasis", "female"
-				)
-			)
-		)).isPresent();
+			currentInput
+		)).get().extracting(reading -> reading.status()).isEqualTo("generating");
+		verifyMigratedGeneratingRequest(
+			repository, userId, exactLegacy.requestId(), currentInput
+		);
+	}
+
+	private void verifyMigratedGeneratingRequest(
+		JdbcReadingCreationRepository repository,
+		UUID userId,
+		UUID requestId,
+		Map<String, Object> currentInput
+	) {
+		ConsentService consentService = org.mockito.Mockito.mock(ConsentService.class);
+		org.mockito.Mockito.when(consentService.hasAccepted(userId, ConsentScope.SAJU))
+			.thenReturn(true);
+		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		ReadingGenerationMetadataResolver metadataResolver =
+			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
+		ReadingCreationWorkflow workflow = new ReadingCreationWorkflow(
+			consentService,
+			repository,
+			generator,
+			new ObjectMapper(),
+			metadataResolver,
+			ReadingCreditTestFixtures.properties(),
+			new DirectIdentifierInputGuard()
+		);
+
+		assertThatThrownBy(() -> workflow.create(
+			userId,
+			requestId,
+			ConsentScope.SAJU,
+			() -> new NormalizedReadingInput(
+				ReadingKind.SAJU, null, 4, "올해 이직운이 궁금해요", currentInput
+			),
+			input -> {
+				throw new AssertionError("A migrated generating request must not reserve again");
+			}
+		)).isInstanceOf(ReadingGenerationInProgressException.class);
+		org.mockito.Mockito.verifyNoInteractions(generator, metadataResolver);
 	}
 
 	private void verifyMigratedSajuProfile(

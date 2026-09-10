@@ -18,6 +18,7 @@ import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
 import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
@@ -81,6 +82,9 @@ public class ReadingCreationWorkflow {
 			}
 			if ("failed".equals(reading.status())) {
 				throw new OpenAiReadingGenerationException().withReadingId(reading.id());
+			}
+			if ("generating".equals(reading.status())) {
+				throw new ReadingGenerationInProgressException();
 			}
 		}
 
