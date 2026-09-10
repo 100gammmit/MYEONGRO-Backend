@@ -63,7 +63,9 @@ public class ReadingCreationWorkflow {
 		requireCreationAllowed(userId, requestId, consentScope);
 		NormalizedReadingInput input = inputSupplier.get();
 		validateInput(input);
-		String inputHash = inputHash(input.hashMaterial());
+		String inputHash = inputHash(ReadingInputSupport.hashMaterial(
+			input.kind(), input.spreadType(), input.schemaVersion(), input.storedPayload()
+		));
 		var existing = repository.findExisting(userId, requestId, inputHash);
 		if (existing.isPresent()) {
 			CreatedReadingResponse reading = existing.get();
@@ -86,7 +88,7 @@ public class ReadingCreationWorkflow {
 			.kind(input.kind())
 			.spreadType(input.spreadType())
 			.schemaVersion(input.schemaVersion())
-			.input(input.payload())
+			.input(input.storedPayload())
 			.provider(metadata.provider())
 			.model(metadata.model())
 			.promptVersion(metadata.promptVersion())

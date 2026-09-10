@@ -8,7 +8,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -65,15 +64,4 @@ public class ReadingRecordsController {
 		return ResponseEntity.noContent().build();
 	}
 
-	@PostMapping("/{readingId}/retry")
-	@Operation(summary = "실패한 내 리딩 재시도")
-	public ResponseEntity<Map<String, Object>> retryReading(
-		Authentication authentication,
-		@PathVariable UUID readingId
-	) {
-		UUID userId = userResolver.requireUser(authentication).id();
-		return ResponseEntity.ok(Map.of(
-			"reading", recordsService.retry(userId, readingId)
-		));
-	}
 }

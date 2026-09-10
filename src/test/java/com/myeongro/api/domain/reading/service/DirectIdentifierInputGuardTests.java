@@ -82,9 +82,8 @@ class DirectIdentifierInputGuardTests {
 		return new NormalizedReadingInput(
 			ReadingKind.TAROT,
 			"relationship_three_card",
-			1,
+			2,
 			question,
-			immutable,
 			immutable
 		);
 	}

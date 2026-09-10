@@ -1,8 +1,6 @@
 package com.myeongro.api.domain.reading.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -12,19 +10,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
-import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.tarot.model.TarotSpreadType;
-import com.myeongro.api.domain.reading.repository.PendingReadingCreation;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
-import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
-import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
-import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
-import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
+import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 
 class ReadingRecordsServiceTests {
 
@@ -32,182 +22,45 @@ class ReadingRecordsServiceTests {
 	private static final UUID READING_ID = UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
 
 	@Test
-	void redactsTarotCardsFromGeneratingAndFailedPublicRecords() {
+	void redactsLegacyFreeTextAndTarotCardsFromGeneratingAndFailedRecords() {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingRecordsService service = service(repository);
-		CreatedReadingResponse generating = reading(1, "generating");
-		CreatedReadingResponse failed = reading(1, "failed");
+		ReadingRecordsService service = new ReadingRecordsService(repository);
+		CreatedReadingResponse generating = reading("generating");
+		CreatedReadingResponse failed = reading("failed");
 		when(repository.listByUser(USER_ID)).thenReturn(List.of(generating, failed));
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(failed));
 
 		assertThat(service.listByUser(USER_ID))
 			.allSatisfy(item -> assertThat(item.input())
-				.containsKey("question")
-				.doesNotContainKey("cards"));
+				.doesNotContainKeys("question", "choiceOptions", "cards"));
 		assertThat(service.getByUserAndId(USER_ID, READING_ID).input())
-			.doesNotContainKey("cards");
+			.doesNotContainKeys("question", "choiceOptions", "cards");
 	}
 
 	@Test
-	void keepsTarotCardsInCompletedPublicRecords() {
+	void returnsCardsButNeverLegacyFreeTextForCompletedRecords() {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingRecordsService service = service(repository);
-		CreatedReadingResponse completed = reading(1, "completed");
+		ReadingRecordsService service = new ReadingRecordsService(repository);
+		CreatedReadingResponse completed = reading("completed");
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(completed));
 
 		assertThat(service.getByUserAndId(USER_ID, READING_ID).input())
-			.containsKey("cards");
+			.containsKey("cards")
+			.doesNotContainKeys("question", "choiceOptions");
 	}
 
-	@Test
-	void repeatedRetryReturnsCompletedReadingAfterResponseLoss() {
-		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingCreationWorkflow creationWorkflow = org.mockito.Mockito.mock(ReadingCreationWorkflow.class);
-		ReadingRecordsService service = new ReadingRecordsService(
-			repository,
-			creationWorkflow,
-			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			org.mockito.Mockito.mock(ReadingInputRestorer.class),
-			ReadingCreditTestFixtures.properties()
-		);
-		CreatedReadingResponse completed = reading(1, "completed");
-		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(completed));
-
-		assertThat(service.retry(USER_ID, READING_ID)).isSameAs(completed);
-
-		org.mockito.Mockito.verifyNoInteractions(creationWorkflow);
-		verify(repository, org.mockito.Mockito.never()).startFailedRetry(
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(),
-			org.mockito.ArgumentMatchers.anyInt()
-		);
-	}
-
-	@Test
-	void retriesWithStoredSpreadSchemaAndPayload() {
-		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingCreationWorkflow creationWorkflow = org.mockito.Mockito.mock(ReadingCreationWorkflow.class);
-		ReadingGenerationMetadataResolver metadataResolver =
-			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
-		ReadingInputRestorer restorer = org.mockito.Mockito.mock(ReadingInputRestorer.class);
-		ReadingRecordsService service = new ReadingRecordsService(
-			repository, creationWorkflow, metadataResolver, restorer,
-			ReadingCreditTestFixtures.properties()
-		);
-		CreatedReadingResponse reading = reading(1, "failed");
-		NormalizedReadingInput input = new NormalizedReadingInput(
-			ReadingKind.TAROT,
-			TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
-			1,
-			"질문",
-			reading.input(),
-			reading.input()
-		);
-		ReadingGenerationMetadata metadata = new ReadingGenerationMetadata(
-			"openai", "gpt-test", "relationship-v1"
-		);
-		PendingReadingCreation pending = new PendingReadingCreation(READING_ID, 42L, reading);
-		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading));
-		when(restorer.restore(reading)).thenReturn(input);
-		when(metadataResolver.resolve(input.kind(), input.spreadType())).thenReturn(metadata);
-		when(repository.startFailedRetry(USER_ID, READING_ID, metadata, 2, 10))
-			.thenReturn(pending);
-
-		service.retry(USER_ID, READING_ID);
-
-		verify(creationWorkflow).requireConsent(USER_ID, ConsentScope.TAROT);
-		verify(creationWorkflow).validateInput(input);
-		verify(repository).startFailedRetry(USER_ID, READING_ID, metadata, 2, 10);
-		verify(creationWorkflow).generatePending(input, pending);
-	}
-
-	@Test
-	void rejectsBlockedStoredInputBeforeRetryReservation() {
-		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		ReadingCreationWorkflow creationWorkflow = org.mockito.Mockito.mock(ReadingCreationWorkflow.class);
-		ReadingGenerationMetadataResolver metadataResolver =
-			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
-		ReadingInputRestorer restorer = org.mockito.Mockito.mock(ReadingInputRestorer.class);
-		ReadingRecordsService service = new ReadingRecordsService(
-			repository, creationWorkflow, metadataResolver, restorer,
-			ReadingCreditTestFixtures.properties()
-		);
-		CreatedReadingResponse reading = reading(1, "failed");
-		NormalizedReadingInput input = new NormalizedReadingInput(
-			ReadingKind.TAROT,
-			TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
-			1,
-			"우울증 진단받았어",
-			Map.of("question", "우울증 진단받았어"),
-			Map.of("question", "우울증 진단받았어")
-		);
-		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(reading));
-		when(restorer.restore(reading)).thenReturn(input);
-		org.mockito.Mockito.doThrow(new InvalidReadingRequestException(
-			"DIRECT_IDENTIFIER_NOT_ALLOWED", "question", "식별정보는 입력할 수 없습니다."
-		)).when(creationWorkflow).validateInput(input);
-
-		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))
-			.isInstanceOf(InvalidReadingRequestException.class);
-
-		verify(creationWorkflow).requireConsent(USER_ID, ConsentScope.TAROT);
-		verify(repository, org.mockito.Mockito.never()).startFailedRetry(
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(),
-			org.mockito.ArgumentMatchers.anyInt()
-		);
-		org.mockito.Mockito.verifyNoInteractions(metadataResolver);
-	}
-
-	@ParameterizedTest
-	@ValueSource(ints = {0, 2})
-	void rejectsUnsupportedTarotSchemaBeforeStartingRetry(int schemaVersion) {
-		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
-		StoredReadingInputRestorer sajuRestorer =
-			org.mockito.Mockito.mock(StoredReadingInputRestorer.class);
-		when(sajuRestorer.kind()).thenReturn(ReadingKind.SAJU);
-		ReadingInputRestorer restorer = new ReadingInputRestorer(List.of(
-			new TarotReadingInputNormalizer(), sajuRestorer
-		));
-		ReadingRecordsService service = new ReadingRecordsService(
-			repository,
-			org.mockito.Mockito.mock(ReadingCreationWorkflow.class),
-			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			restorer,
-			ReadingCreditTestFixtures.properties()
-		);
-		CreatedReadingResponse legacy = reading(schemaVersion, "failed");
-		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(legacy));
-
-		assertThatThrownBy(() -> service.retry(USER_ID, READING_ID))
-			.isInstanceOf(ReadingRetryNotAllowedException.class);
-	}
-
-	private ReadingRecordsService service(ReadingRecordsRepository repository) {
-		return new ReadingRecordsService(
-			repository,
-			org.mockito.Mockito.mock(ReadingCreationWorkflow.class),
-			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class),
-			org.mockito.Mockito.mock(ReadingInputRestorer.class),
-			ReadingCreditTestFixtures.properties()
-		);
-	}
-
-	private CreatedReadingResponse reading(int schemaVersion, String status) {
+	private CreatedReadingResponse reading(String status) {
 		return new CreatedReadingResponse(
 			READING_ID,
 			ReadingKind.TAROT,
-			schemaVersion == 0 ? null : TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
-			schemaVersion,
+			TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
+			ReadingSchemaVersions.TAROT,
 			status,
-			"Generating...",
+			"관계 리딩",
 			Map.of(
-				"question", "질문",
-				"cards", List.of(
-					card("major-00-fool", "my_heart"),
-					card("major-06-lovers", "relationship_flow"),
-					card("major-17-star", "check_point")
-				)
+				"question", "질문 원문",
+				"choiceOptions", Map.of("a", "선택 A", "b", "선택 B"),
+				"cards", List.of(card("major-00-fool", "my_heart"))
 			),
 			null,
 			"FAILED",

@@ -8,7 +8,6 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.service.NormalizedReadingInput;
 import com.myeongro.api.domain.reading.service.ReadingInputSupport;
@@ -34,43 +33,6 @@ public class SajuReadingInputNormalizer {
 
 	public NormalizedReadingInput normalize(SajuReadingCreateRequest request) {
 		return normalize(request, ReadingSchemaVersions.SAJU, null);
-	}
-
-	public NormalizedReadingInput restoreBase(CreatedReadingResponse reading) {
-		if (reading.kind() != ReadingKind.SAJU
-			|| reading.spreadType() != null
-			|| !ReadingSchemaVersions.supports(reading.kind(), reading.schemaVersion())) {
-			throw new IllegalArgumentException("Unsupported saju reading schema version");
-		}
-		Map<String, Object> payload = reading.input();
-		Map<?, ?> profile = ReadingInputSupport.valueAsMap(
-			payload.get("birthProfile"), "Stored birth profile"
-		);
-		boolean legacySajuSchema = reading.schemaVersion() == 2;
-		String legacyCityCode = legacySajuSchema
-			? ReadingInputSupport.valueAsString(profile.get("cityCode"), "Stored city code")
-			: null;
-		return normalize(new SajuReadingCreateRequest(
-			ReadingInputSupport.valueAsString(payload.get("question"), "Stored question"),
-			java.util.UUID.randomUUID(),
-			new SajuBirthProfileRequest(
-				ReadingInputSupport.valueAsString(profile.get("calendarType"), "Stored calendar type"),
-				ReadingInputSupport.valueAsString(profile.get("birthDate"), "Stored birth date"),
-				ReadingInputSupport.nullableString(profile.get("birthTime")),
-				ReadingInputSupport.valueAsString(
-					profile.get("birthTimePrecision"), "Stored birth time precision"
-				),
-				legacySajuSchema
-					? ReadingInputSupport.valueAsString(
-						profile.get("provinceCode"), "Stored province code"
-					)
-					: ReadingInputSupport.nullableString(profile.get("provinceCode")),
-				ReadingInputSupport.valueAsString(
-					profile.get("luckDirectionBasis"), "Stored luck direction basis"
-				)
-			),
-			ReadingInputSupport.valueAsString(payload.get("focusArea"), "Stored focus area")
-		), reading.schemaVersion(), legacyCityCode);
 	}
 
 	private NormalizedReadingInput normalize(
@@ -137,8 +99,7 @@ public class SajuReadingInputNormalizer {
 			null,
 			schemaVersion,
 			question,
-			payload,
-			ReadingInputSupport.hashMaterial(ReadingKind.SAJU, null, schemaVersion, payload)
+			payload
 		);
 	}
 

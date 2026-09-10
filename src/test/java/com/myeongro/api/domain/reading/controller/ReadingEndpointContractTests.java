@@ -160,7 +160,7 @@ class ReadingEndpointContractTests {
 					"""))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.reading.spreadType").value("relationship_three_card"))
-			.andExpect(jsonPath("$.reading.schemaVersion").value(1));
+			.andExpect(jsonPath("$.reading.schemaVersion").value(2));
 
 		verify(userResolver).requireUser(authentication);
 	}
@@ -193,7 +193,7 @@ class ReadingEndpointContractTests {
 					"""))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.reading.kind").value("saju"))
-			.andExpect(jsonPath("$.reading.schemaVersion").value(3));
+			.andExpect(jsonPath("$.reading.schemaVersion").value(4));
 	}
 
 	@Test
@@ -521,10 +521,10 @@ class ReadingEndpointContractTests {
 			READING_ID,
 			ReadingKind.TAROT,
 			TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
-			1,
+			ReadingSchemaVersions.TAROT,
 			"completed",
 			"관계 리딩",
-			Map.of("question", "관계의 흐름이 궁금해요."),
+			Map.of("cards", List.of()),
 			Map.of("title", "관계 리딩"),
 			null,
 			Instant.parse("2026-06-15T00:00:00Z"),
@@ -540,7 +540,7 @@ class ReadingEndpointContractTests {
 			ReadingSchemaVersions.SAJU,
 			"completed",
 			"사주 리딩",
-			Map.of("question", "올해 흐름이 궁금해요"),
+			Map.of("focusArea", "career"),
 			Map.of("title", "사주 리딩"),
 			null,
 			Instant.parse("2026-06-15T00:00:00Z"),

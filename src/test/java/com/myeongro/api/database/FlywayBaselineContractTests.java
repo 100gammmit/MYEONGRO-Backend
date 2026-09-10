@@ -216,4 +216,25 @@ class FlywayBaselineContractTests {
             .doesNotContain("drop table public.consents");
     }
 
+	@Test
+	void v13RemovesPersistedPromptsAndRetiresStoredInputRetry() throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V13__remove_persisted_reading_prompts"))
+			.findFirst()
+			.orElseThrow();
+
+		var sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("input_payload - 'question' - 'choiceOptions'")
+			.contains("input_hash = encode(gen_random_bytes(32), 'hex')")
+			.contains("readings_no_persisted_prompt_text_check")
+			.contains("not (input_payload ? 'question')")
+			.contains("not (input_payload ? 'choiceOptions')")
+			.contains("drop function if exists public.start_failed_reading_retry")
+			.contains("when 'tarot' then 2")
+			.contains("when 'saju' then 4");
+	}
+
 }

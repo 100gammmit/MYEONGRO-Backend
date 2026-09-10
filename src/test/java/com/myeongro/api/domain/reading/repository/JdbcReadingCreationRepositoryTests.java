@@ -102,7 +102,9 @@ class JdbcReadingCreationRepositoryTests {
 		assertThat(pending.readingId()).isEqualTo(READING_ID);
 		assertThat(pending.generationId()).isEqualTo(GENERATION_ID);
 		assertThat(pending.reading().status()).isEqualTo("generating");
-		assertThat(pending.reading().input()).containsEntry("question", "How is today?");
+		assertThat(pending.reading().input())
+			.containsKey("cards")
+			.doesNotContainKeys("question", "choiceOptions");
 
 		ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
@@ -123,8 +125,8 @@ class JdbcReadingCreationRepositoryTests {
 			"input-hash",
 			"tarot",
 			"mind_three_card",
-			1,
-			"{\"question\":\"How is today?\"}",
+			2,
+			"{\"cards\":[]}",
 			"openai",
 			"gpt-test",
 			"prompt-v1",
@@ -252,8 +254,8 @@ class JdbcReadingCreationRepositoryTests {
 			.inputHash("input-hash")
 			.kind(ReadingKind.TAROT)
 			.spreadType(TarotSpreadType.MIND_THREE_CARD.value())
-			.schemaVersion(1)
-			.input(Map.of("question", "How is today?"))
+			.schemaVersion(2)
+			.input(Map.of("cards", List.of()))
 			.provider("openai")
 			.model("gpt-test")
 			.promptVersion("prompt-v1")
@@ -284,11 +286,11 @@ class JdbcReadingCreationRepositoryTests {
 		when(resultSet.getObject("id", UUID.class)).thenReturn(READING_ID);
 		when(resultSet.getString("kind")).thenReturn("tarot");
 		when(resultSet.getString("spread_type")).thenReturn("mind_three_card");
-		when(resultSet.getInt("schema_version")).thenReturn(1);
+		when(resultSet.getInt("schema_version")).thenReturn(2);
 		when(resultSet.getString("status")).thenReturn("generating");
 		when(resultSet.getString("title")).thenReturn("Generating...");
 		when(resultSet.getString("input_payload"))
-			.thenReturn("{\"question\":\"How is today?\"}");
+			.thenReturn("{\"cards\":[]}");
 		when(resultSet.getString("input_hash")).thenReturn("input-hash");
 		when(resultSet.getString("result_payload")).thenReturn(null);
 		when(resultSet.getTimestamp("created_at"))

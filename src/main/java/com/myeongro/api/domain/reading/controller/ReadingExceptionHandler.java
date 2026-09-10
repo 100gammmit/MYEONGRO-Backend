@@ -17,7 +17,6 @@ import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationExceptio
 import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
-import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 
@@ -43,11 +42,6 @@ public class ReadingExceptionHandler {
 	@ExceptionHandler(ReadingRecordNotFoundException.class)
 	public ResponseEntity<Map<String, String>> notFound(Exception exception) {
 		return ResponseEntity.status(404).body(Map.of("error", "리딩을 찾을 수 없습니다."));
-	}
-
-	@ExceptionHandler(ReadingRetryNotAllowedException.class)
-	public ResponseEntity<Map<String, String>> retryConflict(Exception exception) {
-		return ResponseEntity.status(409).body(Map.of("error", "재시도할 수 없는 리딩입니다."));
 	}
 
 	@ExceptionHandler(ReadingGenerationInProgressException.class)

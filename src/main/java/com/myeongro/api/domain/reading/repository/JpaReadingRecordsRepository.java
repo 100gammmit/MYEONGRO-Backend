@@ -1,6 +1,5 @@
 package com.myeongro.api.domain.reading.repository;
 
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.nio.ByteBuffer;
 import java.time.Instant;
@@ -12,8 +11,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,10 +19,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.exception.ReadingRetryNotAllowedException;
-import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
-import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
-import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -57,22 +50,13 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 		where r.user_id = :userId
 		  and r.deleted_at is null
 		""";
-	private static final String START_FAILED_RETRY = """
-		select generation_id
-		from public.start_failed_reading_retry(?, ?, ?, ?, ?, ?, ?)
-		""";
 
 	@PersistenceContext
 	private EntityManager entityManager;
 
-	private final JdbcTemplate jdbcTemplate;
 	private final ObjectMapper objectMapper;
 
-	public JpaReadingRecordsRepository(
-		JdbcTemplate jdbcTemplate,
-		ObjectMapper objectMapper
-	) {
-		this.jdbcTemplate = jdbcTemplate;
+	public JpaReadingRecordsRepository(ObjectMapper objectMapper) {
 		this.objectMapper = objectMapper;
 	}
 
@@ -115,43 +99,6 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 			.setParameter("readingId", readingId)
 			.executeUpdate();
 		return updated > 0;
-	}
-
-	@Override
-	public PendingReadingCreation startFailedRetry(
-		UUID userId,
-		UUID readingId,
-		ReadingGenerationMetadata metadata,
-		int creditCost,
-		int dailyFreeGrant
-	) {
-		try {
-			Long generationId = jdbcTemplate.queryForObject(
-				START_FAILED_RETRY,
-				Long.class,
-				userId,
-				readingId,
-				metadata.provider(),
-				metadata.model(),
-				metadata.promptVersion(),
-				creditCost,
-				dailyFreeGrant
-			);
-			CreatedReadingResponse reading = findByUserAndId(userId, readingId)
-				.orElseThrow(ReadingRetryNotAllowedException::new);
-			return new PendingReadingCreation(readingId, generationId, reading);
-		} catch (DataAccessException exception) {
-			if ("RL109".equals(findSqlState(exception))) {
-				throw new ReadingRetryNotAllowedException();
-			}
-			if ("RL111".equals(findSqlState(exception))) {
-				throw new ReadingGenerationInProgressException();
-			}
-			if ("RL112".equals(findSqlState(exception))) {
-				throw new InsufficientReadingCreditsException(userId, creditCost);
-			}
-			throw exception;
-		}
 	}
 
 	private CreatedReadingResponse toResponse(Object[] row) {
@@ -217,14 +164,4 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 		);
 	}
 
-	private String findSqlState(Throwable throwable) {
-		Throwable current = throwable;
-		while (current != null) {
-			if (current instanceof SQLException sqlException) {
-				return sqlException.getSQLState();
-			}
-			current = current.getCause();
-		}
-		return null;
-	}
 }

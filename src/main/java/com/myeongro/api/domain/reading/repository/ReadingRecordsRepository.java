@@ -5,7 +5,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
-import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 
 public interface ReadingRecordsRepository {
 
@@ -15,11 +14,4 @@ public interface ReadingRecordsRepository {
 
 	boolean softDeleteByUserAndId(UUID userId, UUID readingId);
 
-	PendingReadingCreation startFailedRetry(
-		UUID userId,
-		UUID readingId,
-		ReadingGenerationMetadata metadata,
-		int creditCost,
-		int dailyFreeGrant
-	);
 }

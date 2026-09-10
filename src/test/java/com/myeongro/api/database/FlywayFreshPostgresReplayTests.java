@@ -52,7 +52,7 @@ class FlywayFreshPostgresReplayTests {
 		var latestResult = latest.migrate();
 
 		assertThat(latestResult.success).isTrue();
-		assertThat(latestResult.migrationsExecuted).isEqualTo(2);
+		assertThat(latestResult.migrationsExecuted).isEqualTo(3);
 		verifyImmediateDeletionMigration(
 			jdbcUrl, username, password, withdrawnUserId, activeUserId
 		);
@@ -66,7 +66,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(12);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(13);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);

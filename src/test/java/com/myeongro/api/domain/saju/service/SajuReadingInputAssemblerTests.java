@@ -1,7 +1,6 @@
 package com.myeongro.api.domain.saju.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import java.util.LinkedHashMap;
@@ -42,41 +41,9 @@ class SajuReadingInputAssemblerTests {
 			"question", "focusArea", "birthProfile", "targetYear", "calculationSnapshot"
 		);
 		assertThat(assembled.payload()).containsEntry("targetYear", 2026);
-		assertThat(assembled.hashMaterial()).isEqualTo(base.hashMaterial());
+		assertThat(assembled.storedPayload()).doesNotContainKey("question");
 		assertThat(((Map<?, ?>)assembled.payload().get("calculationSnapshot"))
 			.get("cityCatalogVersion")).isEqualTo("kr-admin-v1");
-	}
-
-	@Test
-	void restoresStoredSnapshotWithoutRecalculationAndAcceptsHistoricalCatalogVersion() {
-		NormalizedReadingInput base = baseInput();
-		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot(
-			"saju-ko-v1", "kr-admin-v0"
-		));
-		NormalizedReadingInput stored = assembler.assemble(base, 2026);
-
-		NormalizedReadingInput restored = assembler.restore(base, stored.payload());
-
-		assertThat(restored.payload()).isEqualTo(stored.payload());
-		org.mockito.Mockito.verify(calculationService).calculate(profile(), 2026);
-		org.mockito.Mockito.verifyNoMoreInteractions(calculationService);
-	}
-
-	@Test
-	@SuppressWarnings("unchecked")
-	void rejectsSnapshotWithUnknownFieldsBeforeRetry() {
-		NormalizedReadingInput base = baseInput();
-		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot(
-			SajuCalculationRules.CALCULATION_VERSION, "kr-admin-v1"
-		));
-		Map<String, Object> stored = new LinkedHashMap<>(assembler.assemble(base, 2026).payload());
-		Map<String, Object> snapshot = new LinkedHashMap<>((Map<String, Object>)stored.get("calculationSnapshot"));
-		snapshot.put("unexpected", true);
-		stored.put("calculationSnapshot", snapshot);
-
-		assertThatThrownBy(() -> assembler.restore(base, stored))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("snapshot");
 	}
 
 	private NormalizedReadingInput baseInput() {
@@ -86,8 +53,7 @@ class SajuReadingInputAssemblerTests {
 		payload.put("birthProfile", profile());
 		return new NormalizedReadingInput(
 			ReadingKind.SAJU, null, ReadingSchemaVersions.SAJU,
-			"올해 흐름이 궁금해요", payload,
-			Map.of("kind", "saju", "inputPayload", payload)
+			"올해 흐름이 궁금해요", payload
 		);
 	}
 

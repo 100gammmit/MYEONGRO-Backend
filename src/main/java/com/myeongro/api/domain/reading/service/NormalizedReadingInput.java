@@ -10,12 +10,17 @@ public record NormalizedReadingInput(
 	String spreadType,
 	int schemaVersion,
 	String question,
-	Map<String, Object> payload,
-	Map<String, Object> hashMaterial
+	Map<String, Object> payload
 ) {
 
 	public NormalizedReadingInput {
 		payload = Collections.unmodifiableMap(new LinkedHashMap<>(payload));
-		hashMaterial = Collections.unmodifiableMap(new LinkedHashMap<>(hashMaterial));
+	}
+
+	public Map<String, Object> storedPayload() {
+		Map<String, Object> stored = new LinkedHashMap<>(payload);
+		stored.remove("question");
+		stored.remove("choiceOptions");
+		return Collections.unmodifiableMap(stored);
 	}
 }

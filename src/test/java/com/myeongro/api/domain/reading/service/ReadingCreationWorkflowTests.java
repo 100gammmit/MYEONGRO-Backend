@@ -91,7 +91,7 @@ class ReadingCreationWorkflowTests {
 	}
 
 	@Test
-	void reservesVersionedRelationshipPayloadForAuthenticatedUser() {
+	void reservesQuestionlessRelationshipPayloadForAuthenticatedUser() {
 		ConsentService consentService = acceptedConsent();
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
@@ -110,9 +110,40 @@ class ReadingCreationWorkflowTests {
 		assertThat(command.getValue().userId()).isEqualTo(USER_ID);
 		assertThat(command.getValue().spreadType())
 			.isEqualTo(TarotSpreadType.RELATIONSHIP_THREE_CARD.value());
-		assertThat(command.getValue().schemaVersion()).isEqualTo(1);
+		assertThat(command.getValue().schemaVersion()).isEqualTo(ReadingSchemaVersions.TAROT);
 		assertThat(command.getValue().creditCost()).isEqualTo(2);
-		assertThat(command.getValue().input()).containsOnlyKeys("question", "cards");
+		assertThat(command.getValue().input())
+			.containsOnlyKeys("cards")
+			.doesNotContainKeys("question", "choiceOptions");
+	}
+
+	@Test
+	void excludesQuestionTextFromPersistedIdempotencyHash() {
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
+			.thenReturn(pending());
+		when(repository.completePending(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any()
+		)).thenReturn(completed());
+		CreationFacade service = service(acceptedConsent(), repository, successfulGenerator());
+
+		service.createTarotReading(USER_ID, REQUEST_ID, request());
+		service.createTarotReading(USER_ID, REQUEST_ID, new TarotReadingCreateRequest(
+			TarotSpreadType.RELATIONSHIP_THREE_CARD.value(),
+			"완전히 다른 질문",
+			REQUEST_ID,
+			List.of(1, 2, 3),
+			null
+		));
+
+		ArgumentCaptor<String> hashes = ArgumentCaptor.forClass(String.class);
+		verify(repository, org.mockito.Mockito.times(2)).findExisting(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			hashes.capture()
+		);
+		assertThat(hashes.getAllValues()).hasSize(2).allMatch(hashes.getAllValues().getFirst()::equals);
 	}
 
 	@Test
@@ -175,9 +206,9 @@ class ReadingCreationWorkflowTests {
 		assertThat(command.getValue().spreadType()).isNull();
 		assertThat(command.getValue().schemaVersion()).isEqualTo(ReadingSchemaVersions.SAJU);
 		assertThat(command.getValue().creditCost()).isEqualTo(4);
-		assertThat(command.getValue().input()).containsOnlyKeys(
-			"question", "focusArea", "birthProfile", "targetYear", "calculationSnapshot"
-		);
+		assertThat(command.getValue().input())
+			.containsOnlyKeys("focusArea", "birthProfile", "targetYear", "calculationSnapshot")
+			.doesNotContainKey("question");
 		assertThat(command.getValue().input()).containsEntry("targetYear", 2026);
 		verify(consentService).hasAccepted(USER_ID, ConsentScope.SAJU);
 	}
@@ -345,7 +376,7 @@ class ReadingCreationWorkflowTests {
 			payload.put("calculationSnapshot", Map.of("calculationVersion", "saju-ko-v1"));
 			return new NormalizedReadingInput(
 				input.kind(), input.spreadType(), input.schemaVersion(), input.question(),
-				payload, input.hashMaterial()
+				payload
 			);
 		});
 		ReadingCreationWorkflow workflow = new ReadingCreationWorkflow(

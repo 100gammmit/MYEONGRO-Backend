@@ -53,13 +53,12 @@ class ReadingInputNormalizationContractTests {
 				.toList());
 		assertThat(storedCards).allSatisfy(card ->
 			assertThat(card).containsEntry("reversed", false));
-		assertThat(normalized.hashMaterial().keySet()).containsExactly(
-			"kind", "spreadType", "schemaVersion", "inputPayload"
-		);
+		assertThat(normalized.storedPayload())
+			.doesNotContainKeys("question", "choiceOptions");
 	}
 
 	@Test
-	void normalizesExactSajuInputAsSchemaVersionThree() {
+	void normalizesExactSajuInputAsSchemaVersionFour() {
 		NormalizedReadingInput normalized = sajuNormalizer.normalize(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", "14:30", "exact",
@@ -79,8 +78,9 @@ class ReadingInputNormalizationContractTests {
 			.containsEntry("birthTimePrecision", "exact")
 			.containsEntry("provinceCode", "11")
 			.doesNotContainKeys("cityCode", "latitude", "longitude", "pillars");
-		assertThat(normalized.hashMaterial()).containsEntry("schemaVersion", 3);
-		assertThat(normalized.hashMaterial().get("inputPayload")).isEqualTo(normalized.payload());
+		assertThat(normalized.schemaVersion()).isEqualTo(4);
+		assertThat(normalized.storedPayload())
+			.containsOnlyKeys("focusArea", "birthProfile");
 	}
 
 	@Test

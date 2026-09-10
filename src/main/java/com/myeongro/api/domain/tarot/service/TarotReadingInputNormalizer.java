@@ -7,19 +7,17 @@ import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
-import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.service.NormalizedReadingInput;
 import com.myeongro.api.domain.reading.service.ReadingInputSupport;
 import com.myeongro.api.domain.reading.service.ReadingSchemaVersions;
-import com.myeongro.api.domain.reading.service.StoredReadingInputRestorer;
 import com.myeongro.api.domain.tarot.controller.ChoiceOptionsRequest;
 import com.myeongro.api.domain.tarot.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.tarot.model.MajorArcana;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 
 @Component
-public class TarotReadingInputNormalizer implements StoredReadingInputRestorer {
+public class TarotReadingInputNormalizer {
 
 	public NormalizedReadingInput normalize(
 		TarotReadingCreateRequest request,
@@ -34,31 +32,6 @@ public class TarotReadingInputNormalizer implements StoredReadingInputRestorer {
 			);
 		}
 		return normalize(request, ReadingInputSupport.normalizeQuestion(request.question()), spread, cardIds);
-	}
-
-	@Override
-	public ReadingKind kind() {
-		return ReadingKind.TAROT;
-	}
-
-	@Override
-	public NormalizedReadingInput restore(CreatedReadingResponse reading) {
-		if (reading.kind() != ReadingKind.TAROT
-			|| !ReadingSchemaVersions.supports(reading.kind(), reading.schemaVersion())) {
-			throw new IllegalArgumentException("Unsupported tarot reading schema version");
-		}
-		TarotSpreadType spread = TarotSpreadType.fromValue(reading.spreadType());
-		Map<String, Object> payload = reading.input();
-		String question = ReadingInputSupport.valueAsString(
-			payload.get("question"), "Stored question"
-		);
-		return normalize(new TarotReadingCreateRequest(
-			spread.value(),
-			question,
-			java.util.UUID.randomUUID(),
-			null,
-			storedChoiceOptions(payload, spread)
-		), spread, storedCardIds(payload, spread));
 	}
 
 	private NormalizedReadingInput normalize(
@@ -116,52 +89,7 @@ public class TarotReadingInputNormalizer implements StoredReadingInputRestorer {
 			spread.value(),
 			ReadingSchemaVersions.TAROT,
 			question,
-			immutablePayload,
-			ReadingInputSupport.hashMaterial(
-				ReadingKind.TAROT, spread.value(), ReadingSchemaVersions.TAROT, immutablePayload
-			)
-		);
-	}
-
-	private List<String> storedCardIds(Map<String, Object> payload, TarotSpreadType spread) {
-		if (!(payload.get("cards") instanceof List<?> cards)
-			|| cards.size() != spread.cardCount()) {
-			throw new IllegalArgumentException("Stored tarot cards do not match spread");
-		}
-		return java.util.stream.IntStream.range(0, cards.size())
-			.mapToObj(index -> {
-				Map<?, ?> card = ReadingInputSupport.valueAsMap(
-					cards.get(index), "Stored tarot card"
-				);
-				String position = ReadingInputSupport.valueAsString(
-					card.get("position"), "Stored card position"
-				);
-				if (!spread.positions().get(index).id().equals(position)
-					|| !Boolean.FALSE.equals(card.get("reversed"))) {
-					throw new IllegalArgumentException("Stored tarot card order is invalid");
-				}
-				return ReadingInputSupport.valueAsString(
-					card.get("cardId"), "Stored tarot card id"
-				);
-			})
-			.toList();
-	}
-
-	private ChoiceOptionsRequest storedChoiceOptions(
-		Map<String, Object> payload,
-		TarotSpreadType spread
-	) {
-		Object stored = payload.get("choiceOptions");
-		if (spread != TarotSpreadType.CHOICE_FIVE_CARD) {
-			if (stored != null) {
-				throw new IllegalArgumentException("Unexpected stored choice options");
-			}
-			return null;
-		}
-		Map<?, ?> choices = ReadingInputSupport.valueAsMap(stored, "Stored choice options");
-		return new ChoiceOptionsRequest(
-			ReadingInputSupport.valueAsString(choices.get("a"), "Stored choice option A"),
-			ReadingInputSupport.valueAsString(choices.get("b"), "Stored choice option B")
+			immutablePayload
 		);
 	}
 
