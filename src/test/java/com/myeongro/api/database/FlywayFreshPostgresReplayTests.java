@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -14,6 +15,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.repository.JdbcReadingCreationRepository;
+import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
 
 class FlywayFreshPostgresReplayTests {
 
@@ -42,6 +50,12 @@ class FlywayFreshPostgresReplayTests {
 
 		UUID withdrawnUserId = seedWithdrawnAccount(jdbcUrl, username, password);
 		UUID activeUserId = seedActiveAccount(jdbcUrl, username, password);
+		LegacySajuReading exactLegacy = seedLegacySajuReading(
+			jdbcUrl, username, password, activeUserId, "exact"
+		);
+		LegacySajuReading unknownLegacy = seedLegacySajuReading(
+			jdbcUrl, username, password, activeUserId, "unknown"
+		);
 		Flyway latest = Flyway.configure()
 			.dataSource(jdbcUrl, username, password)
 			.locations("classpath:db/migration")
@@ -55,6 +69,9 @@ class FlywayFreshPostgresReplayTests {
 		assertThat(latestResult.migrationsExecuted).isEqualTo(3);
 		verifyImmediateDeletionMigration(
 			jdbcUrl, username, password, withdrawnUserId, activeUserId
+		);
+		verifyPromptRemovalMigration(
+			jdbcUrl, username, password, activeUserId, exactLegacy, unknownLegacy
 		);
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -159,6 +176,138 @@ class FlywayFreshPostgresReplayTests {
 			profile.executeUpdate();
 		}
 		return userId;
+	}
+
+	private LegacySajuReading seedLegacySajuReading(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId,
+		String precision
+	) throws SQLException {
+		UUID readingId = UUID.randomUUID();
+		UUID requestId = UUID.randomUUID();
+		String timeField = "unknown".equals(precision) ? "" : "\"birthTime\":\"14:30\",";
+		String payload = """
+			{
+			  "question":"올해 이직운이 궁금해요",
+			  "focusArea":"career",
+			  "birthProfile":{
+			    "calendarType":"solar",
+			    "birthDate":"1992-08-17",
+			    %s
+			    "birthTimePrecision":"%s",
+			    "provinceCode":"11",
+			    "cityCode":"11680",
+			    "luckDirectionBasis":"female"
+			  },
+			  "targetYear":2026,
+			  "calculationSnapshot":{}
+			}
+			""".formatted(timeField, precision);
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var statement = connection.prepareStatement("""
+				 insert into public.readings (
+				   id, user_id, request_id, input_hash, kind, status, title,
+				   input_payload, result_payload, spread_type, schema_version, credit_cost
+				 ) values (
+				   ?, ?, ?, 'legacy-question-derived-hash', cast('saju' as public.reading_kind),
+				   cast('completed' as public.reading_status), 'legacy saju',
+				   cast(? as jsonb), '{}'::jsonb, null, 2, 0
+				 )
+				 """)) {
+			statement.setObject(1, readingId);
+			statement.setObject(2, userId);
+			statement.setObject(3, requestId);
+			statement.setString(4, payload);
+			statement.executeUpdate();
+		}
+		return new LegacySajuReading(readingId, requestId);
+	}
+
+	private void verifyPromptRemovalMigration(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId,
+		LegacySajuReading exactLegacy,
+		LegacySajuReading unknownLegacy
+	) throws SQLException {
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			verifyMigratedSajuProfile(connection, exactLegacy.readingId(), false);
+			verifyMigratedSajuProfile(connection, unknownLegacy.readingId(), true);
+			try (var function = connection.createStatement();
+				 var resultSet = function.executeQuery("""
+					 select to_regprocedure(
+					   'public.start_failed_reading_retry(uuid,uuid,text,text,text,integer,integer)'
+					 ) is null
+					 """)) {
+				assertThat(resultSet.next()).isTrue();
+				assertThat(resultSet.getBoolean(1)).isTrue();
+			}
+			assertSqlState("23514", () -> {
+				try (var invalid = connection.prepareStatement("""
+					 update public.readings
+					 set input_payload = jsonb_set(input_payload, '{question}', '"blocked"'::jsonb)
+					 where id = ?
+					 """)) {
+					invalid.setObject(1, exactLegacy.readingId());
+					invalid.executeUpdate();
+				}
+			});
+		}
+
+		var dataSource = new DriverManagerDataSource(jdbcUrl, username, password);
+		var repository = new JdbcReadingCreationRepository(
+			new JdbcTemplate(dataSource),
+			new ObjectMapper(),
+			ReadingCreditTestFixtures.properties()
+		);
+		assertThat(repository.findExisting(
+			userId,
+			exactLegacy.requestId(),
+			ReadingKind.SAJU,
+			null,
+			4,
+			Map.of(
+				"focusArea", "career",
+				"birthProfile", Map.of(
+					"calendarType", "solar",
+					"birthDate", "1992-08-17",
+					"birthTime", "14:30",
+					"birthTimePrecision", "exact",
+					"provinceCode", "11",
+					"luckDirectionBasis", "female"
+				)
+			)
+		)).isPresent();
+	}
+
+	private void verifyMigratedSajuProfile(
+		Connection connection,
+		UUID readingId,
+		boolean unknownTime
+	) throws SQLException {
+		try (var statement = connection.prepareStatement("""
+			 select schema_version,
+			   input_payload ? 'question',
+			   (input_payload #> '{birthProfile}') ? 'cityCode',
+			   (input_payload #> '{birthProfile}') ? 'provinceCode',
+			   (input_payload #> '{birthProfile}') ? 'birthTime',
+			   input_hash = 'legacy-question-derived-hash'
+			 from public.readings where id = ?
+			 """)) {
+			statement.setObject(1, readingId);
+			try (var resultSet = statement.executeQuery()) {
+				assertThat(resultSet.next()).isTrue();
+				assertThat(resultSet.getInt(1)).isEqualTo(4);
+				assertThat(resultSet.getBoolean(2)).isFalse();
+				assertThat(resultSet.getBoolean(3)).isFalse();
+				assertThat(resultSet.getBoolean(4)).isEqualTo(!unknownTime);
+				assertThat(resultSet.getBoolean(5)).isEqualTo(!unknownTime);
+				assertThat(resultSet.getBoolean(6)).isFalse();
+			}
+		}
 	}
 
 	private void verifyImmediateDeletionMigration(
@@ -695,6 +844,9 @@ class FlywayFreshPostgresReplayTests {
 	}
 
 	private record PendingReading(UUID readingId, long generationId, boolean created) {
+	}
+
+	private record LegacySajuReading(UUID readingId, UUID requestId) {
 	}
 
 	@FunctionalInterface

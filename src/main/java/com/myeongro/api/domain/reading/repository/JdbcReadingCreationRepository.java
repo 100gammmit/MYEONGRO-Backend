@@ -3,8 +3,10 @@ package com.myeongro.api.domain.reading.repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,7 +43,6 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 			title,
 			input_payload::text as input_payload,
 			result_payload::text as result_payload,
-			input_hash,
 			created_at,
 			updated_at
 		from public.readings
@@ -94,25 +95,52 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	public Optional<CreatedReadingResponse> findExisting(
 		UUID userId,
 		UUID requestId,
-		String inputHash
+		ReadingKind kind,
+		String spreadType,
+		int schemaVersion,
+		Map<String, Object> input
 	) {
-		List<ExistingReading> existing = jdbcTemplate.query(
+		List<CreatedReadingResponse> existing = jdbcTemplate.query(
 			SELECT_EXISTING,
-			(resultSet, rowNumber) -> new ExistingReading(
-				toResponse(resultSet, rowNumber),
-				resultSet.getString("input_hash")
-			),
+			this::toResponse,
 			userId,
 			requestId
 		);
 		if (existing.isEmpty()) {
 			return Optional.empty();
 		}
-		ExistingReading reading = existing.getFirst();
-		if (!inputHash.equals(reading.inputHash())) {
+		CreatedReadingResponse reading = existing.getFirst();
+		if (!matchesPersistentRequest(reading, kind, spreadType, schemaVersion, input)) {
 			throw new ReadingIdempotencyConflictException();
 		}
-		return Optional.of(reading.response());
+		return Optional.of(reading);
+	}
+
+	private boolean matchesPersistentRequest(
+		CreatedReadingResponse reading,
+		ReadingKind kind,
+		String spreadType,
+		int schemaVersion,
+		Map<String, Object> input
+	) {
+		return reading.kind() == kind
+			&& Objects.equals(reading.spreadType(), spreadType)
+			&& reading.schemaVersion() == schemaVersion
+			&& idempotencyInput(kind, reading.input()).equals(idempotencyInput(kind, input));
+	}
+
+	private Map<String, Object> idempotencyInput(
+		ReadingKind kind,
+		Map<String, Object> input
+	) {
+		Map<String, Object> projected = new LinkedHashMap<>(input);
+		projected.remove("question");
+		projected.remove("choiceOptions");
+		if (kind == ReadingKind.SAJU) {
+			projected.remove("targetYear");
+			projected.remove("calculationSnapshot");
+		}
+		return projected;
 	}
 
 	@Override
@@ -282,6 +310,4 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	private record PendingIds(UUID readingId, Long generationId) {
 	}
 
-	private record ExistingReading(CreatedReadingResponse response, String inputHash) {
-	}
 }

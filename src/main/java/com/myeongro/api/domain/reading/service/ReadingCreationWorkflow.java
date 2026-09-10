@@ -66,7 +66,14 @@ public class ReadingCreationWorkflow {
 		String inputHash = inputHash(ReadingInputSupport.hashMaterial(
 			input.kind(), input.spreadType(), input.schemaVersion(), input.storedPayload()
 		));
-		var existing = repository.findExisting(userId, requestId, inputHash);
+		var existing = repository.findExisting(
+			userId,
+			requestId,
+			input.kind(),
+			input.spreadType(),
+			input.schemaVersion(),
+			input.storedPayload()
+		);
 		if (existing.isPresent()) {
 			CreatedReadingResponse reading = existing.get();
 			if ("completed".equals(reading.status())) {

@@ -137,13 +137,15 @@ class ReadingCreationWorkflowTests {
 			null
 		));
 
-		ArgumentCaptor<String> hashes = ArgumentCaptor.forClass(String.class);
-		verify(repository, org.mockito.Mockito.times(2)).findExisting(
-			org.mockito.ArgumentMatchers.eq(USER_ID),
-			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			hashes.capture()
-		);
-		assertThat(hashes.getAllValues()).hasSize(2).allMatch(hashes.getAllValues().getFirst()::equals);
+		ArgumentCaptor<PendingReadingCommand> commands =
+			ArgumentCaptor.forClass(PendingReadingCommand.class);
+		verify(repository, org.mockito.Mockito.times(2)).createPending(commands.capture());
+		assertThat(commands.getAllValues()).hasSize(2)
+			.extracting(PendingReadingCommand::inputHash)
+			.allMatch(commands.getAllValues().getFirst().inputHash()::equals);
+		assertThat(commands.getAllValues())
+			.allSatisfy(command -> assertThat(command.input())
+				.doesNotContainKeys("question", "choiceOptions"));
 	}
 
 	@Test
@@ -222,7 +224,10 @@ class ReadingCreationWorkflowTests {
 		when(repository.findExisting(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.anyString()
+			org.mockito.ArgumentMatchers.eq(ReadingKind.SAJU),
+			org.mockito.ArgumentMatchers.isNull(),
+			org.mockito.ArgumentMatchers.eq(ReadingSchemaVersions.SAJU),
+			org.mockito.ArgumentMatchers.anyMap()
 		)).thenReturn(Optional.of(existing));
 
 		CreatedReadingResponse response = service(consentService, repository, generator)
@@ -301,7 +306,10 @@ class ReadingCreationWorkflowTests {
 		when(repository.findExisting(
 			org.mockito.ArgumentMatchers.eq(USER_ID),
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-			org.mockito.ArgumentMatchers.anyString()
+			org.mockito.ArgumentMatchers.eq(ReadingKind.TAROT),
+			org.mockito.ArgumentMatchers.eq(TarotSpreadType.RELATIONSHIP_THREE_CARD.value()),
+			org.mockito.ArgumentMatchers.eq(ReadingSchemaVersions.TAROT),
+			org.mockito.ArgumentMatchers.anyMap()
 		)).thenReturn(Optional.of(tarotReading("failed")));
 
 		assertThatThrownBy(() -> service(consentService, repository, generator)

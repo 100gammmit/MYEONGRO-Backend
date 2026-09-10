@@ -71,8 +71,15 @@ class JdbcReadingCreationRepositoryTests {
 	}
 
 	@Test
-	void returnsExistingRequestOnlyWhenCanonicalInputHashMatches() {
-		var existing = repository.findExisting(USER_ID, REQUEST_ID, "input-hash");
+	void returnsExistingRequestWhenPersistentIdentityMatches() {
+		var existing = repository.findExisting(
+			USER_ID,
+			REQUEST_ID,
+			ReadingKind.TAROT,
+			TarotSpreadType.MIND_THREE_CARD.value(),
+			2,
+			Map.of("cards", List.of())
+		);
 
 		assertThat(existing).isPresent();
 		assertThat(existing.orElseThrow().id()).isEqualTo(READING_ID);
@@ -90,9 +97,51 @@ class JdbcReadingCreationRepositoryTests {
 	}
 
 	@Test
-	void rejectsReusedRequestIdWithDifferentCanonicalInput() {
-		assertThatThrownBy(() -> repository.findExisting(USER_ID, REQUEST_ID, "other-hash"))
+	void rejectsReusedRequestIdWithDifferentPersistentInput() {
+		assertThatThrownBy(() -> repository.findExisting(
+			USER_ID,
+			REQUEST_ID,
+			ReadingKind.TAROT,
+			TarotSpreadType.MIND_THREE_CARD.value(),
+			2,
+			Map.of("cards", List.of(Map.of("cardId", "major-00-fool")))
+		))
 			.isInstanceOf(ReadingIdempotencyConflictException.class);
+	}
+
+	@Test
+	void matchesMigratedSajuByPersistentProjectionWithoutQuestionOrCalculatedFields()
+		throws SQLException {
+		when(jdbcTemplate.query(
+			anyString(),
+			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+			any(Object[].class)
+		)).thenAnswer(invocation -> {
+			RowMapper<?> rowMapper = invocation.getArgument(1);
+			return List.of(rowMapper.mapRow(sajuResultSet(), 0));
+		});
+		Map<String, Object> birthProfile = Map.of(
+			"calendarType", "solar",
+			"birthDate", "1992-08-17",
+			"birthTime", "14:30",
+			"birthTimePrecision", "exact",
+			"provinceCode", "11",
+			"luckDirectionBasis", "female"
+		);
+
+		var existing = repository.findExisting(
+			USER_ID,
+			REQUEST_ID,
+			ReadingKind.SAJU,
+			null,
+			4,
+			Map.of("focusArea", "career", "birthProfile", birthProfile)
+		);
+
+		assertThat(existing).isPresent();
+		assertThat(existing.orElseThrow().input())
+			.containsKeys("focusArea", "birthProfile", "targetYear", "calculationSnapshot")
+			.doesNotContainKey("question");
 	}
 
 	@Test
@@ -291,8 +340,38 @@ class JdbcReadingCreationRepositoryTests {
 		when(resultSet.getString("title")).thenReturn("Generating...");
 		when(resultSet.getString("input_payload"))
 			.thenReturn("{\"cards\":[]}");
-		when(resultSet.getString("input_hash")).thenReturn("input-hash");
 		when(resultSet.getString("result_payload")).thenReturn(null);
+		when(resultSet.getTimestamp("created_at"))
+			.thenReturn(Timestamp.from(Instant.parse("2026-06-16T00:00:00Z")));
+		when(resultSet.getTimestamp("updated_at"))
+			.thenReturn(Timestamp.from(Instant.parse("2026-06-16T00:00:01Z")));
+		return resultSet;
+	}
+
+	private ResultSet sajuResultSet() throws SQLException {
+		ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+		when(resultSet.getObject("id", UUID.class)).thenReturn(READING_ID);
+		when(resultSet.getString("kind")).thenReturn("saju");
+		when(resultSet.getString("spread_type")).thenReturn(null);
+		when(resultSet.getInt("schema_version")).thenReturn(4);
+		when(resultSet.getString("status")).thenReturn("completed");
+		when(resultSet.getString("title")).thenReturn("사주 리딩");
+		when(resultSet.getString("input_payload")).thenReturn("""
+			{
+			  "focusArea":"career",
+			  "birthProfile":{
+			    "calendarType":"solar",
+			    "birthDate":"1992-08-17",
+			    "birthTime":"14:30",
+			    "birthTimePrecision":"exact",
+			    "provinceCode":"11",
+			    "luckDirectionBasis":"female"
+			  },
+			  "targetYear":2026,
+			  "calculationSnapshot":{}
+			}
+			""");
+		when(resultSet.getString("result_payload")).thenReturn("{}");
 		when(resultSet.getTimestamp("created_at"))
 			.thenReturn(Timestamp.from(Instant.parse("2026-06-16T00:00:00Z")));
 		when(resultSet.getTimestamp("updated_at"))
