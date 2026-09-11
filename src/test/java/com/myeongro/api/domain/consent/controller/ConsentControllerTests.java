@@ -8,8 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +19,6 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import com.myeongro.api.domain.consent.dto.ConsentAcceptance;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
 import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.entity.ConsentScope;
@@ -69,45 +68,62 @@ class ConsentControllerTests {
 	}
 
 	@Test
-	void recordsOneReviewedDocumentAtItsExactVersion() throws Exception {
+	void recordsAllRequiredDocumentsInOneRequest() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(consentService.acceptForUser(
+		when(consentService.completeRequiredForUser(
 			USER_ID,
-			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			"draft-2026-09-07"
-		)).thenReturn(new ConsentAcceptance(
-			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			"draft-2026-09-07",
-			Instant.parse("2026-09-07T00:00:00Z")
+			ConsentScope.TAROT,
+			Map.of(
+				"terms", "2026-08-28",
+				"ai-overseas-transfer", "draft-2026-09-07"
+			)
+		)).thenReturn(new ConsentStatus(
+			ConsentScope.TAROT.requiredDocuments(),
+			ConsentScope.TAROT.requiredDocuments(),
+			true
 		));
 
-		mockMvc.perform(post("/api/consents/ai-overseas-transfer")
+		mockMvc.perform(post("/api/consents")
 				.principal(authentication)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"documentVersion":"draft-2026-09-07"}
+					{
+					  "scope":"tarot",
+					  "documentVersions":{
+					    "terms":"2026-08-28",
+					    "ai-overseas-transfer":"draft-2026-09-07"
+					  }
+					}
 					"""))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.consent.documentType")
-				.value("ai-overseas-transfer"));
+			.andExpect(jsonPath("$.status.hasAcceptedRequired").value(true));
 	}
 
 	@Test
 	void returnsConflictWhenTheReviewedVersionIsNoLongerCurrent() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(consentService.acceptForUser(
+		when(consentService.completeRequiredForUser(
 			USER_ID,
-			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			"outdated"
+			ConsentScope.TAROT,
+			Map.of(
+				"terms", "2026-08-28",
+				"ai-overseas-transfer", "outdated"
+			)
 		)).thenThrow(new ConsentVersionMismatchException());
 
-		mockMvc.perform(post("/api/consents/ai-overseas-transfer")
+		mockMvc.perform(post("/api/consents")
 				.principal(authentication)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"documentVersion":"outdated"}
+					{
+					  "scope":"tarot",
+					  "documentVersions":{
+					    "terms":"2026-08-28",
+					    "ai-overseas-transfer":"outdated"
+					  }
+					}
 					"""))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("CONSENT_VERSION_MISMATCH"));
@@ -130,21 +146,21 @@ class ConsentControllerTests {
 
 	@Test
 	void rejectsUnknownAcceptanceFields() throws Exception {
-		mockMvc.perform(post("/api/consents/terms")
+		mockMvc.perform(post("/api/consents")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"documentVersion":"2026-08-28","acceptedAt":"2026-09-07T00:00:00Z"}
+					{"scope":"tarot","documentVersions":{"terms":"2026-08-28"},"acceptedAt":"2026-09-07T00:00:00Z"}
 					"""))
 			.andExpect(status().isBadRequest());
 	}
 
 	@Test
 	void rejectsAMissingDocumentVersion() throws Exception {
-		mockMvc.perform(post("/api/consents/terms")
+		mockMvc.perform(post("/api/consents")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{}"))
+				.content("{\"scope\":\"tarot\"}"))
 			.andExpect(status().isBadRequest());
 
 		org.mockito.Mockito.verifyNoInteractions(consentService);

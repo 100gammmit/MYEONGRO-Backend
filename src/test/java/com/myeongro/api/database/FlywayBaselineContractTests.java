@@ -240,4 +240,26 @@ class FlywayBaselineContractTests {
 			.contains("when 'saju' then 4");
 	}
 
+	@Test
+	void v14RemovesObsoleteConsentAndFollowupSchema() throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V14__remove_obsolete_consent_and_followup_schema"))
+			.findFirst()
+			.orElseThrow();
+
+		var sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("delete from public.consent_events")
+			.contains("document_type in ('PRIVACY', 'SENSITIVE_DATA')")
+			.contains("drop table if exists public.followups")
+			.contains("drop type if exists public.followup_status")
+			.contains("drop table if exists public.consents")
+			.contains("drop type if exists public.consent_document_type")
+			.contains("'TERMS'")
+			.contains("'AI_OVERSEAS_TRANSFER'")
+			.contains("'SAJU_INPUT'");
+	}
+
 }

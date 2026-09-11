@@ -8,8 +8,6 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum ConsentDocumentType {
 
 	TERMS("terms"),
-	PRIVACY("privacy"),
-	SENSITIVE_DATA("sensitive-data"),
 	AI_OVERSEAS_TRANSFER("ai-overseas-transfer"),
 	SAJU_INPUT("saju-input");
 

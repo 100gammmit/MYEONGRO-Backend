@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.myeongro.api.domain.consent.dto.ConsentAcceptanceRequest;
+import com.myeongro.api.domain.consent.dto.ConsentCompletionRequest;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
 import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
 import com.myeongro.api.domain.consent.entity.ConsentScope;
@@ -49,18 +49,17 @@ public class ConsentController {
 		));
 	}
 
-	@PostMapping("/{documentType}")
-	public ResponseEntity<Map<String, Object>> accept(
-		@PathVariable String documentType,
-		@Valid @RequestBody ConsentAcceptanceRequest request,
+	@PostMapping
+	public ResponseEntity<Map<String, ConsentStatus>> complete(
+		@Valid @RequestBody ConsentCompletionRequest request,
 		Authentication authentication
 	) {
 		return ResponseEntity.ok(Map.of(
-			"consent",
-			consentService.acceptForUser(
+			"status",
+			consentService.completeRequiredForUser(
 				userResolver.requireUser(authentication).id(),
-				ConsentDocumentType.fromValue(documentType),
-				request.getDocumentVersion()
+				ConsentScope.fromValue(request.getScope()),
+				request.getDocumentVersions()
 			)
 		));
 	}

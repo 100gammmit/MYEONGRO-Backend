@@ -82,72 +82,136 @@ class ConsentServiceTests {
 	}
 
 	@Test
-	void recordsOneDocumentAcceptanceAtTheServerTime() {
+	void recordsEveryRequiredDocumentAtOneServerTime() {
 		ConsentEventRepository repository = repositoryWith();
 		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
 			.thenAnswer(invocation -> invocation.getArgument(0));
 
-		var accepted = service(repository).acceptForUser(
+		var status = service(repository).completeRequiredForUser(
 			USER_ID,
-			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			overseasVersion()
+			ConsentScope.TAROT,
+			tarotVersions()
 		);
 
-		assertThat(accepted.documentType())
-			.isEqualTo(ConsentDocumentType.AI_OVERSEAS_TRANSFER);
-		assertThat(accepted.documentVersion()).isEqualTo(overseasVersion());
-		assertThat(accepted.acceptedAt()).isEqualTo(NOW);
+		assertThat(status.hasAcceptedRequired()).isTrue();
+		verify(repository).save(org.mockito.ArgumentMatchers.argThat(event ->
+			event.getDocumentType() == ConsentDocumentType.TERMS
+				&& event.getDocumentVersion().equals(termsVersion())
+				&& event.getOccurredAt().equals(NOW)
+		));
+		verify(repository).save(org.mockito.ArgumentMatchers.argThat(event ->
+			event.getDocumentType() == ConsentDocumentType.AI_OVERSEAS_TRANSFER
+				&& event.getDocumentVersion().equals(overseasVersion())
+				&& event.getOccurredAt().equals(NOW)
+		));
 	}
 
 	@Test
-	void locksTheUserDocumentBeforeReadingAndRecordingAcceptance() {
+	void locksRequiredDocumentsInScopeOrderBeforeReadingAndRecording() {
 		ConsentEventRepository repository = repositoryWith();
 		ConsentTransitionLock transitionLock = mock(ConsentTransitionLock.class);
 		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
 			.thenAnswer(invocation -> invocation.getArgument(0));
 
-		service(repository, transitionLock).acceptForUser(
+		service(repository, transitionLock).completeRequiredForUser(
 			USER_ID,
-			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			overseasVersion()
+			ConsentScope.TAROT,
+			tarotVersions()
 		);
 
 		var ordered = inOrder(transitionLock, repository);
+		ordered.verify(transitionLock).lock(USER_ID, ConsentDocumentType.TERMS);
 		ordered.verify(transitionLock).lock(
 			USER_ID,
 			ConsentDocumentType.AI_OVERSEAS_TRANSFER
 		);
 		ordered.verify(repository).findAllByUserIdOrderByOccurredAtDescIdDesc(USER_ID);
-		ordered.verify(repository).save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class));
+		ordered.verify(repository, org.mockito.Mockito.times(2))
+			.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class));
 	}
 
 	@Test
-	void keepsARepeatedCurrentAcceptanceIdempotent() {
-		ConsentEventEntity current = accepted(
-			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			overseasVersion()
+	void keepsARepeatedBatchOfCurrentAcceptancesIdempotent() {
+		ConsentEventRepository repository = repositoryWith(
+			accepted(ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasVersion()),
+			accepted(ConsentDocumentType.TERMS, termsVersion())
 		);
-		ConsentEventRepository repository = repositoryWith(current);
 
-		var accepted = service(repository).acceptForUser(
+		var status = service(repository).completeRequiredForUser(
 			USER_ID,
-			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			overseasVersion()
+			ConsentScope.TAROT,
+			tarotVersions()
 		);
 
-		assertThat(accepted.acceptedAt()).isEqualTo(NOW);
+		assertThat(status.hasAcceptedRequired()).isTrue();
 		verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
-	void rejectsAClientThatReviewedAnOutdatedDocument() {
-		ConsentEventRepository repository = repositoryWith();
+	void recordsOnlyTheMissingDocumentWhenExpandingFromTarotToSaju() {
+		ConsentEventRepository repository = repositoryWith(
+			accepted(ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasVersion()),
+			accepted(ConsentDocumentType.TERMS, termsVersion())
+		);
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
 
-		assertThatThrownBy(() -> service(repository).acceptForUser(
+		var status = service(repository).completeRequiredForUser(
 			USER_ID,
-			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			"outdated"
+			ConsentScope.SAJU,
+			Map.of(
+				"terms", termsVersion(),
+				"ai-overseas-transfer", overseasVersion(),
+				"saju-input", sajuInputVersion()
+			)
+		);
+
+		assertThat(status.hasAcceptedRequired()).isTrue();
+		verify(repository).save(org.mockito.ArgumentMatchers.argThat(event ->
+			event.getDocumentType() == ConsentDocumentType.SAJU_INPUT
+				&& event.getDocumentVersion().equals(sajuInputVersion())
+		));
+	}
+
+	@Test
+	void validatesEveryVersionBeforeLockingOrWritingTheBatch() {
+		ConsentEventRepository repository = repositoryWith();
+		ConsentTransitionLock transitionLock = mock(ConsentTransitionLock.class);
+
+		assertThatThrownBy(() -> service(repository, transitionLock).completeRequiredForUser(
+			USER_ID,
+			ConsentScope.TAROT,
+			Map.of(
+				"terms", termsVersion(),
+				"ai-overseas-transfer", "outdated"
+			)
 		)).isInstanceOf(ConsentVersionMismatchException.class);
+
+		verify(transitionLock, never()).lock(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any()
+		);
+		verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void rejectsAnIncompleteOrUnexpectedDocumentSet() {
+		ConsentService service = service(repositoryWith());
+
+		assertThatThrownBy(() -> service.completeRequiredForUser(
+			USER_ID,
+			ConsentScope.TAROT,
+			Map.of("terms", termsVersion())
+		)).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> service.completeRequiredForUser(
+			USER_ID,
+			ConsentScope.TAROT,
+			Map.of(
+				"terms", termsVersion(),
+				"ai-overseas-transfer", overseasVersion(),
+				"saju-input", sajuInputVersion()
+			)
+		)).isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
@@ -250,5 +314,12 @@ class ConsentServiceTests {
 
 	private String sajuInputVersion() {
 		return "draft-2026-09-07";
+	}
+
+	private Map<String, String> tarotVersions() {
+		return Map.of(
+			"terms", termsVersion(),
+			"ai-overseas-transfer", overseasVersion()
+		);
 	}
 }

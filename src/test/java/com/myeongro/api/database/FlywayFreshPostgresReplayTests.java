@@ -75,7 +75,7 @@ class FlywayFreshPostgresReplayTests {
 		var latestResult = latest.migrate();
 
 		assertThat(latestResult.success).isTrue();
-		assertThat(latestResult.migrationsExecuted).isEqualTo(3);
+		assertThat(latestResult.migrationsExecuted).isEqualTo(4);
 		verifyImmediateDeletionMigration(
 			jdbcUrl, username, password, withdrawnUserId, activeUserId
 		);
@@ -92,7 +92,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(13);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(14);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -125,10 +125,18 @@ class FlywayFreshPostgresReplayTests {
 				     where table_schema = 'public' and table_name = 'profiles'
 				       and column_name in ('deleted_at', 'purge_after', 'purged_at')
 				   ),
-				   to_regclass('public.adult_eligibility_assertions') is not null
+				   to_regclass('public.adult_eligibility_assertions') is not null,
+				   to_regclass('public.consents') is null,
+				   to_regtype('public.consent_document_type') is null,
+				   to_regclass('public.followups') is null,
+				   to_regtype('public.followup_status') is null,
+				   not exists (
+				     select 1 from public.consent_events
+				     where document_type in ('PRIVACY', 'SENSITIVE_DATA')
+				   )
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			for (int column = 1; column <= 11; column++) {
+			for (int column = 1; column <= 16; column++) {
 				assertThat(resultSet.getBoolean(column)).isTrue();
 			}
 		}
@@ -353,10 +361,10 @@ class FlywayFreshPostgresReplayTests {
 	) throws SQLException {
 		try (var statement = connection.prepareStatement("""
 			 select schema_version,
-			   input_payload ? 'question',
-			   (input_payload #> '{birthProfile}') ? 'cityCode',
-			   (input_payload #> '{birthProfile}') ? 'provinceCode',
-			   (input_payload #> '{birthProfile}') ? 'birthTime',
+			   input_payload ?? 'question',
+			   (input_payload #> '{birthProfile}') ?? 'cityCode',
+			   (input_payload #> '{birthProfile}') ?? 'provinceCode',
+			   (input_payload #> '{birthProfile}') ?? 'birthTime',
 			   input_hash = 'legacy-question-derived-hash'
 			 from public.readings where id = ?
 			 """)) {

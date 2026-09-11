@@ -1,6 +1,7 @@
 package com.myeongro.api.domain.consent.service;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.myeongro.api.domain.consent.dto.ConsentAcceptance;
 import com.myeongro.api.domain.consent.dto.ConsentStatus;
 import com.myeongro.api.domain.consent.entity.ConsentAction;
 import com.myeongro.api.domain.consent.entity.ConsentDocumentType;
@@ -76,30 +76,43 @@ public class ConsentService {
 	}
 
 	@Transactional
-	public ConsentAcceptance acceptForUser(
+	public ConsentStatus completeRequiredForUser(
 		UUID userId,
-		ConsentDocumentType documentType,
-		String documentVersion
+		ConsentScope scope,
+		Map<String, String> submittedVersions
 	) {
-		validateActive(documentType);
-		String currentVersion = versions.get(documentType);
-		if (!currentVersion.equals(documentVersion)) {
-			throw new ConsentVersionMismatchException();
+		List<ConsentDocumentType> required = scope.requiredDocuments();
+		Map<ConsentDocumentType, String> requested = new EnumMap<>(ConsentDocumentType.class);
+		for (Map.Entry<String, String> entry : submittedVersions.entrySet()) {
+			ConsentDocumentType documentType = ConsentDocumentType.fromValue(entry.getKey());
+			validateActive(documentType);
+			requested.put(documentType, entry.getValue());
+		}
+		if (requested.size() != required.size() || !requested.keySet().containsAll(required)) {
+			throw new IllegalArgumentException("Exactly the required consent documents must be submitted");
+		}
+		for (ConsentDocumentType documentType : required) {
+			if (!versions.get(documentType).equals(requested.get(documentType))) {
+				throw new ConsentVersionMismatchException();
+			}
 		}
 
-		transitionLock.lock(userId, documentType);
-		ConsentEventEntity current = latestEvents(userId).get(documentType);
-		if (isCurrentAcceptance(current, documentType)) {
-			return ConsentAcceptance.from(current);
+		for (ConsentDocumentType documentType : required) {
+			transitionLock.lock(userId, documentType);
 		}
-
-		ConsentEventEntity accepted = repository.save(ConsentEventEntity.accepted(
-			userId,
-			documentType,
-			currentVersion,
-			clock.instant()
-		));
-		return ConsentAcceptance.from(accepted);
+		Map<ConsentDocumentType, ConsentEventEntity> latest = latestEvents(userId);
+		Instant acceptedAt = clock.instant();
+		for (ConsentDocumentType documentType : required) {
+			if (!isCurrentAcceptance(latest.get(documentType), documentType)) {
+				repository.save(ConsentEventEntity.accepted(
+					userId,
+					documentType,
+					versions.get(documentType),
+					acceptedAt
+				));
+			}
+		}
+		return new ConsentStatus(required, required, true);
 	}
 
 	@Transactional
