@@ -5,6 +5,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -51,5 +52,21 @@ class SignupCompletionServiceTests {
 		InOrder order = inOrder(userProvisioner, adultEligibilityService);
 		order.verify(userProvisioner).provision(userInfo);
 		order.verify(adultEligibilityService).confirmSignupForUser(USER_ID);
+	}
+
+	@Test
+	void recoversOnlyAnAccountThatAlreadyHasAnEligibilityAssertion() {
+		PendingSignupPrincipal pending = org.mockito.Mockito.mock(PendingSignupPrincipal.class);
+		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo(
+			"google", "google-user", "명로 사용자", "user@example.com"
+		);
+		ProvisionedOAuthUser user = new ProvisionedOAuthUser(
+			USER_ID, "명로 사용자", "google", "google-user"
+		);
+		when(pending.userInfo()).thenReturn(userInfo);
+		when(userProvisioner.findExisting(userInfo)).thenReturn(Optional.of(user));
+		when(adultEligibilityService.hasConfirmationForUser(USER_ID)).thenReturn(true);
+
+		assertThat(service.findCompleted(pending)).contains(user);
 	}
 }

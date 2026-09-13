@@ -26,7 +26,7 @@ public class SessionOAuth2User implements OAuth2User, SessionPrincipal, Serializ
 	) {
 		this.user = user;
 		this.attributes = Map.copyOf(attributes);
-		this.authorities = List.copyOf(authorities);
+		this.authorities = SessionAuthorities.user();
 	}
 
 	@Override

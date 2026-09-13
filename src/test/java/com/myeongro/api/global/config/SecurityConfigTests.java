@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -13,9 +14,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
+import com.myeongro.api.global.auth.oauth.PendingSignupSessionPrincipal;
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
 import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
 import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
 import com.myeongro.api.global.auth.PendingSignupAccessFilter;
@@ -65,6 +69,9 @@ class SecurityConfigTests {
 
 	@MockitoBean
 	private AdultEligibilityService adultEligibilityService;
+
+	@MockitoBean
+	private SignupAttemptCoordinator signupAttemptCoordinator;
 
 	@Test
 	void requiresAuthenticationForReadingCreationEndpoint() throws Exception {
@@ -138,5 +145,22 @@ class SecurityConfigTests {
 	void allowsLogoutEndpointWithoutSession() throws Exception {
 		mockMvc.perform(post("/api/auth/logout"))
 			.andExpect(status().isNoContent());
+	}
+
+	@Test
+	void blocksDefaultSpringLogoutForAPendingSignup() throws Exception {
+		var principal = new PendingSignupSessionPrincipal(
+			"attempt-1", "kakao", "12345", "명로 사용자", "user@example.com", "token"
+		);
+		var pending = UsernamePasswordAuthenticationToken.authenticated(
+			principal,
+			null,
+			java.util.List.of()
+		);
+
+		mockMvc.perform(get("/logout").with(authentication(pending)))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/logout").with(authentication(pending)))
+			.andExpect(status().isUnauthorized());
 	}
 }

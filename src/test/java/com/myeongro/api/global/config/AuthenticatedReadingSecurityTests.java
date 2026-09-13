@@ -35,6 +35,7 @@ import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
 import com.myeongro.api.global.auth.PendingSignupAccessFilter;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
 
 @WebMvcTest(controllers = {
 	ConsentController.class,
@@ -103,6 +104,9 @@ class AuthenticatedReadingSecurityTests {
 
 	@MockitoBean
 	private AdultEligibilityService adultEligibilityService;
+
+	@MockitoBean
+	private SignupAttemptCoordinator signupAttemptCoordinator;
 
 	@Test
 	void unauthenticatedConsentRequestsStopBeforeService() throws Exception {

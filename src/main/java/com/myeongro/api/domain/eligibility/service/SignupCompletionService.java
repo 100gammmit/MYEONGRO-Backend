@@ -1,5 +1,7 @@
 package com.myeongro.api.domain.eligibility.service;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,5 +28,11 @@ public class SignupCompletionService {
 		ProvisionedOAuthUser user = userProvisioner.provision(pendingSignup.userInfo());
 		adultEligibilityService.confirmSignupForUser(user.userId());
 		return user;
+	}
+
+	@Transactional(readOnly = true)
+	public Optional<ProvisionedOAuthUser> findCompleted(PendingSignupPrincipal pendingSignup) {
+		return userProvisioner.findExisting(pendingSignup.userInfo())
+			.filter(user -> adultEligibilityService.hasConfirmationForUser(user.userId()));
 	}
 }

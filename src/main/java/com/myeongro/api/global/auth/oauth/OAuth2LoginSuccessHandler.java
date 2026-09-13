@@ -22,13 +22,16 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
 	private final String frontendOrigin;
 	private final AdultEligibilityService adultEligibilityService;
+	private final SignupAttemptCoordinator signupAttemptCoordinator;
 
 	public OAuth2LoginSuccessHandler(
 		String frontendOrigin,
-		AdultEligibilityService adultEligibilityService
+		AdultEligibilityService adultEligibilityService,
+		SignupAttemptCoordinator signupAttemptCoordinator
 	) {
 		this.frontendOrigin = trimTrailingSlash(frontendOrigin);
 		this.adultEligibilityService = adultEligibilityService;
+		this.signupAttemptCoordinator = signupAttemptCoordinator;
 	}
 
 	@Override
@@ -45,7 +48,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 		}
 
 		if (authentication.getPrincipal() instanceof PendingSignupPrincipal pendingSignup) {
-			storeMinimalPendingSignupPrincipal(session, authentication, pendingSignup);
+			String attemptId = signupAttemptCoordinator.beginAttempt();
+			storeMinimalPendingSignupPrincipal(session, attemptId, pendingSignup);
 			response.sendRedirect(frontendOrigin + "/signup/age");
 			return;
 		}
@@ -66,13 +70,13 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
 	private void storeMinimalPendingSignupPrincipal(
 		HttpSession session,
-		Authentication authentication,
+		String attemptId,
 		PendingSignupPrincipal pendingSignup
 	) {
 		var pendingAuthentication = UsernamePasswordAuthenticationToken.authenticated(
-			PendingSignupSessionPrincipal.from(pendingSignup),
+			PendingSignupSessionPrincipal.from(attemptId, pendingSignup),
 			null,
-			authentication.getAuthorities()
+			SessionAuthorities.user()
 		);
 		SecurityContext context = SecurityContextHolder.createEmptyContext();
 		context.setAuthentication(pendingAuthentication);

@@ -39,7 +39,7 @@ public class PendingOidcUser implements OidcUser, PendingSignupPrincipal, Serial
 		this.userInfo = delegate.getUserInfo();
 		this.idToken = delegate.getIdToken();
 		this.attributes = Map.copyOf(delegate.getAttributes());
-		this.authorities = List.copyOf(delegate.getAuthorities());
+		this.authorities = SessionAuthorities.user();
 	}
 
 	@Override

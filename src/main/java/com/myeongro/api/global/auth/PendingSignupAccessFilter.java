@@ -31,11 +31,12 @@ public class PendingSignupAccessFilter extends OncePerRequestFilter {
 		FilterChain filterChain
 	) throws ServletException, IOException {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		String path = request.getRequestURI();
 		if (authentication != null
 			&& authentication.isAuthenticated()
 			&& authentication.getPrincipal() instanceof PendingSignupPrincipal
-			&& request.getRequestURI().startsWith("/api/")
-			&& !ALLOWED_API_PATHS.contains(request.getRequestURI())) {
+			&& ((path.startsWith("/api/") && !ALLOWED_API_PATHS.contains(path))
+				|| path.equals("/logout"))) {
 			response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
 			return;
 		}

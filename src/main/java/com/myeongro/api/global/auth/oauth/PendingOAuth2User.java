@@ -32,7 +32,7 @@ public class PendingOAuth2User implements OAuth2User, PendingSignupPrincipal, Se
 		this.email = userInfo.email();
 		this.accessToken = accessToken;
 		this.attributes = Map.copyOf(attributes);
-		this.authorities = List.copyOf(authorities);
+		this.authorities = SessionAuthorities.user();
 	}
 
 	@Override

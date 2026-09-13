@@ -21,6 +21,7 @@ import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OAuth2LoginSuccessHandler;
 import com.myeongro.api.global.auth.oauth.OAuth2NextRequestFilter;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
 
 /**
  * SecurityConfig
@@ -37,6 +38,7 @@ public class SecurityConfig {
 	private final AdultEligibilitySessionFilter adultEligibilitySessionFilter;
 	private final PendingSignupAccessFilter pendingSignupAccessFilter;
 	private final AdultEligibilityService adultEligibilityService;
+	private final SignupAttemptCoordinator signupAttemptCoordinator;
 
 	public SecurityConfig(
 		@Value("${app.frontend-origin:http://localhost:3000}") String frontendOrigin,
@@ -45,7 +47,8 @@ public class SecurityConfig {
 		ActiveAccountSessionFilter activeAccountSessionFilter,
 		AdultEligibilitySessionFilter adultEligibilitySessionFilter,
 		PendingSignupAccessFilter pendingSignupAccessFilter,
-		AdultEligibilityService adultEligibilityService
+		AdultEligibilityService adultEligibilityService,
+		SignupAttemptCoordinator signupAttemptCoordinator
 	) {
 		this.frontendOrigin = frontendOrigin;
 		this.oauth2SessionUserService = oauth2SessionUserService;
@@ -54,6 +57,7 @@ public class SecurityConfig {
 		this.adultEligibilitySessionFilter = adultEligibilitySessionFilter;
 		this.pendingSignupAccessFilter = pendingSignupAccessFilter;
 		this.adultEligibilityService = adultEligibilityService;
+		this.signupAttemptCoordinator = signupAttemptCoordinator;
 	}
 
 	@Bean
@@ -104,9 +108,11 @@ public class SecurityConfig {
 				)
 				.successHandler(new OAuth2LoginSuccessHandler(
 					frontendOrigin,
-					adultEligibilityService
+					adultEligibilityService,
+					signupAttemptCoordinator
 				))
 			)
+			.logout(logout -> logout.disable())
 			.exceptionHandling(exceptions -> exceptions
 				.defaultAuthenticationEntryPointFor(
 					new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),

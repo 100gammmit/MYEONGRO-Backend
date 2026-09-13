@@ -30,7 +30,7 @@ public class SessionOidcUser implements OidcUser, SessionPrincipal, Serializable
 		this.userInfo = delegate.getUserInfo();
 		this.idToken = delegate.getIdToken();
 		this.attributes = Map.copyOf(delegate.getAttributes());
-		this.authorities = List.copyOf(delegate.getAuthorities());
+		this.authorities = SessionAuthorities.user();
 	}
 
 	@Override

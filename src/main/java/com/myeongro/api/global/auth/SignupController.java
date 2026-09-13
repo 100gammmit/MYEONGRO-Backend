@@ -20,8 +20,13 @@ import com.myeongro.api.global.auth.oauth.OAuth2NextRequestFilter;
 import com.myeongro.api.global.auth.oauth.OAuthConnectionRevocationException;
 import com.myeongro.api.global.auth.oauth.OAuthConnectionRevoker;
 import com.myeongro.api.global.auth.oauth.PendingSignupPrincipal;
+import com.myeongro.api.global.auth.oauth.PendingSignupSessionPrincipal;
 import com.myeongro.api.global.auth.oauth.ProvisionedOAuthUser;
+import com.myeongro.api.global.auth.oauth.SessionAuthorities;
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.CompletionClaim;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
+import com.myeongro.api.global.auth.session.SessionPrincipal;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -29,20 +34,37 @@ import jakarta.servlet.http.HttpSession;
 @RestController
 @RequestMapping("/api/signup")
 public class SignupController {
+	public static final String COMPLETED_NEXT_SESSION_ATTRIBUTE =
+		"myeongro.signup.completedNext";
 
 	private final SignupCompletionService signupCompletionService;
 	private final OAuthConnectionRevoker connectionRevoker;
+	private final SignupAttemptCoordinator signupAttemptCoordinator;
 
 	public SignupController(
 		SignupCompletionService signupCompletionService,
-		OAuthConnectionRevoker connectionRevoker
+		OAuthConnectionRevoker connectionRevoker,
+		SignupAttemptCoordinator signupAttemptCoordinator
 	) {
 		this.signupCompletionService = signupCompletionService;
 		this.connectionRevoker = connectionRevoker;
+		this.signupAttemptCoordinator = signupAttemptCoordinator;
 	}
 
 	@GetMapping
-	public ResponseEntity<Map<String, Object>> status(Authentication authentication) {
+	public ResponseEntity<Map<String, Object>> status(
+		Authentication authentication,
+		HttpServletRequest request
+	) {
+		HttpSession session = request.getSession(false);
+		String completedNext = completedNext(authentication, session);
+		if (completedNext != null) {
+			return ResponseEntity.ok(Map.of(
+				"pending", false,
+				"completed", true,
+				"next", completedNext
+			));
+		}
 		PendingSignupPrincipal pendingSignup = pendingSignup(authentication);
 		if (pendingSignup == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -60,18 +82,54 @@ public class SignupController {
 		Authentication authentication,
 		HttpServletRequest request
 	) {
-		PendingSignupPrincipal pendingSignup = pendingSignup(authentication);
-		if (pendingSignup == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-		}
-
 		HttpSession session = request.getSession(false);
 		if (session == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
+		String completedNext = completedNext(authentication, session);
+		if (completedNext != null) {
+			return ResponseEntity.ok(Map.of("next", completedNext));
+		}
+		PendingSignupSessionPrincipal pendingSignup = pendingSignup(authentication);
+		if (pendingSignup == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
 
-		ProvisionedOAuthUser user = signupCompletionService.complete(pendingSignup);
-		String next = readAndRemoveNext(session);
+		CompletionClaim claim = signupAttemptCoordinator.claimCompletion(
+			pendingSignup.attemptId()
+		);
+		if (claim == CompletionClaim.REJECTED) {
+			return conflict();
+		}
+
+		ProvisionedOAuthUser user;
+		if (claim == CompletionClaim.ALREADY_COMPLETED) {
+			user = signupCompletionService.findCompleted(pendingSignup).orElse(null);
+			if (user == null) {
+				return conflict();
+			}
+		} else {
+			try {
+				user = signupCompletionService.complete(pendingSignup);
+			} catch (RuntimeException exception) {
+				try {
+					signupAttemptCoordinator.releaseCompletion(pendingSignup.attemptId());
+				} catch (RuntimeException releaseFailure) {
+					exception.addSuppressed(releaseFailure);
+				}
+				throw exception;
+			}
+			signupAttemptCoordinator.markCompleted(pendingSignup.attemptId());
+		}
+
+		return completeSession(session, user);
+	}
+
+	private ResponseEntity<Map<String, String>> completeSession(
+		HttpSession session,
+		ProvisionedOAuthUser user
+	) {
+		String next = readNext(session);
 		var principal = new SessionAuthenticatedPrincipal(
 			user.userId(),
 			user.displayName(),
@@ -81,7 +139,7 @@ public class SignupController {
 		var authenticated = UsernamePasswordAuthenticationToken.authenticated(
 			principal,
 			null,
-			authentication.getAuthorities()
+			SessionAuthorities.user()
 		);
 		SecurityContext context = SecurityContextHolder.createEmptyContext();
 		context.setAuthentication(authenticated);
@@ -94,6 +152,8 @@ public class SignupController {
 			AdultEligibilitySessionFilter.SESSION_ATTRIBUTE,
 			AdultEligibilitySessionFilter.CONFIRMED_SESSION_VALUE
 		);
+		session.removeAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE);
+		session.setAttribute(COMPLETED_NEXT_SESSION_ATTRIBUTE, next);
 		return ResponseEntity.ok(Map.of("next", next));
 	}
 
@@ -102,9 +162,12 @@ public class SignupController {
 		Authentication authentication,
 		HttpServletRequest request
 	) {
-		PendingSignupPrincipal pendingSignup = pendingSignup(authentication);
+		PendingSignupSessionPrincipal pendingSignup = pendingSignup(authentication);
 		if (pendingSignup == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		if (!signupAttemptCoordinator.claimCancellation(pendingSignup.attemptId())) {
+			return conflict();
 		}
 
 		boolean revoked = true;
@@ -116,11 +179,17 @@ public class SignupController {
 		} catch (OAuthConnectionRevocationException exception) {
 			revoked = false;
 		} finally {
-			HttpSession session = request.getSession(false);
-			if (session != null) {
-				session.invalidate();
+			try {
+				signupAttemptCoordinator.markCancelled(pendingSignup.attemptId());
+			} catch (RuntimeException ignored) {
+				// The claimed cancellation state still blocks completion until TTL expiry.
+			} finally {
+				HttpSession session = request.getSession(false);
+				if (session != null) {
+					session.invalidate();
+				}
+				SecurityContextHolder.clearContext();
 			}
-			SecurityContextHolder.clearContext();
 		}
 
 		if (!revoked) {
@@ -134,18 +203,35 @@ public class SignupController {
 		return ResponseEntity.noContent().build();
 	}
 
-	private PendingSignupPrincipal pendingSignup(Authentication authentication) {
+	private PendingSignupSessionPrincipal pendingSignup(Authentication authentication) {
 		if (authentication != null
 			&& authentication.isAuthenticated()
-			&& authentication.getPrincipal() instanceof PendingSignupPrincipal pendingSignup) {
+			&& authentication.getPrincipal() instanceof PendingSignupSessionPrincipal pendingSignup) {
 			return pendingSignup;
 		}
 		return null;
 	}
 
-	private String readAndRemoveNext(HttpSession session) {
+	private String readNext(HttpSession session) {
 		Object storedNext = session.getAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE);
-		session.removeAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE);
 		return storedNext instanceof String path ? path : "/";
+	}
+
+	private String completedNext(Authentication authentication, HttpSession session) {
+		if (session == null
+			|| authentication == null
+			|| !authentication.isAuthenticated()
+			|| !(authentication.getPrincipal() instanceof SessionPrincipal)) {
+			return null;
+		}
+		Object value = session.getAttribute(COMPLETED_NEXT_SESSION_ATTRIBUTE);
+		return value instanceof String next ? next : null;
+	}
+
+	private ResponseEntity<Map<String, String>> conflict() {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+			"code", "SIGNUP_ATTEMPT_ALREADY_FINALIZING",
+			"message", "다른 가입 완료 또는 취소 요청을 처리하고 있습니다. 잠시 후 다시 확인해 주세요."
+		));
 	}
 }

@@ -3,6 +3,10 @@ package com.myeongro.api.global.auth.oauth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -11,7 +15,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.oauth2.core.user.OAuth2UserAuthority;
+import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
@@ -24,8 +32,14 @@ class OAuth2LoginSuccessHandlerTests {
 		UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43");
 	private final AdultEligibilityService eligibilityService =
 		org.mockito.Mockito.mock(AdultEligibilityService.class);
+	private final SignupAttemptCoordinator signupAttemptCoordinator =
+		org.mockito.Mockito.mock(SignupAttemptCoordinator.class);
 	private final OAuth2LoginSuccessHandler handler =
-		new OAuth2LoginSuccessHandler("http://localhost:3000", eligibilityService);
+		new OAuth2LoginSuccessHandler(
+			"http://localhost:3000",
+			eligibilityService,
+			signupAttemptCoordinator
+		);
 
 	@Test
 	void redirectsAnExistingEligibleMemberToTheStoredFrontendPath() throws Exception {
@@ -50,7 +64,8 @@ class OAuth2LoginSuccessHandlerTests {
 		MockHttpServletRequest request = requestWithNext("/account");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 
-		handler.onAuthenticationSuccess(request, response, pendingAuthentication());
+		when(signupAttemptCoordinator.beginAttempt()).thenReturn("attempt-1");
+		handler.onAuthenticationSuccess(request, response, pendingAuthenticationWithSourceAuthority());
 
 		assertThat(response.getRedirectedUrl())
 			.isEqualTo("http://localhost:3000/signup/age");
@@ -67,8 +82,47 @@ class OAuth2LoginSuccessHandlerTests {
 			.isInstanceOf(PendingSignupSessionPrincipal.class);
 		PendingSignupSessionPrincipal stored =
 			(PendingSignupSessionPrincipal) context.getAuthentication().getPrincipal();
+		assertThat(stored.attemptId()).isEqualTo("attempt-1");
 		assertThat(stored.provider()).isEqualTo("kakao");
 		assertThat(stored.accessToken()).isEqualTo("access-token");
+		assertThat(context.getAuthentication().getAuthorities())
+			.allMatch(authority -> authority.getClass().equals(
+				org.springframework.security.core.authority.SimpleGrantedAuthority.class
+			));
+		String serialized = new String(serialize(context), StandardCharsets.ISO_8859_1);
+		assertThat(serialized).doesNotContain("source-sensitive-value");
+	}
+
+	@Test
+	void removesOidcTokenAndClaimsFromTheRedisPendingSecurityContext() throws Exception {
+		MockHttpServletRequest request = requestWithNext("/records");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		OidcIdToken idToken = new OidcIdToken(
+			"source-oidc-token",
+			Instant.parse("2026-09-13T00:00:00Z"),
+			Instant.parse("2026-09-13T01:00:00Z"),
+			Map.of("sub", "12345", "source-oidc-claim", "source-oidc-value")
+		);
+		var authentication = UsernamePasswordAuthenticationToken.authenticated(
+			pendingAuthentication().getPrincipal(),
+			null,
+			List.of(new OidcUserAuthority(idToken))
+		);
+		when(signupAttemptCoordinator.beginAttempt()).thenReturn("attempt-oidc");
+
+		handler.onAuthenticationSuccess(request, response, authentication);
+
+		SecurityContext context = (SecurityContext) request.getSession().getAttribute(
+			HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
+		);
+		String serialized = new String(serialize(context), StandardCharsets.ISO_8859_1);
+		assertThat(serialized)
+			.doesNotContain("source-oidc-token")
+			.doesNotContain("source-oidc-value");
+		assertThat(context.getAuthentication().getAuthorities())
+			.allMatch(authority -> authority.getClass().equals(
+				org.springframework.security.core.authority.SimpleGrantedAuthority.class
+			));
 	}
 
 	@Test
@@ -123,5 +177,25 @@ class OAuth2LoginSuccessHandlerTests {
 			List.of()
 		);
 		return new TestingAuthenticationToken(principal, null);
+	}
+
+	private UsernamePasswordAuthenticationToken pendingAuthenticationWithSourceAuthority() {
+		PendingSignupPrincipal principal = (PendingSignupPrincipal) pendingAuthentication().getPrincipal();
+		return UsernamePasswordAuthenticationToken.authenticated(
+			principal,
+			null,
+			List.of(new OAuth2UserAuthority(Map.of(
+				"id", "12345",
+				"source-sensitive-claim", "source-sensitive-value"
+			)))
+		);
+	}
+
+	private byte[] serialize(Object value) throws Exception {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+			output.writeObject(value);
+		}
+		return bytes.toByteArray();
 	}
 }
