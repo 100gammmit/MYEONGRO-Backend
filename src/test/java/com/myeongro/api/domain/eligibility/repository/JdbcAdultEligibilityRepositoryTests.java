@@ -50,6 +50,27 @@ class JdbcAdultEligibilityRepositoryTests {
 		assertThat(repository.hasConfirmation(USER_ID)).isTrue();
 	}
 
+	@Test
+	void matchesOnlyTheSignupGenerationThatCreatedTheAssertion() {
+		insertProfile();
+		jdbcTemplate.update(
+			"""
+			insert into public.adult_eligibility_assertions (
+				user_id, policy_version, confirmed_at, method, signup_generation_id
+			)
+			values (?, ?, ?, ?, ?)
+			""",
+			USER_ID,
+			"2026-09-09",
+			Instant.parse("2026-09-13T00:00:00Z"),
+			"oauth-signup-self-declaration",
+			"generation-1"
+		);
+
+		assertThat(repository.hasSignupConfirmation(USER_ID, "generation-1")).isTrue();
+		assertThat(repository.hasSignupConfirmation(USER_ID, "generation-2")).isFalse();
+	}
+
 	private void insertProfile() {
 		jdbcTemplate.update(
 			"insert into public.profiles (id, display_name) values (?, ?)",

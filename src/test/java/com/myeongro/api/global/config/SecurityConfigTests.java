@@ -150,7 +150,8 @@ class SecurityConfigTests {
 	@Test
 	void blocksDefaultSpringLogoutForAPendingSignup() throws Exception {
 		var principal = new PendingSignupSessionPrincipal(
-			"attempt-1", "kakao", "12345", "명로 사용자", "user@example.com", "token"
+			"attempt-1", "generation-1", "kakao", "12345", "명로 사용자",
+			"user@example.com", "token"
 		);
 		var pending = UsernamePasswordAuthenticationToken.authenticated(
 			principal,

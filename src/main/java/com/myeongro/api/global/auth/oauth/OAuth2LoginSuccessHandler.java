@@ -48,8 +48,11 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 		}
 
 		if (authentication.getPrincipal() instanceof PendingSignupPrincipal pendingSignup) {
-			String attemptId = signupAttemptCoordinator.beginAttempt();
-			storeMinimalPendingSignupPrincipal(session, attemptId, pendingSignup);
+			SignupAttemptCoordinator.Attempt attempt = signupAttemptCoordinator.beginAttempt(
+				pendingSignup.provider(),
+				pendingSignup.providerUserId()
+			);
+			storeMinimalPendingSignupPrincipal(session, attempt, pendingSignup);
 			response.sendRedirect(frontendOrigin + "/signup/age");
 			return;
 		}
@@ -70,11 +73,11 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
 	private void storeMinimalPendingSignupPrincipal(
 		HttpSession session,
-		String attemptId,
+		SignupAttemptCoordinator.Attempt attempt,
 		PendingSignupPrincipal pendingSignup
 	) {
 		var pendingAuthentication = UsernamePasswordAuthenticationToken.authenticated(
-			PendingSignupSessionPrincipal.from(attemptId, pendingSignup),
+			PendingSignupSessionPrincipal.from(attempt, pendingSignup),
 			null,
 			SessionAuthorities.user()
 		);

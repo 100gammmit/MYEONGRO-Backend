@@ -64,7 +64,8 @@ class OAuth2LoginSuccessHandlerTests {
 		MockHttpServletRequest request = requestWithNext("/account");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 
-		when(signupAttemptCoordinator.beginAttempt()).thenReturn("attempt-1");
+		when(signupAttemptCoordinator.beginAttempt("kakao", "12345"))
+			.thenReturn(new SignupAttemptCoordinator.Attempt("attempt-1", "generation-1"));
 		handler.onAuthenticationSuccess(request, response, pendingAuthenticationWithSourceAuthority());
 
 		assertThat(response.getRedirectedUrl())
@@ -108,7 +109,8 @@ class OAuth2LoginSuccessHandlerTests {
 			null,
 			List.of(new OidcUserAuthority(idToken))
 		);
-		when(signupAttemptCoordinator.beginAttempt()).thenReturn("attempt-oidc");
+		when(signupAttemptCoordinator.beginAttempt("kakao", "12345"))
+			.thenReturn(new SignupAttemptCoordinator.Attempt("attempt-oidc", "generation-oidc"));
 
 		handler.onAuthenticationSuccess(request, response, authentication);
 

@@ -12,7 +12,7 @@ import org.mockito.InOrder;
 
 import com.myeongro.api.global.auth.oauth.OAuthProviderUserInfo;
 import com.myeongro.api.global.auth.oauth.OAuthUserProvisioner;
-import com.myeongro.api.global.auth.oauth.PendingSignupPrincipal;
+import com.myeongro.api.global.auth.oauth.PendingSignupSessionPrincipal;
 import com.myeongro.api.global.auth.oauth.ProvisionedOAuthUser;
 
 class SignupCompletionServiceTests {
@@ -31,7 +31,7 @@ class SignupCompletionServiceTests {
 
 	@Test
 	void createsTheAccountBeforeRecordingSignupEligibilityInOneServiceBoundary() {
-		PendingSignupPrincipal pending = org.mockito.Mockito.mock(PendingSignupPrincipal.class);
+		PendingSignupSessionPrincipal pending = pendingSignup();
 		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo(
 			"google",
 			"google-user",
@@ -44,29 +44,54 @@ class SignupCompletionServiceTests {
 			"google",
 			"google-user"
 		);
-		when(pending.userInfo()).thenReturn(userInfo);
 		when(userProvisioner.provision(userInfo)).thenReturn(user);
 
 		assertThat(service.complete(pending)).isEqualTo(user);
 
 		InOrder order = inOrder(userProvisioner, adultEligibilityService);
 		order.verify(userProvisioner).provision(userInfo);
-		order.verify(adultEligibilityService).confirmSignupForUser(USER_ID);
+		order.verify(adultEligibilityService).confirmSignupForUser(USER_ID, "generation-1");
 	}
 
 	@Test
 	void recoversOnlyAnAccountThatAlreadyHasAnEligibilityAssertion() {
-		PendingSignupPrincipal pending = org.mockito.Mockito.mock(PendingSignupPrincipal.class);
+		PendingSignupSessionPrincipal pending = pendingSignup();
 		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo(
 			"google", "google-user", "명로 사용자", "user@example.com"
 		);
 		ProvisionedOAuthUser user = new ProvisionedOAuthUser(
 			USER_ID, "명로 사용자", "google", "google-user"
 		);
-		when(pending.userInfo()).thenReturn(userInfo);
 		when(userProvisioner.findExisting(userInfo)).thenReturn(Optional.of(user));
-		when(adultEligibilityService.hasConfirmationForUser(USER_ID)).thenReturn(true);
+		when(adultEligibilityService.hasSignupConfirmation(USER_ID, "generation-1"))
+			.thenReturn(true);
 
 		assertThat(service.findCompleted(pending)).contains(user);
+	}
+
+	@Test
+	void doesNotRecoverAnAccountCompletedByAnotherSignupGeneration() {
+		PendingSignupSessionPrincipal pending = pendingSignup();
+		OAuthProviderUserInfo userInfo = pending.userInfo();
+		ProvisionedOAuthUser user = new ProvisionedOAuthUser(
+			USER_ID, "명로 사용자", "google", "google-user"
+		);
+		when(userProvisioner.findExisting(userInfo)).thenReturn(Optional.of(user));
+		when(adultEligibilityService.hasSignupConfirmation(USER_ID, "generation-1"))
+			.thenReturn(false);
+
+		assertThat(service.findCompleted(pending)).isEmpty();
+	}
+
+	private PendingSignupSessionPrincipal pendingSignup() {
+		return new PendingSignupSessionPrincipal(
+			"attempt-1",
+			"generation-1",
+			"google",
+			"google-user",
+			"명로 사용자",
+			"user@example.com",
+			"access-token"
+		);
 	}
 }

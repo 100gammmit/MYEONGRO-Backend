@@ -4,6 +4,7 @@ import java.io.Serializable;
 
 public record PendingSignupSessionPrincipal(
 	String attemptId,
+	String attemptGenerationId,
 	String provider,
 	String providerUserId,
 	String displayName,
@@ -14,11 +15,12 @@ public record PendingSignupSessionPrincipal(
 	private static final long serialVersionUID = 1L;
 
 	public static PendingSignupSessionPrincipal from(
-		String attemptId,
+		SignupAttemptCoordinator.Attempt attempt,
 		PendingSignupPrincipal principal
 	) {
 		return new PendingSignupSessionPrincipal(
-			attemptId,
+			attempt.attemptId(),
+			attempt.generationId(),
 			principal.provider(),
 			principal.providerUserId(),
 			principal.displayName(),

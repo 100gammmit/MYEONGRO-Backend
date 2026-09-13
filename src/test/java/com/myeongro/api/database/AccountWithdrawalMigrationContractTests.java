@@ -86,4 +86,20 @@ class AccountWithdrawalMigrationContractTests {
 			.doesNotContain("birth_date")
 			.doesNotContain("date_of_birth");
 	}
+
+	@Test
+	void v15BindsSignupRecoveryToOneIdentityGeneration() throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V15__adult_eligibility_signup_generation"))
+			.findFirst()
+			.orElseThrow();
+
+		String sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("add column signup_generation_id varchar(64)")
+			.contains("adult_eligibility_assertions_signup_generation_unique")
+			.contains("where signup_generation_id is not null");
+	}
 }

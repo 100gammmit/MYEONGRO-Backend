@@ -42,13 +42,19 @@ public class AdultEligibilityService {
 		return repository.hasConfirmation(userId);
 	}
 
+	@Transactional(readOnly = true)
+	public boolean hasSignupConfirmation(UUID userId, String signupGenerationId) {
+		return repository.hasSignupConfirmation(userId, signupGenerationId);
+	}
+
 	@Transactional
-	public void confirmSignupForUser(UUID userId) {
+	public void confirmSignupForUser(UUID userId, String signupGenerationId) {
 		repository.saveConfirmation(
 			userId,
 			currentVersion,
 			clock.instant(),
-			CONFIRMATION_METHOD
+			CONFIRMATION_METHOD,
+			signupGenerationId
 		);
 	}
 }

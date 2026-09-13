@@ -30,14 +30,23 @@ class AdultEligibilityServiceTests {
 
 	@Test
 	void recordsTheCurrentPolicyVersionWhenSignupCompletes() {
-		service.confirmSignupForUser(USER_ID);
+		service.confirmSignupForUser(USER_ID, "generation-1");
 
 		verify(repository).saveConfirmation(
 			USER_ID,
 			VERSION,
 			NOW,
-			"oauth-signup-self-declaration"
+			"oauth-signup-self-declaration",
+			"generation-1"
 		);
+	}
+
+	@Test
+	void matchesAConfirmationOnlyToItsSignupGeneration() {
+		when(repository.hasSignupConfirmation(USER_ID, "generation-1")).thenReturn(true);
+
+		assertThat(service.hasSignupConfirmation(USER_ID, "generation-1")).isTrue();
+		verify(repository).hasSignupConfirmation(USER_ID, "generation-1");
 	}
 
 	@Test

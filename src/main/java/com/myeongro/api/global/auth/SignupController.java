@@ -73,19 +73,20 @@ public class SignupController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
 		AttemptState attemptState = signupAttemptCoordinator.state(
-			pendingSignup.attemptId()
+			pendingSignup
 		);
 		if (attemptState != AttemptState.PENDING) {
 			ProvisionedOAuthUser completed = signupCompletionService.findCompleted(
 				pendingSignup
 			).orElse(null);
 			if (completed != null) {
-				markCompletedBestEffort(pendingSignup.attemptId());
+				markCompletedBestEffort(pendingSignup);
 				completeSession(session, completed);
 				return completedStatus(session);
 			}
 			if (attemptState == AttemptState.MISSING
-				|| attemptState == AttemptState.CANCELLED) {
+				|| attemptState == AttemptState.CANCELLED
+				|| attemptState == AttemptState.STALE) {
 				return expiredStatus(session);
 			}
 			return processingStatus();
@@ -117,17 +118,18 @@ public class SignupController {
 		}
 
 		CompletionClaim claim = signupAttemptCoordinator.claimCompletion(
-			pendingSignup.attemptId()
+			pendingSignup
 		);
 		if (claim == CompletionClaim.REJECTED) {
 			ProvisionedOAuthUser completed = signupCompletionService.findCompleted(
 				pendingSignup
 			).orElse(null);
 			if (completed != null) {
-				markCompletedBestEffort(pendingSignup.attemptId());
+				markCompletedBestEffort(pendingSignup);
 				return completeSession(session, completed);
 			}
-			if (signupAttemptCoordinator.state(pendingSignup.attemptId()) == AttemptState.MISSING) {
+			AttemptState currentState = signupAttemptCoordinator.state(pendingSignup);
+			if (currentState == AttemptState.MISSING || currentState == AttemptState.STALE) {
 				return expiredAction(session);
 			}
 			return conflict();
@@ -144,13 +146,13 @@ public class SignupController {
 				user = signupCompletionService.complete(pendingSignup);
 			} catch (RuntimeException exception) {
 				try {
-					signupAttemptCoordinator.releaseCompletion(pendingSignup.attemptId());
+					signupAttemptCoordinator.releaseCompletion(pendingSignup);
 				} catch (RuntimeException releaseFailure) {
 					exception.addSuppressed(releaseFailure);
 				}
 				throw exception;
 			}
-			markCompletedBestEffort(pendingSignup.attemptId());
+			markCompletedBestEffort(pendingSignup);
 		}
 
 		return completeSession(session, user);
@@ -197,11 +199,12 @@ public class SignupController {
 		if (pendingSignup == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
-		if (!signupAttemptCoordinator.claimCancellation(pendingSignup.attemptId())) {
+		if (!signupAttemptCoordinator.claimCancellation(pendingSignup)) {
 			if (signupCompletionService.findCompleted(pendingSignup).isPresent()) {
 				return conflict();
 			}
-			if (signupAttemptCoordinator.state(pendingSignup.attemptId()) == AttemptState.MISSING) {
+			AttemptState currentState = signupAttemptCoordinator.state(pendingSignup);
+			if (currentState == AttemptState.MISSING || currentState == AttemptState.STALE) {
 				return expiredAction(request.getSession(false));
 			}
 			return conflict();
@@ -217,7 +220,7 @@ public class SignupController {
 			revoked = false;
 		} finally {
 			try {
-				signupAttemptCoordinator.markCancelled(pendingSignup.attemptId());
+				signupAttemptCoordinator.markCancelled(pendingSignup);
 			} catch (RuntimeException ignored) {
 				// The claimed cancellation state still blocks completion until TTL expiry.
 			} finally {
@@ -272,9 +275,9 @@ public class SignupController {
 		));
 	}
 
-	private void markCompletedBestEffort(String attemptId) {
+	private void markCompletedBestEffort(PendingSignupSessionPrincipal pendingSignup) {
 		try {
-			signupAttemptCoordinator.markCompleted(attemptId);
+			signupAttemptCoordinator.markCompleted(pendingSignup);
 		} catch (RuntimeException ignored) {
 			// The committed DB state remains the recovery source if Redis is unavailable.
 		}

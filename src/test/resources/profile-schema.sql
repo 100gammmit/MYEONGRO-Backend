@@ -49,6 +49,7 @@ create table public.adult_eligibility_assertions (
   policy_version varchar(64) not null,
   confirmed_at timestamp with time zone not null,
   method varchar(64) not null,
+  signup_generation_id varchar(64),
   unique (user_id, policy_version),
   foreign key (user_id) references public.profiles(id) on delete cascade
 );

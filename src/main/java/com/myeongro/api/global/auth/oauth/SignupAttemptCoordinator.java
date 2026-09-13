@@ -2,12 +2,16 @@ package com.myeongro.api.global.auth.oauth;
 
 public interface SignupAttemptCoordinator {
 
+	record Attempt(String attemptId, String generationId) {
+	}
+
 	enum AttemptState {
 		PENDING,
 		COMPLETING,
 		COMPLETED,
 		CANCELLING,
 		CANCELLED,
+		STALE,
 		MISSING
 	}
 
@@ -17,17 +21,17 @@ public interface SignupAttemptCoordinator {
 		REJECTED
 	}
 
-	String beginAttempt();
+	Attempt beginAttempt(String provider, String providerUserId);
 
-	AttemptState state(String attemptId);
+	AttemptState state(PendingSignupSessionPrincipal principal);
 
-	CompletionClaim claimCompletion(String attemptId);
+	CompletionClaim claimCompletion(PendingSignupSessionPrincipal principal);
 
-	boolean claimCancellation(String attemptId);
+	boolean claimCancellation(PendingSignupSessionPrincipal principal);
 
-	void markCompleted(String attemptId);
+	void markCompleted(PendingSignupSessionPrincipal principal);
 
-	void releaseCompletion(String attemptId);
+	void releaseCompletion(PendingSignupSessionPrincipal principal);
 
-	void markCancelled(String attemptId);
+	void markCancelled(PendingSignupSessionPrincipal principal);
 }

@@ -33,24 +33,43 @@ public class JdbcAdultEligibilityRepository implements AdultEligibilityRepositor
 	}
 
 	@Override
+	public boolean hasSignupConfirmation(UUID userId, String signupGenerationId) {
+		Boolean exists = jdbcTemplate.queryForObject(
+			"""
+			select exists (
+				select 1
+				from public.adult_eligibility_assertions
+				where user_id = ? and signup_generation_id = ?
+			)
+			""",
+			Boolean.class,
+			userId,
+			signupGenerationId
+		);
+		return Boolean.TRUE.equals(exists);
+	}
+
+	@Override
 	public void saveConfirmation(
 		UUID userId,
 		String policyVersion,
 		Instant confirmedAt,
-		String method
+		String method,
+		String signupGenerationId
 	) {
 		jdbcTemplate.update(
 			"""
 			insert into public.adult_eligibility_assertions (
-				user_id, policy_version, confirmed_at, method
+				user_id, policy_version, confirmed_at, method, signup_generation_id
 			)
-			values (?, ?, ?, ?)
+			values (?, ?, ?, ?, ?)
 			on conflict (user_id, policy_version) do nothing
 			""",
 			userId,
 			policyVersion,
 			Timestamp.from(confirmedAt),
-			method
+			method,
+			signupGenerationId
 		);
 	}
 }

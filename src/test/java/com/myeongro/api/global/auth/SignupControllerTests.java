@@ -41,6 +41,7 @@ import com.myeongro.api.global.auth.oauth.OAuthConnectionRevoker;
 import com.myeongro.api.global.auth.oauth.PendingSignupSessionPrincipal;
 import com.myeongro.api.global.auth.oauth.ProvisionedOAuthUser;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.Attempt;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.AttemptState;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.CompletionClaim;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
@@ -65,7 +66,8 @@ class SignupControllerTests {
 
 	@BeforeEach
 	void preparePendingAttempt() {
-		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.PENDING);
+		when(attemptCoordinator.state(org.mockito.ArgumentMatchers.any()))
+			.thenReturn(AttemptState.PENDING);
 	}
 
 	@AfterEach
@@ -89,7 +91,7 @@ class SignupControllerTests {
 		MockHttpServletRequest request = requestWithSession();
 		MockHttpSession session = (MockHttpSession) request.getSession(false);
 		session.setAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE, "/records?tab=latest");
-		when(attemptCoordinator.claimCompletion("attempt-1"))
+		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.ACQUIRED);
 		when(signupCompletionService.complete(pending)).thenReturn(COMPLETED_USER);
 
@@ -115,7 +117,7 @@ class SignupControllerTests {
 		var replay = controller.confirmAdultEligibility(context.getAuthentication(), request);
 		assertThat(replay.getBody()).containsEntry("next", "/records?tab=latest");
 		verify(signupCompletionService, times(1)).complete(pending);
-		verify(attemptCoordinator).markCompleted("attempt-1");
+		verify(attemptCoordinator).markCompleted(pending);
 	}
 
 	@Test
@@ -126,7 +128,7 @@ class SignupControllerTests {
 		request.getSession(false).setAttribute(
 			OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE, "/account"
 		);
-		when(attemptCoordinator.claimCompletion("attempt-1"))
+		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.ALREADY_COMPLETED);
 		when(signupCompletionService.findCompleted(pending))
 			.thenReturn(Optional.of(COMPLETED_USER));
@@ -144,7 +146,7 @@ class SignupControllerTests {
 	void releasesTheCompletionClaimWhenTheDatabaseTransactionFails() {
 		Authentication authentication = pendingAuthentication();
 		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
-		when(attemptCoordinator.claimCompletion("attempt-1"))
+		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.ACQUIRED);
 		when(signupCompletionService.complete(pending))
 			.thenThrow(new IllegalStateException("database unavailable"));
@@ -153,18 +155,18 @@ class SignupControllerTests {
 			authentication, requestWithSession()
 		)).isInstanceOf(IllegalStateException.class);
 
-		verify(attemptCoordinator).releaseCompletion("attempt-1");
+		verify(attemptCoordinator).releaseCompletion(pending);
 	}
 
 	@Test
 	void completesTheSessionEvenWhenTheRedisCompletedTransitionFails() {
 		Authentication authentication = pendingAuthentication();
 		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
-		when(attemptCoordinator.claimCompletion("attempt-1"))
+		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.ACQUIRED);
 		when(signupCompletionService.complete(pending)).thenReturn(COMPLETED_USER);
 		doThrow(new IllegalStateException("redis unavailable"))
-			.when(attemptCoordinator).markCompleted("attempt-1");
+			.when(attemptCoordinator).markCompleted(pending);
 
 		var response = controller.confirmAdultEligibility(authentication, requestWithSession());
 
@@ -176,9 +178,9 @@ class SignupControllerTests {
 	void recoversACommittedSignupFromAStuckCompletingAttemptOnPostRetry() {
 		Authentication authentication = pendingAuthentication();
 		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
-		when(attemptCoordinator.claimCompletion("attempt-1"))
+		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.REJECTED);
-		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.COMPLETING);
+		when(attemptCoordinator.state(pending)).thenReturn(AttemptState.COMPLETING);
 		when(signupCompletionService.findCompleted(pending))
 			.thenReturn(Optional.of(COMPLETED_USER));
 
@@ -187,7 +189,7 @@ class SignupControllerTests {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(response.getBody()).containsEntry("next", "/");
 		verify(signupCompletionService, never()).complete(pending);
-		verify(attemptCoordinator).markCompleted("attempt-1");
+		verify(attemptCoordinator).markCompleted(pending);
 	}
 
 	@Test
@@ -195,7 +197,7 @@ class SignupControllerTests {
 		Authentication authentication = pendingAuthentication();
 		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
 		MockHttpServletRequest request = requestWithSession();
-		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.COMPLETING);
+		when(attemptCoordinator.state(pending)).thenReturn(AttemptState.COMPLETING);
 		when(signupCompletionService.findCompleted(pending))
 			.thenReturn(Optional.of(COMPLETED_USER));
 
@@ -213,7 +215,7 @@ class SignupControllerTests {
 		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
 		MockHttpServletRequest request = requestWithSession();
 		MockHttpSession session = (MockHttpSession) request.getSession(false);
-		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.MISSING);
+		when(attemptCoordinator.state(pending)).thenReturn(AttemptState.MISSING);
 		when(signupCompletionService.findCompleted(pending)).thenReturn(Optional.empty());
 
 		var response = controller.status(authentication, request);
@@ -227,10 +229,10 @@ class SignupControllerTests {
 	void expiresCompletionAndCancellationWhenTheAttemptKeyIsMissing() {
 		Authentication authentication = pendingAuthentication();
 		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
-		when(attemptCoordinator.claimCompletion("attempt-1"))
+		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.REJECTED);
-		when(attemptCoordinator.claimCancellation("attempt-1")).thenReturn(false);
-		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.MISSING);
+		when(attemptCoordinator.claimCancellation(pending)).thenReturn(false);
+		when(attemptCoordinator.state(pending)).thenReturn(AttemptState.MISSING);
 		when(signupCompletionService.findCompleted(pending)).thenReturn(Optional.empty());
 
 		var completion = controller.confirmAdultEligibility(
@@ -241,6 +243,24 @@ class SignupControllerTests {
 		assertThat(completion.getStatusCode()).isEqualTo(HttpStatus.GONE);
 		assertThat(cancellation.getStatusCode()).isEqualTo(HttpStatus.GONE);
 		verify(connectionRevoker, never()).revoke("kakao", "access-token");
+	}
+
+	@Test
+	void doesNotRecoverAStaleCancelledGenerationFromANewerSignupCompletion() {
+		Authentication staleAuthentication = pendingAuthentication(
+			"attempt-old", "generation-cancelled"
+		);
+		PendingSignupSessionPrincipal stale = pendingPrincipal(staleAuthentication);
+		MockHttpServletRequest request = requestWithSession();
+		MockHttpSession session = (MockHttpSession) request.getSession(false);
+		when(attemptCoordinator.state(stale)).thenReturn(AttemptState.STALE);
+		when(signupCompletionService.findCompleted(stale)).thenReturn(Optional.empty());
+
+		var response = controller.status(staleAuthentication, request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GONE);
+		assertThat(session.isInvalid()).isTrue();
+		verify(signupCompletionService).findCompleted(stale);
 	}
 
 	@Test
@@ -264,24 +284,26 @@ class SignupControllerTests {
 	@Test
 	void revokesTheProviderConnectionAndInvalidatesThePendingSessionOnCancel() {
 		Authentication authentication = pendingAuthentication();
+		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
 		MockHttpServletRequest request = requestWithSession();
 		MockHttpSession session = (MockHttpSession) request.getSession(false);
-		when(attemptCoordinator.claimCancellation("attempt-1")).thenReturn(true);
+		when(attemptCoordinator.claimCancellation(pending)).thenReturn(true);
 
 		var response = controller.cancel(authentication, request);
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 		verify(connectionRevoker).revoke("kakao", "access-token");
-		verify(attemptCoordinator).markCancelled("attempt-1");
+		verify(attemptCoordinator).markCancelled(pending);
 		assertThat(session.isInvalid()).isTrue();
 	}
 
 	@Test
 	void removesThePendingSessionEvenWhenProviderUnlinkFails() {
 		Authentication authentication = pendingAuthentication();
+		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
 		MockHttpServletRequest request = requestWithSession();
 		MockHttpSession session = (MockHttpSession) request.getSession(false);
-		when(attemptCoordinator.claimCancellation("attempt-1")).thenReturn(true);
+		when(attemptCoordinator.claimCancellation(pending)).thenReturn(true);
 		doThrow(new OAuthConnectionRevocationException("kakao", new RuntimeException()))
 			.when(connectionRevoker).revoke("kakao", "access-token");
 
@@ -293,7 +315,8 @@ class SignupControllerTests {
 	}
 
 	@Test
-	void completionClaimPreventsACrossTabCancellation() throws Exception {
+	void completionFromOneAttemptPreventsSameIdentityCancellationFromAnotherAttempt()
+		throws Exception {
 		InMemoryAttemptCoordinator coordinator = new InMemoryAttemptCoordinator();
 		SignupController concurrentController = new SignupController(
 			signupCompletionService, connectionRevoker, coordinator
@@ -312,12 +335,12 @@ class SignupControllerTests {
 		);
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		Future<?> completion = executor.submit(() -> concurrentController.confirmAdultEligibility(
-			pendingAuthentication(), completionRequest
+			pendingAuthentication("attempt-a", "generation-shared"), completionRequest
 		));
 		assertThat(completionStarted.await(5, TimeUnit.SECONDS)).isTrue();
 
 		var cancellation = concurrentController.cancel(
-			pendingAuthentication(),
+			pendingAuthentication("attempt-b", "generation-shared"),
 			requestSharingSession((MockHttpSession) completionRequest.getSession(false))
 		);
 
@@ -329,7 +352,8 @@ class SignupControllerTests {
 	}
 
 	@Test
-	void cancellationClaimPreventsACrossTabCompletion() throws Exception {
+	void cancellationFromOneAttemptPreventsSameIdentityCompletionFromAnotherAttempt()
+		throws Exception {
 		InMemoryAttemptCoordinator coordinator = new InMemoryAttemptCoordinator();
 		SignupController concurrentController = new SignupController(
 			signupCompletionService, connectionRevoker, coordinator
@@ -344,12 +368,12 @@ class SignupControllerTests {
 		MockHttpServletRequest cancellationRequest = requestWithSession();
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		Future<?> cancellation = executor.submit(() -> concurrentController.cancel(
-			pendingAuthentication(), cancellationRequest
+			pendingAuthentication("attempt-a", "generation-shared"), cancellationRequest
 		));
 		assertThat(cancellationStarted.await(5, TimeUnit.SECONDS)).isTrue();
 
 		var completion = concurrentController.confirmAdultEligibility(
-			pendingAuthentication(),
+			pendingAuthentication("attempt-b", "generation-shared"),
 			requestSharingSession((MockHttpSession) cancellationRequest.getSession(false))
 		);
 
@@ -376,8 +400,13 @@ class SignupControllerTests {
 	}
 
 	private Authentication pendingAuthentication() {
+		return pendingAuthentication("attempt-1", "generation-1");
+	}
+
+	private Authentication pendingAuthentication(String attemptId, String generationId) {
 		var principal = new PendingSignupSessionPrincipal(
-			"attempt-1", "kakao", "12345", "명로 사용자", "user@example.com", "access-token"
+			attemptId, generationId, "kakao", "12345", "명로 사용자",
+			"user@example.com", "access-token"
 		);
 		return UsernamePasswordAuthenticationToken.authenticated(
 			principal,
@@ -424,14 +453,19 @@ class SignupControllerTests {
 
 	private static final class InMemoryAttemptCoordinator implements SignupAttemptCoordinator {
 		private String state = "pending";
+		private String generationId = "generation-shared";
+		private String ownerAttemptId;
 
 		@Override
-		public String beginAttempt() {
-			return "attempt-1";
+		public Attempt beginAttempt(String provider, String providerUserId) {
+			return new Attempt(UUID.randomUUID().toString(), generationId);
 		}
 
 		@Override
-		public synchronized AttemptState state(String attemptId) {
+		public synchronized AttemptState state(PendingSignupSessionPrincipal principal) {
+			if (!generationId.equals(principal.attemptGenerationId())) {
+				return AttemptState.STALE;
+			}
 			return switch (state) {
 				case "pending" -> AttemptState.PENDING;
 				case "completing" -> AttemptState.COMPLETING;
@@ -443,33 +477,46 @@ class SignupControllerTests {
 		}
 
 		@Override
-		public synchronized CompletionClaim claimCompletion(String attemptId) {
+		public synchronized CompletionClaim claimCompletion(PendingSignupSessionPrincipal principal) {
+			if (!generationId.equals(principal.attemptGenerationId())) {
+				return CompletionClaim.REJECTED;
+			}
 			if (state.equals("completed")) return CompletionClaim.ALREADY_COMPLETED;
 			if (!state.equals("pending")) return CompletionClaim.REJECTED;
 			state = "completing";
+			ownerAttemptId = principal.attemptId();
 			return CompletionClaim.ACQUIRED;
 		}
 
 		@Override
-		public synchronized boolean claimCancellation(String attemptId) {
+		public synchronized boolean claimCancellation(PendingSignupSessionPrincipal principal) {
+			if (!generationId.equals(principal.attemptGenerationId())) return false;
 			if (!state.equals("pending")) return false;
 			state = "cancelling";
+			ownerAttemptId = principal.attemptId();
 			return true;
 		}
 
 		@Override
-		public synchronized void markCompleted(String attemptId) {
-			if (state.equals("completing")) state = "completed";
+		public synchronized void markCompleted(PendingSignupSessionPrincipal principal) {
+			if (state.equals("completing") && principal.attemptId().equals(ownerAttemptId)) {
+				state = "completed";
+			}
 		}
 
 		@Override
-		public synchronized void releaseCompletion(String attemptId) {
-			if (state.equals("completing")) state = "pending";
+		public synchronized void releaseCompletion(PendingSignupSessionPrincipal principal) {
+			if (state.equals("completing") && principal.attemptId().equals(ownerAttemptId)) {
+				state = "pending";
+				ownerAttemptId = null;
+			}
 		}
 
 		@Override
-		public synchronized void markCancelled(String attemptId) {
-			if (state.equals("cancelling")) state = "cancelled";
+		public synchronized void markCancelled(PendingSignupSessionPrincipal principal) {
+			if (state.equals("cancelling") && principal.attemptId().equals(ownerAttemptId)) {
+				state = "cancelled";
+			}
 		}
 	}
 }
