@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.AttemptState;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.CompletionClaim;
 
 class RedisSignupAttemptCoordinatorTests {
@@ -44,7 +45,7 @@ class RedisSignupAttemptCoordinatorTests {
 
 	@Test
 	void mapsTheAtomicCompletionClaimOutcomes() {
-		when(redisTemplate.execute(any(), anyList(), any(), any(), any()))
+		when(redisTemplate.execute(any(), anyList(), any(), any(), any(), any()))
 			.thenReturn(1L, 2L, 0L);
 
 		assertThat(coordinator.claimCompletion("attempt-1"))
@@ -53,5 +54,18 @@ class RedisSignupAttemptCoordinatorTests {
 			.isEqualTo(CompletionClaim.ALREADY_COMPLETED);
 		assertThat(coordinator.claimCompletion("attempt-1"))
 			.isEqualTo(CompletionClaim.REJECTED);
+	}
+
+	@Test
+	void readsAndRefreshesEveryKnownStateAndReportsAMissingAttempt() {
+		when(redisTemplate.execute(any(), anyList(), any()))
+			.thenReturn("pending", "completing", "completed", "cancelling", "cancelled", null);
+
+		assertThat(coordinator.state("attempt-1")).isEqualTo(AttemptState.PENDING);
+		assertThat(coordinator.state("attempt-1")).isEqualTo(AttemptState.COMPLETING);
+		assertThat(coordinator.state("attempt-1")).isEqualTo(AttemptState.COMPLETED);
+		assertThat(coordinator.state("attempt-1")).isEqualTo(AttemptState.CANCELLING);
+		assertThat(coordinator.state("attempt-1")).isEqualTo(AttemptState.CANCELLED);
+		assertThat(coordinator.state("attempt-1")).isEqualTo(AttemptState.MISSING);
 	}
 }

@@ -19,11 +19,11 @@ import com.myeongro.api.domain.eligibility.service.SignupCompletionService;
 import com.myeongro.api.global.auth.oauth.OAuth2NextRequestFilter;
 import com.myeongro.api.global.auth.oauth.OAuthConnectionRevocationException;
 import com.myeongro.api.global.auth.oauth.OAuthConnectionRevoker;
-import com.myeongro.api.global.auth.oauth.PendingSignupPrincipal;
 import com.myeongro.api.global.auth.oauth.PendingSignupSessionPrincipal;
 import com.myeongro.api.global.auth.oauth.ProvisionedOAuthUser;
 import com.myeongro.api.global.auth.oauth.SessionAuthorities;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.AttemptState;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.CompletionClaim;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
 import com.myeongro.api.global.auth.session.SessionPrincipal;
@@ -65,9 +65,30 @@ public class SignupController {
 				"next", completedNext
 			));
 		}
-		PendingSignupPrincipal pendingSignup = pendingSignup(authentication);
+		if (session == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		PendingSignupSessionPrincipal pendingSignup = pendingSignup(authentication);
 		if (pendingSignup == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		AttemptState attemptState = signupAttemptCoordinator.state(
+			pendingSignup.attemptId()
+		);
+		if (attemptState != AttemptState.PENDING) {
+			ProvisionedOAuthUser completed = signupCompletionService.findCompleted(
+				pendingSignup
+			).orElse(null);
+			if (completed != null) {
+				markCompletedBestEffort(pendingSignup.attemptId());
+				completeSession(session, completed);
+				return completedStatus(session);
+			}
+			if (attemptState == AttemptState.MISSING
+				|| attemptState == AttemptState.CANCELLED) {
+				return expiredStatus(session);
+			}
+			return processingStatus();
 		}
 		return ResponseEntity.ok(Map.of(
 			"pending",
@@ -99,6 +120,16 @@ public class SignupController {
 			pendingSignup.attemptId()
 		);
 		if (claim == CompletionClaim.REJECTED) {
+			ProvisionedOAuthUser completed = signupCompletionService.findCompleted(
+				pendingSignup
+			).orElse(null);
+			if (completed != null) {
+				markCompletedBestEffort(pendingSignup.attemptId());
+				return completeSession(session, completed);
+			}
+			if (signupAttemptCoordinator.state(pendingSignup.attemptId()) == AttemptState.MISSING) {
+				return expiredAction(session);
+			}
 			return conflict();
 		}
 
@@ -119,7 +150,7 @@ public class SignupController {
 				}
 				throw exception;
 			}
-			signupAttemptCoordinator.markCompleted(pendingSignup.attemptId());
+			markCompletedBestEffort(pendingSignup.attemptId());
 		}
 
 		return completeSession(session, user);
@@ -167,6 +198,12 @@ public class SignupController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
 		if (!signupAttemptCoordinator.claimCancellation(pendingSignup.attemptId())) {
+			if (signupCompletionService.findCompleted(pendingSignup).isPresent()) {
+				return conflict();
+			}
+			if (signupAttemptCoordinator.state(pendingSignup.attemptId()) == AttemptState.MISSING) {
+				return expiredAction(request.getSession(false));
+			}
 			return conflict();
 		}
 
@@ -233,5 +270,51 @@ public class SignupController {
 			"code", "SIGNUP_ATTEMPT_ALREADY_FINALIZING",
 			"message", "다른 가입 완료 또는 취소 요청을 처리하고 있습니다. 잠시 후 다시 확인해 주세요."
 		));
+	}
+
+	private void markCompletedBestEffort(String attemptId) {
+		try {
+			signupAttemptCoordinator.markCompleted(attemptId);
+		} catch (RuntimeException ignored) {
+			// The committed DB state remains the recovery source if Redis is unavailable.
+		}
+	}
+
+	private ResponseEntity<Map<String, Object>> completedStatus(HttpSession session) {
+		return ResponseEntity.ok(Map.of(
+			"pending", false,
+			"completed", true,
+			"next", session.getAttribute(COMPLETED_NEXT_SESSION_ATTRIBUTE)
+		));
+	}
+
+	private ResponseEntity<Map<String, Object>> processingStatus() {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+			"code", "SIGNUP_ATTEMPT_IN_PROGRESS",
+			"message", "다른 가입 완료 또는 취소 요청을 처리하고 있습니다."
+		));
+	}
+
+	private ResponseEntity<Map<String, Object>> expiredStatus(HttpSession session) {
+		invalidatePendingSession(session);
+		return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+			"code", "SIGNUP_ATTEMPT_EXPIRED",
+			"message", "가입 대기 시간이 만료되었습니다. 소셜 로그인을 다시 시작해 주세요."
+		));
+	}
+
+	private ResponseEntity<Map<String, String>> expiredAction(HttpSession session) {
+		invalidatePendingSession(session);
+		return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+			"code", "SIGNUP_ATTEMPT_EXPIRED",
+			"message", "가입 대기 시간이 만료되었습니다. 소셜 로그인을 다시 시작해 주세요."
+		));
+	}
+
+	private void invalidatePendingSession(HttpSession session) {
+		if (session != null) {
+			session.invalidate();
+		}
+		SecurityContextHolder.clearContext();
 	}
 }

@@ -2,6 +2,15 @@ package com.myeongro.api.global.auth.oauth;
 
 public interface SignupAttemptCoordinator {
 
+	enum AttemptState {
+		PENDING,
+		COMPLETING,
+		COMPLETED,
+		CANCELLING,
+		CANCELLED,
+		MISSING
+	}
+
 	enum CompletionClaim {
 		ACQUIRED,
 		ALREADY_COMPLETED,
@@ -9,6 +18,8 @@ public interface SignupAttemptCoordinator {
 	}
 
 	String beginAttempt();
+
+	AttemptState state(String attemptId);
 
 	CompletionClaim claimCompletion(String attemptId);
 

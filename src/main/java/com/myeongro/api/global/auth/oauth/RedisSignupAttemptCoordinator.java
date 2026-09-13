@@ -22,7 +22,7 @@ public class RedisSignupAttemptCoordinator implements SignupAttemptCoordinator {
 		"""
 		local current = redis.call('get', KEYS[1])
 		if current == ARGV[1] then
-		  redis.call('set', KEYS[1], ARGV[2], 'KEEPTTL')
+		  redis.call('set', KEYS[1], ARGV[2], 'PX', ARGV[4])
 		  return 1
 		end
 		if current == ARGV[3] then
@@ -35,11 +35,21 @@ public class RedisSignupAttemptCoordinator implements SignupAttemptCoordinator {
 		"""
 		local current = redis.call('get', KEYS[1])
 		if current == ARGV[1] then
-		  redis.call('set', KEYS[1], ARGV[2], 'KEEPTTL')
+		  redis.call('set', KEYS[1], ARGV[2], 'PX', ARGV[3])
 		  return 1
 		end
 		return 0
 		"""
+	);
+	private static final DefaultRedisScript<String> READ_AND_REFRESH_SCRIPT = new DefaultRedisScript<>(
+		"""
+		local current = redis.call('get', KEYS[1])
+		if current then
+		  redis.call('pexpire', KEYS[1], ARGV[1])
+		end
+		return current
+		""",
+		String.class
 	);
 
 	private final StringRedisTemplate redisTemplate;
@@ -70,13 +80,32 @@ public class RedisSignupAttemptCoordinator implements SignupAttemptCoordinator {
 	}
 
 	@Override
+	public AttemptState state(String attemptId) {
+		String state = redisTemplate.execute(
+			READ_AND_REFRESH_SCRIPT,
+			List.of(key(attemptId)),
+			Long.toString(attemptTtl.toMillis())
+		);
+		if (state == null) return AttemptState.MISSING;
+		return switch (state) {
+			case PENDING -> AttemptState.PENDING;
+			case COMPLETING -> AttemptState.COMPLETING;
+			case COMPLETED -> AttemptState.COMPLETED;
+			case CANCELLING -> AttemptState.CANCELLING;
+			case CANCELLED -> AttemptState.CANCELLED;
+			default -> AttemptState.MISSING;
+		};
+	}
+
+	@Override
 	public CompletionClaim claimCompletion(String attemptId) {
 		Long result = redisTemplate.execute(
 			CLAIM_COMPLETION_SCRIPT,
 			List.of(key(attemptId)),
 			PENDING,
 			COMPLETING,
-			COMPLETED
+			COMPLETED,
+			Long.toString(attemptTtl.toMillis())
 		);
 		if (Long.valueOf(1L).equals(result)) {
 			return CompletionClaim.ACQUIRED;
@@ -112,7 +141,8 @@ public class RedisSignupAttemptCoordinator implements SignupAttemptCoordinator {
 			TRANSITION_SCRIPT,
 			List.of(key(attemptId)),
 			expected,
-			next
+			next,
+			Long.toString(attemptTtl.toMillis())
 		);
 		return Long.valueOf(1L).equals(result);
 	}

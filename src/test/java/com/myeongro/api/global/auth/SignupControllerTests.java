@@ -22,6 +22,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -40,6 +41,7 @@ import com.myeongro.api.global.auth.oauth.OAuthConnectionRevoker;
 import com.myeongro.api.global.auth.oauth.PendingSignupSessionPrincipal;
 import com.myeongro.api.global.auth.oauth.ProvisionedOAuthUser;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
+import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.AttemptState;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator.CompletionClaim;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
 import com.myeongro.api.global.auth.session.SessionPrincipal;
@@ -60,6 +62,11 @@ class SignupControllerTests {
 	private final SignupController controller = new SignupController(
 		signupCompletionService, connectionRevoker, attemptCoordinator
 	);
+
+	@BeforeEach
+	void preparePendingAttempt() {
+		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.PENDING);
+	}
 
 	@AfterEach
 	void clearSecurityContext() {
@@ -147,6 +154,93 @@ class SignupControllerTests {
 		)).isInstanceOf(IllegalStateException.class);
 
 		verify(attemptCoordinator).releaseCompletion("attempt-1");
+	}
+
+	@Test
+	void completesTheSessionEvenWhenTheRedisCompletedTransitionFails() {
+		Authentication authentication = pendingAuthentication();
+		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
+		when(attemptCoordinator.claimCompletion("attempt-1"))
+			.thenReturn(CompletionClaim.ACQUIRED);
+		when(signupCompletionService.complete(pending)).thenReturn(COMPLETED_USER);
+		doThrow(new IllegalStateException("redis unavailable"))
+			.when(attemptCoordinator).markCompleted("attempt-1");
+
+		var response = controller.confirmAdultEligibility(authentication, requestWithSession());
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		verify(signupCompletionService).complete(pending);
+	}
+
+	@Test
+	void recoversACommittedSignupFromAStuckCompletingAttemptOnPostRetry() {
+		Authentication authentication = pendingAuthentication();
+		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
+		when(attemptCoordinator.claimCompletion("attempt-1"))
+			.thenReturn(CompletionClaim.REJECTED);
+		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.COMPLETING);
+		when(signupCompletionService.findCompleted(pending))
+			.thenReturn(Optional.of(COMPLETED_USER));
+
+		var response = controller.confirmAdultEligibility(authentication, requestWithSession());
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).containsEntry("next", "/");
+		verify(signupCompletionService, never()).complete(pending);
+		verify(attemptCoordinator).markCompleted("attempt-1");
+	}
+
+	@Test
+	void recoversACommittedSignupFromAStuckCompletingAttemptOnStatusReload() {
+		Authentication authentication = pendingAuthentication();
+		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
+		MockHttpServletRequest request = requestWithSession();
+		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.COMPLETING);
+		when(signupCompletionService.findCompleted(pending))
+			.thenReturn(Optional.of(COMPLETED_USER));
+
+		var response = controller.status(authentication, request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getBody()).containsEntry("completed", true);
+		assertThat(securityContext((MockHttpSession) request.getSession(false))
+			.getAuthentication().getPrincipal()).isInstanceOf(SessionPrincipal.class);
+	}
+
+	@Test
+	void expiresALivePendingSessionWhenItsAttemptKeyIsMissing() {
+		Authentication authentication = pendingAuthentication();
+		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
+		MockHttpServletRequest request = requestWithSession();
+		MockHttpSession session = (MockHttpSession) request.getSession(false);
+		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.MISSING);
+		when(signupCompletionService.findCompleted(pending)).thenReturn(Optional.empty());
+
+		var response = controller.status(authentication, request);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GONE);
+		assertThat(response.getBody()).containsEntry("code", "SIGNUP_ATTEMPT_EXPIRED");
+		assertThat(session.isInvalid()).isTrue();
+	}
+
+	@Test
+	void expiresCompletionAndCancellationWhenTheAttemptKeyIsMissing() {
+		Authentication authentication = pendingAuthentication();
+		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
+		when(attemptCoordinator.claimCompletion("attempt-1"))
+			.thenReturn(CompletionClaim.REJECTED);
+		when(attemptCoordinator.claimCancellation("attempt-1")).thenReturn(false);
+		when(attemptCoordinator.state("attempt-1")).thenReturn(AttemptState.MISSING);
+		when(signupCompletionService.findCompleted(pending)).thenReturn(Optional.empty());
+
+		var completion = controller.confirmAdultEligibility(
+			authentication, requestWithSession()
+		);
+		var cancellation = controller.cancel(authentication, requestWithSession());
+
+		assertThat(completion.getStatusCode()).isEqualTo(HttpStatus.GONE);
+		assertThat(cancellation.getStatusCode()).isEqualTo(HttpStatus.GONE);
+		verify(connectionRevoker, never()).revoke("kakao", "access-token");
 	}
 
 	@Test
@@ -334,6 +428,18 @@ class SignupControllerTests {
 		@Override
 		public String beginAttempt() {
 			return "attempt-1";
+		}
+
+		@Override
+		public synchronized AttemptState state(String attemptId) {
+			return switch (state) {
+				case "pending" -> AttemptState.PENDING;
+				case "completing" -> AttemptState.COMPLETING;
+				case "completed" -> AttemptState.COMPLETED;
+				case "cancelling" -> AttemptState.CANCELLING;
+				case "cancelled" -> AttemptState.CANCELLED;
+				default -> AttemptState.MISSING;
+			};
 		}
 
 		@Override
