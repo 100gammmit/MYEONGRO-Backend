@@ -49,11 +49,17 @@ public class OAuth2SessionUserService implements OAuth2UserService<OAuth2UserReq
 			)));
 		OAuth2User oauthUser = delegate.loadUser(userRequest);
 		OAuthProviderUserInfo userInfo = selectedExtractor.extract(oauthUser.getAttributes());
-		ProvisionedOAuthUser provisionedUser = provisioner.provision(userInfo);
-		return new SessionOAuth2User(
-			provisionedUser,
-			oauthUser.getAttributes(),
-			oauthUser.getAuthorities()
-		);
+		return provisioner.findExisting(userInfo)
+			.<OAuth2User>map(provisionedUser -> new SessionOAuth2User(
+				provisionedUser,
+				oauthUser.getAttributes(),
+				oauthUser.getAuthorities()
+			))
+			.orElseGet(() -> new PendingOAuth2User(
+				userInfo,
+				userRequest.getAccessToken().getTokenValue(),
+				oauthUser.getAttributes(),
+				oauthUser.getAuthorities()
+			));
 	}
 }

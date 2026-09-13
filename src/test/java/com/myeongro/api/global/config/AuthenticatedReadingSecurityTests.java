@@ -32,6 +32,7 @@ import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
 import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
 import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
+import com.myeongro.api.global.auth.PendingSignupAccessFilter;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 
@@ -46,7 +47,8 @@ import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 @Import({
 	SecurityConfig.class,
 	ActiveAccountSessionFilter.class,
-	AdultEligibilitySessionFilter.class
+	AdultEligibilitySessionFilter.class,
+	PendingSignupAccessFilter.class
 })
 @TestPropertySource(properties = {
 	"app.frontend-origin=http://localhost:3000",

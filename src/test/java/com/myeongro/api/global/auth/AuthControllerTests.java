@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
+import com.myeongro.api.global.auth.oauth.OAuthProviderUserInfo;
+import com.myeongro.api.global.auth.oauth.PendingOAuth2User;
 
 class AuthControllerTests {
 
@@ -39,6 +43,28 @@ class AuthControllerTests {
 		mockMvc.perform(get("/api/auth/me"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.authenticated").value(false));
+	}
+
+	@Test
+	void meReportsPendingSignupWithoutTreatingItAsAnAuthenticatedMember() throws Exception {
+		var pendingPrincipal = new PendingOAuth2User(
+			new OAuthProviderUserInfo(
+				"kakao",
+				"12345",
+				"명로 사용자",
+				"user@example.com"
+			),
+			"access-token",
+			Map.of("id", 12345L),
+			List.of()
+		);
+		var authentication = new TestingAuthenticationToken(pendingPrincipal, null);
+		authentication.setAuthenticated(true);
+
+		mockMvc.perform(get("/api/auth/me").principal(authentication))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.authenticated").value(false))
+			.andExpect(jsonPath("$.signupPending").value(true));
 	}
 
 	@Test

@@ -65,6 +65,19 @@ class JpaOAuthAccountRepositoryTests {
 	}
 
 	@Test
+	void lookupDoesNotCreateAProfileForANewOauthIdentity() {
+		var user = repository.findExisting(new OAuthProviderUserInfo(
+			"google",
+			"new-user",
+			"New user",
+			"new@example.com"
+		));
+
+		assertThat(user).isEmpty();
+		assertThat(countProfiles()).isZero();
+	}
+
+	@Test
 	void createsNewProfileWhenTheSameProviderReturnsAfterPermanentDeletion() {
 		insertProfile(DELETED_USER_ID, "Deleted user");
 		insertOAuthAccount(DELETED_USER_ID, "google", "abcde", "old@example.com", "Deleted user");

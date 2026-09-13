@@ -49,7 +49,12 @@ public class OidcSessionUserService implements OAuth2UserService<OidcUserRequest
 			)));
 		OidcUser oidcUser = delegate.loadUser(userRequest);
 		OAuthProviderUserInfo userInfo = selectedExtractor.extract(oidcUser.getAttributes());
-		ProvisionedOAuthUser provisionedUser = provisioner.provision(userInfo);
-		return new SessionOidcUser(provisionedUser, oidcUser);
+		return provisioner.findExisting(userInfo)
+			.<OidcUser>map(provisionedUser -> new SessionOidcUser(provisionedUser, oidcUser))
+			.orElseGet(() -> new PendingOidcUser(
+				userInfo,
+				userRequest.getAccessToken().getTokenValue(),
+				oidcUser
+			));
 	}
 }

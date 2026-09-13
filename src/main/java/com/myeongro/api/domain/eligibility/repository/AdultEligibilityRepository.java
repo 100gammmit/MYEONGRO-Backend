@@ -5,6 +5,8 @@ import java.util.UUID;
 
 public interface AdultEligibilityRepository {
 
+	boolean hasConfirmation(UUID userId);
+
 	void saveConfirmation(
 		UUID userId,
 		String policyVersion,

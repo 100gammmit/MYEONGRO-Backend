@@ -9,9 +9,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 class OAuth2NextRequestFilterTests {
 
-	private static final String ADULT_POLICY_VERSION = "2026-09-09";
 	private final OAuth2NextRequestFilter filter =
-		new OAuth2NextRequestFilter(ADULT_POLICY_VERSION);
+		new OAuth2NextRequestFilter();
 
 	@Test
 	void storesSafeFrontendPathForOAuthAuthorizationRequest() throws Exception {
@@ -20,19 +19,11 @@ class OAuth2NextRequestFilterTests {
 			"/oauth2/authorization/kakao"
 		);
 		request.setParameter("next", "/records?tab=latest");
-		request.setParameter(
-			OAuth2NextRequestFilter.ADULT_CONFIRMATION_PARAMETER,
-			OAuth2NextRequestFilter.ADULT_CONFIRMATION_VALUE
-		);
-
 		filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
 
 		assertThat(request.getSession().getAttribute(
 			OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE
 		)).isEqualTo("/records?tab=latest");
-		assertThat(request.getSession().getAttribute(
-			OAuth2NextRequestFilter.ADULT_VERSION_SESSION_ATTRIBUTE
-		)).isEqualTo(ADULT_POLICY_VERSION);
 	}
 
 	@Test
@@ -42,11 +33,6 @@ class OAuth2NextRequestFilterTests {
 			"/oauth2/authorization/kakao"
 		);
 		request.setParameter("next", "//evil.example");
-		request.setParameter(
-			OAuth2NextRequestFilter.ADULT_CONFIRMATION_PARAMETER,
-			OAuth2NextRequestFilter.ADULT_CONFIRMATION_VALUE
-		);
-
 		filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
 
 		assertThat(request.getSession().getAttribute(
@@ -55,7 +41,7 @@ class OAuth2NextRequestFilterTests {
 	}
 
 	@Test
-	void blocksOAuthBeforeRedirectWhenAdultConfirmationIsMissing() throws Exception {
+	void allowsOAuthToStartBeforeSignupAgeConfirmation() throws Exception {
 		MockHttpServletRequest request = new MockHttpServletRequest(
 			"GET",
 			"/oauth2/authorization/google"
@@ -64,7 +50,7 @@ class OAuth2NextRequestFilterTests {
 
 		filter.doFilter(request, response, new MockFilterChain());
 
-		assertThat(response.getStatus()).isEqualTo(403);
-		assertThat(request.getSession(false)).isNull();
+		assertThat(response.getStatus()).isEqualTo(200);
+		assertThat(request.getSession(false)).isNotNull();
 	}
 }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.myeongro.api.global.auth.exception.UnauthenticatedUserException;
+import com.myeongro.api.global.auth.oauth.PendingSignupPrincipal;
 import com.myeongro.api.global.auth.session.SessionPrincipal;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +28,16 @@ public class AuthController {
 
 	@GetMapping("/me")
 	public ResponseEntity<Map<String, Object>> me(Authentication authentication) {
+		if (authentication != null
+			&& authentication.isAuthenticated()
+			&& authentication.getPrincipal() instanceof PendingSignupPrincipal) {
+			return ResponseEntity.ok(Map.of(
+				"authenticated",
+				false,
+				"signupPending",
+				true
+			));
+		}
 		if (!(authentication != null
 			&& authentication.isAuthenticated()
 			&& authentication.getPrincipal() instanceof SessionPrincipal principal)) {

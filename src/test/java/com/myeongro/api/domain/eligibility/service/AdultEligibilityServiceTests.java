@@ -1,8 +1,8 @@
 package com.myeongro.api.domain.eligibility.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -29,27 +29,22 @@ class AdultEligibilityServiceTests {
 	);
 
 	@Test
-	void recordsTheCurrentPolicyVersionAfterOAuth() {
-		service.confirmCurrentForUser(USER_ID, VERSION);
+	void recordsTheCurrentPolicyVersionWhenSignupCompletes() {
+		service.confirmSignupForUser(USER_ID);
 
 		verify(repository).saveConfirmation(
 			USER_ID,
 			VERSION,
 			NOW,
-			"pre-oauth-self-declaration"
+			"oauth-signup-self-declaration"
 		);
 	}
 
 	@Test
-	void rejectsAStaleOrForgedConfirmationVersion() {
-		assertThatThrownBy(() -> service.confirmCurrentForUser(USER_ID, "2026-01-01"))
-			.isInstanceOf(AdultEligibilityVersionMismatchException.class);
-	}
+	void recognizesAnyRecordedSignupConfirmationWithoutReaskingByVersion() {
+		when(repository.hasConfirmation(USER_ID)).thenReturn(true);
 
-	@Test
-	void exposesOnlyAnExactCurrentVersionAsValid() {
-		assertThat(service.isCurrentVersion(VERSION)).isTrue();
-		assertThat(service.isCurrentVersion("2026-01-01")).isFalse();
-		assertThat(service.isCurrentVersion(null)).isFalse();
+		assertThat(service.hasConfirmationForUser(USER_ID)).isTrue();
+		verify(repository).hasConfirmation(USER_ID);
 	}
 }

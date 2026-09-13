@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -40,12 +41,7 @@ class OAuth2SessionUserServiceTests {
 		UUID userId = UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43");
 		OAuth2SessionUserService service = new OAuth2SessionUserService(
 			ignored -> kakaoUser,
-			userInfo -> new ProvisionedOAuthUser(
-				userId,
-				userInfo.displayName(),
-				userInfo.provider(),
-				userInfo.providerUserId()
-			),
+			existingProvisioner(userId),
 			List.of(new KakaoOAuthProviderUserInfoExtractor())
 		);
 
@@ -78,12 +74,7 @@ class OAuth2SessionUserServiceTests {
 		UUID userId = UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43");
 		OAuth2SessionUserService service = new OAuth2SessionUserService(
 			ignored -> googleUser,
-			userInfo -> new ProvisionedOAuthUser(
-				userId,
-				userInfo.displayName(),
-				userInfo.provider(),
-				userInfo.providerUserId()
-			),
+			existingProvisioner(userId),
 			List.of(
 				new KakaoOAuthProviderUserInfoExtractor(),
 				new GoogleOAuthProviderUserInfoExtractor()
@@ -98,6 +89,32 @@ class OAuth2SessionUserServiceTests {
 		assertThat(principal.provider()).isEqualTo("google");
 		assertThat(principal.providerUserId()).isEqualTo("google-user-1");
 		assertThat(loaded.getName()).isEqualTo(userId.toString());
+	}
+
+	@Test
+	void keepsANewOauthUserPendingWithoutProvisioningAnAccount() throws Exception {
+		OAuth2User kakaoUser = new DefaultOAuth2User(
+			List.of(new SimpleGrantedAuthority("ROLE_USER")),
+			Map.of(
+				"id", 12345L,
+				"properties", Map.of("nickname", "명로 사용자")
+			),
+			"id"
+		);
+		OAuth2SessionUserService service = new OAuth2SessionUserService(
+			ignored -> kakaoUser,
+			pendingProvisioner(),
+			List.of(new KakaoOAuthProviderUserInfoExtractor())
+		);
+
+		OAuth2User loaded = service.loadUser(userRequest("kakao"));
+
+		assertThat(loaded).isInstanceOf(PendingSignupPrincipal.class);
+		PendingSignupPrincipal pending = (PendingSignupPrincipal) loaded;
+		assertThat(pending.provider()).isEqualTo("kakao");
+		assertThat(pending.providerUserId()).isEqualTo("12345");
+		assertThat(pending.accessToken()).isEqualTo("token");
+		assertThat(serialize(loaded)).isNotEmpty();
 	}
 
 	@Test
@@ -124,9 +141,7 @@ class OAuth2SessionUserServiceTests {
 			ignored -> {
 				throw new AssertionError("Unsupported providers must not call the user info endpoint");
 			},
-			userInfo -> {
-				throw new AssertionError("Unsupported providers must not be provisioned");
-			},
+			pendingProvisioner(),
 			List.of(new KakaoOAuthProviderUserInfoExtractor())
 		);
 
@@ -141,6 +156,39 @@ class OAuth2SessionUserServiceTests {
 
 	private OAuth2UserRequest userRequest(String registrationId) {
 		return userRequest(registrationId, "id");
+	}
+
+	private OAuthUserProvisioner existingProvisioner(UUID userId) {
+		return new OAuthUserProvisioner() {
+			@Override
+			public Optional<ProvisionedOAuthUser> findExisting(OAuthProviderUserInfo userInfo) {
+				return Optional.of(new ProvisionedOAuthUser(
+					userId,
+					userInfo.displayName(),
+					userInfo.provider(),
+					userInfo.providerUserId()
+				));
+			}
+
+			@Override
+			public ProvisionedOAuthUser provision(OAuthProviderUserInfo userInfo) {
+				throw new AssertionError("OAuth login lookup must not create an account");
+			}
+		};
+	}
+
+	private OAuthUserProvisioner pendingProvisioner() {
+		return new OAuthUserProvisioner() {
+			@Override
+			public Optional<ProvisionedOAuthUser> findExisting(OAuthProviderUserInfo userInfo) {
+				return Optional.empty();
+			}
+
+			@Override
+			public ProvisionedOAuthUser provision(OAuthProviderUserInfo userInfo) {
+				throw new AssertionError("OAuth login lookup must not create an account");
+			}
+		};
 	}
 
 	private OAuth2UserRequest userRequest(String registrationId, String userNameAttributeName) {

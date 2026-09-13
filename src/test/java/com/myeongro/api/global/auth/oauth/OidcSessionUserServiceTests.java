@@ -8,6 +8,7 @@ import java.io.ObjectOutputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -41,12 +42,7 @@ class OidcSessionUserServiceTests {
 		UUID userId = UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43");
 		OidcSessionUserService service = new OidcSessionUserService(
 			ignored -> googleUser,
-			userInfo -> new ProvisionedOAuthUser(
-				userId,
-				userInfo.displayName(),
-				userInfo.provider(),
-				userInfo.providerUserId()
-			),
+			existingProvisioner(userId),
 			List.of(new GoogleOAuthProviderUserInfoExtractor())
 		);
 
@@ -63,14 +59,40 @@ class OidcSessionUserServiceTests {
 	}
 
 	@Test
+	void keepsANewGoogleUserPendingWithoutProvisioningAnAccount() throws Exception {
+		OidcIdToken idToken = idToken(Map.of(
+			"sub", "google-user-1",
+			"name", "Myeongro User",
+			"email", "user@example.com"
+		));
+		OidcUser googleUser = new DefaultOidcUser(
+			List.of(new SimpleGrantedAuthority("ROLE_USER")),
+			idToken,
+			"sub"
+		);
+		OidcSessionUserService service = new OidcSessionUserService(
+			ignored -> googleUser,
+			pendingProvisioner(),
+			List.of(new GoogleOAuthProviderUserInfoExtractor())
+		);
+
+		OidcUser loaded = service.loadUser(userRequest("google"));
+
+		assertThat(loaded).isInstanceOf(PendingSignupPrincipal.class);
+		PendingSignupPrincipal pending = (PendingSignupPrincipal) loaded;
+		assertThat(pending.provider()).isEqualTo("google");
+		assertThat(pending.providerUserId()).isEqualTo("google-user-1");
+		assertThat(pending.accessToken()).isEqualTo("access-token");
+		assertThat(serialize(loaded)).isNotEmpty();
+	}
+
+	@Test
 	void rejectsUnsupportedOidcProviderBeforeUserInfoLookup() {
 		OidcSessionUserService service = new OidcSessionUserService(
 			ignored -> {
 				throw new AssertionError("Unsupported OIDC providers must not call the user info endpoint");
 			},
-			userInfo -> {
-				throw new AssertionError("Unsupported OIDC providers must not be provisioned");
-			},
+			pendingProvisioner(),
 			List.of(new GoogleOAuthProviderUserInfoExtractor())
 		);
 
@@ -125,6 +147,39 @@ class OidcSessionUserServiceTests {
 			.userNameAttributeName("sub")
 			.build();
 		return new OidcUserRequest(registration, accessToken(), idToken(Map.of("sub", "request-user")));
+	}
+
+	private OAuthUserProvisioner existingProvisioner(UUID userId) {
+		return new OAuthUserProvisioner() {
+			@Override
+			public Optional<ProvisionedOAuthUser> findExisting(OAuthProviderUserInfo userInfo) {
+				return Optional.of(new ProvisionedOAuthUser(
+					userId,
+					userInfo.displayName(),
+					userInfo.provider(),
+					userInfo.providerUserId()
+				));
+			}
+
+			@Override
+			public ProvisionedOAuthUser provision(OAuthProviderUserInfo userInfo) {
+				throw new AssertionError("OIDC login lookup must not create an account");
+			}
+		};
+	}
+
+	private OAuthUserProvisioner pendingProvisioner() {
+		return new OAuthUserProvisioner() {
+			@Override
+			public Optional<ProvisionedOAuthUser> findExisting(OAuthProviderUserInfo userInfo) {
+				return Optional.empty();
+			}
+
+			@Override
+			public ProvisionedOAuthUser provision(OAuthProviderUserInfo userInfo) {
+				throw new AssertionError("OIDC login lookup must not create an account");
+			}
+		};
 	}
 
 	private OAuth2AccessToken accessToken() {

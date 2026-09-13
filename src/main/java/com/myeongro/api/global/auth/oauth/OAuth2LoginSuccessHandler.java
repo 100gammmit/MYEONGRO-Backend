@@ -2,8 +2,12 @@ package com.myeongro.api.global.auth.oauth;
 
 import java.io.IOException;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
@@ -34,33 +38,57 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 		Authentication authentication
 	) throws IOException, ServletException {
 		HttpSession session = request.getSession(false);
-		String next = "/";
-		if (session != null) {
-			Object storedNext = session.getAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE);
-			session.removeAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE);
-			if (storedNext instanceof String path) {
-				next = OAuth2RedirectPath.sanitize(path);
-			}
+		String next = readNext(session);
+		if (session == null) {
+			denyLogin(response, session, next);
+			return;
 		}
+
+		if (authentication.getPrincipal() instanceof PendingSignupPrincipal pendingSignup) {
+			storeMinimalPendingSignupPrincipal(session, authentication, pendingSignup);
+			response.sendRedirect(frontendOrigin + "/signup/age");
+			return;
+		}
+
 		if (!(authentication.getPrincipal() instanceof SessionPrincipal principal)
-			|| session == null) {
+			|| !adultEligibilityService.hasConfirmationForUser(principal.userId())) {
 			denyLogin(response, session, next);
 			return;
 		}
 
-		Object confirmedVersion = session.getAttribute(
-			OAuth2NextRequestFilter.ADULT_VERSION_SESSION_ATTRIBUTE
+		session.removeAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE);
+		session.setAttribute(
+			AdultEligibilitySessionFilter.SESSION_ATTRIBUTE,
+			AdultEligibilitySessionFilter.CONFIRMED_SESSION_VALUE
 		);
-		if (!(confirmedVersion instanceof String version)
-			|| !adultEligibilityService.isCurrentVersion(version)) {
-			denyLogin(response, session, next);
-			return;
-		}
-
-		adultEligibilityService.confirmCurrentForUser(principal.userId(), version);
-		session.removeAttribute(OAuth2NextRequestFilter.ADULT_VERSION_SESSION_ATTRIBUTE);
-		session.setAttribute(AdultEligibilitySessionFilter.SESSION_ATTRIBUTE, version);
 		response.sendRedirect(frontendOrigin + next);
+	}
+
+	private void storeMinimalPendingSignupPrincipal(
+		HttpSession session,
+		Authentication authentication,
+		PendingSignupPrincipal pendingSignup
+	) {
+		var pendingAuthentication = UsernamePasswordAuthenticationToken.authenticated(
+			PendingSignupSessionPrincipal.from(pendingSignup),
+			null,
+			authentication.getAuthorities()
+		);
+		SecurityContext context = SecurityContextHolder.createEmptyContext();
+		context.setAuthentication(pendingAuthentication);
+		SecurityContextHolder.setContext(context);
+		session.setAttribute(
+			HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+			context
+		);
+	}
+
+	private String readNext(HttpSession session) {
+		if (session == null) {
+			return "/";
+		}
+		Object storedNext = session.getAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE);
+		return storedNext instanceof String path ? OAuth2RedirectPath.sanitize(path) : "/";
 	}
 
 	private void denyLogin(
@@ -72,7 +100,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 			session.invalidate();
 		}
 		String redirect = frontendOrigin
-			+ "/login?reason=adult-eligibility-required&next="
+			+ "/login?reason=signup-eligibility-missing&next="
 			+ java.net.URLEncoder.encode(next, java.nio.charset.StandardCharsets.UTF_8);
 		response.sendRedirect(redirect);
 	}

@@ -19,10 +19,8 @@ class AdultEligibilitySessionFilterTests {
 
 	private static final UUID USER_ID =
 		UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43");
-	private static final String VERSION = "2026-09-09";
-
 	private final AdultEligibilitySessionFilter filter =
-		new AdultEligibilitySessionFilter(VERSION);
+		new AdultEligibilitySessionFilter();
 
 	@AfterEach
 	void clearSecurityContext() {
@@ -30,7 +28,7 @@ class AdultEligibilitySessionFilterTests {
 	}
 
 	@Test
-	void invalidatesAnAuthenticatedSessionWithoutTheCurrentConfirmation() throws Exception {
+	void invalidatesAnAuthenticatedSessionWithoutTheSignupConfirmation() throws Exception {
 		MockHttpServletRequest request = authenticatedRequest();
 		MockHttpSession session = (MockHttpSession) request.getSession(false);
 
@@ -41,10 +39,13 @@ class AdultEligibilitySessionFilterTests {
 	}
 
 	@Test
-	void keepsAnAuthenticatedSessionWithTheCurrentConfirmation() throws Exception {
+	void keepsAnAuthenticatedSessionWithTheSignupConfirmation() throws Exception {
 		MockHttpServletRequest request = authenticatedRequest();
 		MockHttpSession session = (MockHttpSession) request.getSession(false);
-		session.setAttribute(AdultEligibilitySessionFilter.SESSION_ATTRIBUTE, VERSION);
+		session.setAttribute(
+			AdultEligibilitySessionFilter.SESSION_ATTRIBUTE,
+			AdultEligibilitySessionFilter.CONFIRMED_SESSION_VALUE
+		);
 
 		filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
 

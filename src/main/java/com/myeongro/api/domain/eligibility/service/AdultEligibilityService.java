@@ -13,7 +13,7 @@ import com.myeongro.api.domain.eligibility.repository.AdultEligibilityRepository
 @Service
 public class AdultEligibilityService {
 
-	static final String CONFIRMATION_METHOD = "pre-oauth-self-declaration";
+	static final String CONFIRMATION_METHOD = "oauth-signup-self-declaration";
 
 	private final AdultEligibilityRepository repository;
 	private final String currentVersion;
@@ -37,19 +37,13 @@ public class AdultEligibilityService {
 		this.clock = clock;
 	}
 
-	public boolean isCurrentVersion(String version) {
-		return currentVersion.equals(version);
-	}
-
-	public String currentVersion() {
-		return currentVersion;
+	@Transactional(readOnly = true)
+	public boolean hasConfirmationForUser(UUID userId) {
+		return repository.hasConfirmation(userId);
 	}
 
 	@Transactional
-	public void confirmCurrentForUser(UUID userId, String confirmedVersion) {
-		if (!isCurrentVersion(confirmedVersion)) {
-			throw new AdultEligibilityVersionMismatchException();
-		}
+	public void confirmSignupForUser(UUID userId) {
 		repository.saveConfirmation(
 			userId,
 			currentVersion,

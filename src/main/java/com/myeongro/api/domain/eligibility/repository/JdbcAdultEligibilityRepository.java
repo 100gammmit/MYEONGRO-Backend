@@ -1,7 +1,7 @@
 package com.myeongro.api.domain.eligibility.repository;
 
-import java.time.Instant;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -14,6 +14,22 @@ public class JdbcAdultEligibilityRepository implements AdultEligibilityRepositor
 
 	public JdbcAdultEligibilityRepository(JdbcTemplate jdbcTemplate) {
 		this.jdbcTemplate = jdbcTemplate;
+	}
+
+	@Override
+	public boolean hasConfirmation(UUID userId) {
+		Boolean exists = jdbcTemplate.queryForObject(
+			"""
+			select exists (
+				select 1
+				from public.adult_eligibility_assertions
+				where user_id = ?
+			)
+			""",
+			Boolean.class,
+			userId
+		);
+		return Boolean.TRUE.equals(exists);
 	}
 
 	@Override

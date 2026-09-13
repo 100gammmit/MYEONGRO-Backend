@@ -18,6 +18,7 @@ import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
 import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
+import com.myeongro.api.global.auth.PendingSignupAccessFilter;
 import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.domain.profile.repository.ProfileJpaRepository;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
@@ -28,6 +29,7 @@ import com.myeongro.testsupport.SecurityConfigTestEndpoint;
 	SecurityConfig.class,
 	ActiveAccountSessionFilter.class,
 	AdultEligibilitySessionFilter.class,
+	PendingSignupAccessFilter.class,
 	SecurityConfigTestEndpoint.class
 })
 @TestPropertySource(properties = {
@@ -121,9 +123,9 @@ class SecurityConfigTests {
 	}
 
 	@Test
-	void blocksDirectOauthAuthorizationWithoutAdultConfirmation() throws Exception {
+	void allowsDirectOauthAuthorizationBeforeSignupAgeConfirmation() throws Exception {
 		mockMvc.perform(get("/oauth2/authorization/kakao"))
-			.andExpect(status().isForbidden());
+			.andExpect(status().is3xxRedirection());
 	}
 
 	@Test

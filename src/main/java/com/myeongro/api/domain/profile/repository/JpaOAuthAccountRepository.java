@@ -1,5 +1,6 @@
 package com.myeongro.api.domain.profile.repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Repository;
@@ -25,6 +26,15 @@ public class JpaOAuthAccountRepository implements OAuthAccountRepository {
 		this.accountLock = accountLock;
 		this.profileRepository = profileRepository;
 		this.accountRepository = accountRepository;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Optional<ProvisionedOAuthUser> findExisting(OAuthProviderUserInfo userInfo) {
+		return accountRepository.findByProviderAccount(
+			userInfo.provider(),
+			userInfo.providerUserId()
+		).map(this::toUser);
 	}
 
 	@Override

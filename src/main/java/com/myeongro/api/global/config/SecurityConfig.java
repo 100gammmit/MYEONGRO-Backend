@@ -15,6 +15,7 @@ import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 
 import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
 import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
+import com.myeongro.api.global.auth.PendingSignupAccessFilter;
 import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OAuth2LoginSuccessHandler;
@@ -34,8 +35,8 @@ public class SecurityConfig {
 	private final OidcSessionUserService oidcSessionUserService;
 	private final ActiveAccountSessionFilter activeAccountSessionFilter;
 	private final AdultEligibilitySessionFilter adultEligibilitySessionFilter;
+	private final PendingSignupAccessFilter pendingSignupAccessFilter;
 	private final AdultEligibilityService adultEligibilityService;
-	private final String adultPolicyVersion;
 
 	public SecurityConfig(
 		@Value("${app.frontend-origin:http://localhost:3000}") String frontendOrigin,
@@ -43,16 +44,16 @@ public class SecurityConfig {
 		OidcSessionUserService oidcSessionUserService,
 		ActiveAccountSessionFilter activeAccountSessionFilter,
 		AdultEligibilitySessionFilter adultEligibilitySessionFilter,
-		AdultEligibilityService adultEligibilityService,
-		@Value("${app.eligibility.adult-policy-version}") String adultPolicyVersion
+		PendingSignupAccessFilter pendingSignupAccessFilter,
+		AdultEligibilityService adultEligibilityService
 	) {
 		this.frontendOrigin = frontendOrigin;
 		this.oauth2SessionUserService = oauth2SessionUserService;
 		this.oidcSessionUserService = oidcSessionUserService;
 		this.activeAccountSessionFilter = activeAccountSessionFilter;
 		this.adultEligibilitySessionFilter = adultEligibilitySessionFilter;
+		this.pendingSignupAccessFilter = pendingSignupAccessFilter;
 		this.adultEligibilityService = adultEligibilityService;
-		this.adultPolicyVersion = adultPolicyVersion;
 	}
 
 	@Bean
@@ -63,7 +64,7 @@ public class SecurityConfig {
 				.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
 			)
 			.addFilterBefore(
-				new OAuth2NextRequestFilter(adultPolicyVersion),
+				new OAuth2NextRequestFilter(),
 				OAuth2AuthorizationRequestRedirectFilter.class
 			)
 			.addFilterAfter(
@@ -73,6 +74,10 @@ public class SecurityConfig {
 			.addFilterAfter(
 				adultEligibilitySessionFilter,
 				ActiveAccountSessionFilter.class
+			)
+			.addFilterAfter(
+				pendingSignupAccessFilter,
+				AdultEligibilitySessionFilter.class
 			)
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
@@ -86,6 +91,7 @@ public class SecurityConfig {
 				).permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/auth/me").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
+				.requestMatchers("/api/signup", "/api/signup/**").permitAll()
 				.requestMatchers(
 					HttpMethod.POST, "/api/tarot/daily-card-selections"
 				).permitAll()
