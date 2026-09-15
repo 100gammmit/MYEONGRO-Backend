@@ -103,7 +103,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 						trustedCalculation, focusArea, question
 					))
 				),
-				options(targetYear, focusArea, trustedCalculation)
+				options(targetYear, trustedCalculation)
 			);
 		} catch (RuntimeException | JsonProcessingException exception) {
 			throw failure(OpenAiReadingGenerationStage.REQUEST_BUILD, exception);
@@ -142,7 +142,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 			SajuReadingResult result = objectMapper.treeToValue(
 				output.required("reading"), SajuReadingResult.class
 			);
-			resultValidator.validate(result, targetYear, focusArea, trustedCalculation);
+			resultValidator.validate(result, targetYear, trustedCalculation);
 			return new GeneratedReading(
 				result.title(),
 				objectMapper.convertValue(result, new TypeReference<>() {
@@ -200,7 +200,6 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 
 	private OpenAiChatOptions options(
 		int targetYear,
-		String focusArea,
 		Map<String, Object> trustedCalculation
 	) {
 		return OpenAiChatOptions.builder()
@@ -214,7 +213,6 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 					.strict(true)
 					.schema(ReadingResponseSchema.wrap(readingResultSchema(
 						targetYear,
-						focusArea,
 						resultValidator.availableEvidenceKeys(trustedCalculation)
 					)))
 					.build())
@@ -224,7 +222,6 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 
 	Map<String, Object> readingResultSchema(
 		int targetYear,
-		String focusArea,
 		List<String> evidenceKeys
 	) {
 		Map<String, Object> evidence = Map.of(
@@ -272,9 +269,8 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 				),
 				"questionReading", Map.of(
 					"type", "object", "additionalProperties", false,
-					"required", List.of("focusArea", "heading", "body", "evidenceKeys"),
+					"required", List.of("heading", "body", "evidenceKeys"),
 					"properties", Map.of(
-						"focusArea", Map.of("type", "string", "enum", List.of(focusArea)),
 						"heading", textSchema(), "body", textSchema(), "evidenceKeys", evidence
 					)
 				),

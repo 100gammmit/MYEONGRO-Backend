@@ -17,9 +17,6 @@ public class SajuReadingResultValidator {
 	static final List<String> SECTION_IDS = List.of(
 		"core", "strengths", "relationship", "work"
 	);
-	private static final Set<String> FOCUS_AREAS = Set.of(
-		"self", "career", "relationship", "life_money"
-	);
 	private static final Set<String> INTERPRETATION_EVIDENCE_KEYS = Set.of(
 		"pillars", "dayMaster", "elementBalance", "tenGods", "interactions",
 		"currentLuckCycle", "annualFlow", "limitations", "uncertainty"
@@ -31,7 +28,6 @@ public class SajuReadingResultValidator {
 	public void validate(
 		SajuReadingResult result,
 		int targetYear,
-		String focusArea,
 		Map<String, Object> trustedCalculation
 	) {
 		if (result == null || trustedCalculation == null) {
@@ -70,9 +66,8 @@ public class SajuReadingResultValidator {
 		validateEvidence(annual.evidenceKeys(), availableEvidence);
 
 		SajuReadingResult.QuestionReading question = result.questionReading();
-		if (question == null || !FOCUS_AREAS.contains(focusArea)
-			|| !focusArea.equals(question.focusArea())) {
-			throw new IllegalArgumentException("Saju question focus area is invalid");
+		if (question == null) {
+			throw new IllegalArgumentException("Saju question reading is required");
 		}
 		requireText(question.heading(), "Saju question heading is required");
 		requireText(question.body(), "Saju question body is required");

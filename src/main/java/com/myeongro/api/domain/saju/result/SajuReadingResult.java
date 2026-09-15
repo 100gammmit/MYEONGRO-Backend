@@ -46,7 +46,6 @@ public record SajuReadingResult(
 	}
 
 	public record QuestionReading(
-		String focusArea,
 		String heading,
 		String body,
 		List<String> evidenceKeys

@@ -20,7 +20,6 @@ class SajuReadingResultValidatorTests {
 		assertThatCode(() -> validator.validate(
 			result("차분히 가능성을 살펴보세요", "annualFlow"),
 			2026,
-			"career",
 			trusted("exact")
 		)).doesNotThrowAnyException();
 	}
@@ -30,7 +29,6 @@ class SajuReadingResultValidatorTests {
 		assertThatThrownBy(() -> validator.validate(
 			result("차분히 가능성을 살펴보세요", "currentLuckCycle"),
 			2026,
-			"career",
 			trusted("exact")
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("evidence");
@@ -55,13 +53,13 @@ class SajuReadingResultValidatorTests {
 		);
 
 		assertThatThrownBy(() -> validator.validate(
-			duplicate, 2026, "career", trusted("exact")
+			duplicate, 2026, trusted("exact")
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("evidence");
 	}
 
 	@Test
-	void rejectsWrongSectionOrderYearOrFocusArea() {
+	void rejectsWrongSectionOrderOrYear() {
 		SajuReadingResult valid = result("차분히 가능성을 살펴보세요", "annualFlow");
 		SajuReadingResult wrongOrder = new SajuReadingResult(
 			valid.title(), valid.summary(),
@@ -71,11 +69,9 @@ class SajuReadingResultValidatorTests {
 			),
 			valid.annualReading(), valid.questionReading(), valid.guidance(), valid.disclaimer()
 		);
-		assertThatThrownBy(() -> validator.validate(wrongOrder, 2026, "career", trusted("exact")))
+		assertThatThrownBy(() -> validator.validate(wrongOrder, 2026, trusted("exact")))
 			.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> validator.validate(valid, 2027, "career", trusted("exact")))
-			.isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> validator.validate(valid, 2026, "self", trusted("exact")))
+		assertThatThrownBy(() -> validator.validate(valid, 2027, trusted("exact")))
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
@@ -89,7 +85,7 @@ class SajuReadingResultValidatorTests {
 		);
 
 		assertThatThrownBy(() -> validator.validate(
-			duplicateGuidance, 2026, "career", trusted("exact")
+			duplicateGuidance, 2026, trusted("exact")
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("guidance");
 	}
@@ -99,7 +95,6 @@ class SajuReadingResultValidatorTests {
 		assertThatThrownBy(() -> validator.validate(
 			result("올해 반드시 성공합니다", "annualFlow"),
 			2026,
-			"career",
 			trusted("unknown")
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("definitive");
@@ -112,7 +107,6 @@ class SajuReadingResultValidatorTests {
 		assertThatThrownBy(() -> validator.validate(
 			result("올해 반드시 성공합니다", "annualFlow"),
 			2026,
-			"career",
 			trusted
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("definitive");
@@ -132,7 +126,7 @@ class SajuReadingResultValidatorTests {
 				2026, "2026년의 흐름", "연간 흐름을 살펴봅니다", List.of(annualEvidence)
 			),
 			new SajuReadingResult.QuestionReading(
-				"career", "지금의 질문", "선택지를 점검해 보세요", List.of("dayMaster")
+				"지금의 질문", "선택지를 점검해 보세요", List.of("dayMaster")
 			),
 			List.of("작은 실험부터 해보세요"),
 			"이 리딩은 오락과 자기성찰을 위한 참고입니다."
