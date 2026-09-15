@@ -7,19 +7,24 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
+import com.myeongro.api.domain.reading.service.ReadingSafetyPrompt;
+
 @Component
 public class SajuPromptCatalog {
 
 	private final PromptPart common;
+	private final ReadingSafetyPrompt safety;
 	private final PromptPart interpretation;
 	private final PromptPart report;
 
 	public SajuPromptCatalog(
 		@Value("${app.reading.prompts.saju.common}") Resource common,
+		ReadingSafetyPrompt safety,
 		@Value("${app.reading.prompts.saju.interpretation}") Resource interpretation,
 		@Value("${app.reading.prompts.saju.reports.birth-annual-question}") Resource report
 	) {
 		this.common = read(common);
+		this.safety = safety;
 		this.interpretation = read(interpretation);
 		this.report = read(report);
 	}
@@ -29,7 +34,8 @@ public class SajuPromptCatalog {
 			"\n\n",
 			common.content(),
 			interpretation.content(),
-			report.content()
+			report.content(),
+			safety.content()
 		);
 	}
 
@@ -38,7 +44,8 @@ public class SajuPromptCatalog {
 			"+",
 			common.version(),
 			interpretation.version(),
-			report.version()
+			report.version(),
+			safety.version()
 		);
 	}
 

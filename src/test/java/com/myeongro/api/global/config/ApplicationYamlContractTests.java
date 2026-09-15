@@ -36,6 +36,7 @@ class ApplicationYamlContractTests {
 		assertThat(propertySources).hasSize(1);
 		PropertySource<?> properties = propertySources.getFirst();
 		List<String> promptKeys = List.of(
+			"app.reading.prompts.safety",
 			"app.reading.prompts.tarot.common",
 			"app.reading.prompts.tarot.cards",
 			"app.reading.prompts.tarot.spreads.mind-three-card",

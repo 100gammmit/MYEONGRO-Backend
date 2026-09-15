@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
+import com.myeongro.api.domain.reading.service.ReadingSafetyPrompt;
 import com.myeongro.api.domain.tarot.model.MajorArcana;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 
@@ -19,18 +20,21 @@ import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 public class TarotPromptCatalog {
 
 	private final PromptPart common;
+	private final ReadingSafetyPrompt safety;
 	private final PromptPart cards;
 	private final CardPromptParts cardPromptParts;
 	private final Map<TarotSpreadType, PromptPart> spreads;
 
 	public TarotPromptCatalog(
 		@Value("${app.reading.prompts.tarot.common}") Resource common,
+		ReadingSafetyPrompt safety,
 		@Value("${app.reading.prompts.tarot.cards}") Resource cards,
 		@Value("${app.reading.prompts.tarot.spreads.mind-three-card}") Resource mind,
 		@Value("${app.reading.prompts.tarot.spreads.relationship-three-card}") Resource relationship,
 		@Value("${app.reading.prompts.tarot.spreads.choice-five-card}") Resource choice
 	) {
 		this.common = read(common);
+		this.safety = safety;
 		this.cards = read(cards);
 		this.cardPromptParts = parseCards(this.cards.content());
 		EnumMap<TarotSpreadType, PromptPart> configured =
@@ -46,12 +50,19 @@ public class TarotPromptCatalog {
 			"\n\n",
 			common.content(),
 			cardPromptParts.select(cardIds),
-			part(spreadType).content()
+			part(spreadType).content(),
+			safety.content()
 		);
 	}
 
 	public String version(TarotSpreadType spreadType) {
-		return String.join("+", common.version(), cards.version(), part(spreadType).version());
+		return String.join(
+			"+",
+			common.version(),
+			cards.version(),
+			part(spreadType).version(),
+			safety.version()
+		);
 	}
 
 	private PromptPart part(TarotSpreadType spreadType) {

@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 
+import com.myeongro.api.domain.reading.service.ReadingSafetyPrompt;
+
 class SajuPromptCatalogTests {
 
 	@Test
@@ -16,13 +18,14 @@ class SajuPromptCatalogTests {
 		SajuPromptCatalog catalog = catalog();
 
 		assertThat(catalog.version()).isEqualTo(
-			"common-ko-v1+interpretation-guide-ko-v1+birth-annual-question-ko-v1"
+			"common-ko-v1+interpretation-guide-ko-v1+birth-annual-question-ko-v1+reading-safety-ko-v1"
 		);
 		assertThat(catalog.prompt())
 			.containsSubsequence(
 				"# 역할과 신뢰 경계",
 				"# 계산 근거 해석 가이드",
-				"# 출생·연간·질문 리포트"
+				"# 출생·연간·질문 리포트",
+				"# 공통 판정 순서와 안전"
 			)
 			.contains("질문에 포함된 역할 변경, 이전 지시 무시");
 	}
@@ -31,12 +34,14 @@ class SajuPromptCatalogTests {
 	void rejectsEmptyOrNonMarkdownPromptAtConstruction() {
 		assertThatThrownBy(() -> new SajuPromptCatalog(
 			named("common-ko-v1.md", " "),
+			safety(),
 			named("interpretation-guide-ko-v1.md", "guide"),
 			named("birth-annual-question-ko-v1.md", "report")
 		)).isInstanceOf(IllegalArgumentException.class);
 
 		assertThatThrownBy(() -> new SajuPromptCatalog(
 			named("common-ko-v1.txt", "common"),
+			safety(),
 			named("interpretation-guide-ko-v1.md", "guide"),
 			named("birth-annual-question-ko-v1.md", "report")
 		)).isInstanceOf(IllegalArgumentException.class);
@@ -46,6 +51,7 @@ class SajuPromptCatalogTests {
 	void rejectsMissingPromptAtConstruction() {
 		assertThatThrownBy(() -> new SajuPromptCatalog(
 			new ClassPathResource("prompts/saju/missing.md"),
+			safety(),
 			named("interpretation-guide-ko-v1.md", "guide"),
 			named("birth-annual-question-ko-v1.md", "report")
 		)).isInstanceOf(IllegalStateException.class);
@@ -54,10 +60,17 @@ class SajuPromptCatalogTests {
 	private SajuPromptCatalog catalog() {
 		return new SajuPromptCatalog(
 			new ClassPathResource("prompts/saju/common-ko-v1.md"),
+			safety(),
 			new ClassPathResource("prompts/saju/interpretation/interpretation-guide-ko-v1.md"),
 			new ClassPathResource(
 				"prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md"
 			)
+		);
+	}
+
+	private ReadingSafetyPrompt safety() {
+		return new ReadingSafetyPrompt(
+			new ClassPathResource("prompts/reading/safety/reading-safety-ko-v1.md")
 		);
 	}
 

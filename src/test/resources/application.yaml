@@ -44,6 +44,7 @@ app:
     openai:
       model: gpt-test
     prompts:
+      safety: classpath:prompts/reading/safety/reading-safety-ko-v1.md
       tarot:
         common: classpath:prompts/tarot/common-ko-v6.md
         cards: classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md

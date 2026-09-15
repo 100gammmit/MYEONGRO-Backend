@@ -23,6 +23,7 @@ import org.springframework.context.annotation.Profile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
+import com.myeongro.api.domain.reading.service.ReadingSafetyPrompt;
 import com.myeongro.api.domain.tarot.service.OpenAiTarotReadingGenerator;
 import com.myeongro.api.domain.reading.service.ReadingGeneratorRouter;
 import com.myeongro.api.domain.saju.service.SajuPromptCatalog;
@@ -48,6 +49,7 @@ import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 	OpenAiTarotReadingGenerator.class,
 	OpenAiSajuReadingGenerator.class,
 	ReadingGeneratorRouter.class,
+	ReadingSafetyPrompt.class,
 	TarotPromptCatalog.class,
 	SajuPromptCatalog.class,
 	SajuInterpretationInputMapper.class,

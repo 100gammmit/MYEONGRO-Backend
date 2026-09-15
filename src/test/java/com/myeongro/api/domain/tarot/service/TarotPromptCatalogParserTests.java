@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 
+import com.myeongro.api.domain.reading.service.ReadingSafetyPrompt;
 import com.myeongro.api.domain.tarot.model.MajorArcana;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 
@@ -26,6 +27,7 @@ class TarotPromptCatalogParserTests {
 		);
 
 		assertThat(prompt)
+			.contains("synthetic-safety")
 			.contains("synthetic-preamble")
 			.contains(heading("major-02-high-priestess"))
 			.contains("synthetic-body-major-02-high-priestess")
@@ -80,6 +82,7 @@ class TarotPromptCatalogParserTests {
 	private TarotPromptCatalog catalog(String cards) {
 		return new TarotPromptCatalog(
 			resource("synthetic-common.md", "synthetic-common"),
+			new ReadingSafetyPrompt(resource("synthetic-safety.md", "synthetic-safety")),
 			resource("synthetic-cards.md", cards),
 			resource("synthetic-mind.md", "synthetic-mind-spread"),
 			resource("synthetic-relationship.md", "synthetic-relationship-spread"),

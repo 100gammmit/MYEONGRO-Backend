@@ -23,6 +23,7 @@ import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationExceptio
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 import com.myeongro.api.domain.saju.service.SajuPromptCatalog;
 import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
+import com.myeongro.api.domain.reading.service.ReadingSafetyPrompt;
 
 class OpenAiSajuReadingGeneratorTests {
 
@@ -34,7 +35,7 @@ class OpenAiSajuReadingGeneratorTests {
 		assertThat(metadata.provider()).isEqualTo("openai");
 		assertThat(metadata.model()).isEqualTo("gpt-test");
 		assertThat(metadata.promptVersion())
-			.isEqualTo("common-ko-v1+interpretation-guide-ko-v1+birth-annual-question-ko-v1");
+			.isEqualTo("common-ko-v1+interpretation-guide-ko-v1+birth-annual-question-ko-v1+reading-safety-ko-v1");
 	}
 
 	private static final String ATTACK =
@@ -167,6 +168,9 @@ class OpenAiSajuReadingGeneratorTests {
 			"gpt-test",
 			new SajuPromptCatalog(
 				new ClassPathResource("prompts/saju/common-ko-v1.md"),
+				new ReadingSafetyPrompt(
+					new ClassPathResource("prompts/reading/safety/reading-safety-ko-v1.md")
+				),
 				new ClassPathResource("prompts/saju/interpretation/interpretation-guide-ko-v1.md"),
 				new ClassPathResource(
 					"prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md"

@@ -23,6 +23,7 @@ import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.tarot.model.MajorArcana;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
+import com.myeongro.api.domain.reading.service.ReadingSafetyPrompt;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
@@ -37,7 +38,7 @@ class OpenAiTarotReadingGeneratorTests {
 		assertThat(metadata.provider()).isEqualTo("openai");
 		assertThat(metadata.model()).isEqualTo("gpt-test");
 		assertThat(metadata.promptVersion())
-			.isEqualTo("common-ko-v6+major-arcana-ko-v4+mind-three-card-ko-v4");
+			.isEqualTo("common-ko-v6+major-arcana-ko-v4+mind-three-card-ko-v4+reading-safety-ko-v1");
 	}
 
 	@ParameterizedTest
@@ -199,6 +200,9 @@ class OpenAiTarotReadingGeneratorTests {
 	private TarotPromptCatalog catalog() {
 		return new TarotPromptCatalog(
 			new ClassPathResource("prompts/tarot/common-ko-v6.md"),
+			new ReadingSafetyPrompt(
+				new ClassPathResource("prompts/reading/safety/reading-safety-ko-v1.md")
+			),
 			new ClassPathResource("prompts/tarot/arcana/major/major-arcana-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v4.md"),

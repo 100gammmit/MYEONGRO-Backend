@@ -102,15 +102,16 @@ app:
     openai:
       model: ${openai.model:gpt-5.6-luna}
     prompts:
+      safety: classpath:prompts/reading/safety/reading-safety-ko-v1.md
       tarot:
-        common: classpath:prompts/tarot/common-ko-v18.md
+        common: classpath:prompts/tarot/common-ko-v19.md
         cards: classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md
         spreads:
           mind-three-card: classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v8.md
           relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v8.md
           choice-five-card: classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v8.md
       saju:
-        common: classpath:prompts/saju/common-ko-v7.md
+        common: classpath:prompts/saju/common-ko-v8.md
         interpretation: classpath:prompts/saju/interpretation/interpretation-guide-ko-v3.md
         reports:
           birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v4.md
