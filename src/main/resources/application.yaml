@@ -102,7 +102,7 @@ app:
     openai:
       model: ${openai.model:gpt-5.6-luna}
     prompts:
-      safety: classpath:prompts/reading/safety/reading-safety-ko-v1.md
+      safety: classpath:prompts/reading/safety/reading-safety-ko-v2.md
       tarot:
         common: classpath:prompts/tarot/common-ko-v19.md
         cards: classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md

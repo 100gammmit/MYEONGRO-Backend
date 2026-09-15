@@ -15,7 +15,6 @@ public enum ReadingDeclineReason {
 	public static List<String> modelSelectableValues() {
 		return List.of(
 			CRISIS_OR_IMMEDIATE_DANGER.name(),
-			HIGH_STAKES_DECISION.name(),
 			HARMFUL_OR_ILLEGAL_ACTION.name()
 		);
 	}

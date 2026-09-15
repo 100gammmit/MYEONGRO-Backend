@@ -35,7 +35,7 @@ class OpenAiSajuReadingGeneratorTests {
 		assertThat(metadata.provider()).isEqualTo("openai");
 		assertThat(metadata.model()).isEqualTo("gpt-test");
 		assertThat(metadata.promptVersion())
-			.isEqualTo("common-ko-v1+interpretation-guide-ko-v1+birth-annual-question-ko-v1+reading-safety-ko-v1");
+			.isEqualTo("common-ko-v1+interpretation-guide-ko-v1+birth-annual-question-ko-v1+reading-safety-ko-v2");
 	}
 
 	private static final String ATTACK =
@@ -114,9 +114,11 @@ class OpenAiSajuReadingGeneratorTests {
 		assertThat(schema.toString())
 			.contains(
 				"health_fortune", "money_fortune", "relationship_fortune",
-				"career_life_fortune", "HIGH_STAKES_DECISION"
+				"career_life_fortune", "CRISIS_OR_IMMEDIATE_DANGER", "HARMFUL_OR_ILLEGAL_ACTION"
 			)
-			.doesNotContain("MEDICAL_DECISION", "LEGAL_DECISION", "FINANCIAL_DECISION");
+			.doesNotContain(
+				"HIGH_STAKES_DECISION", "MEDICAL_DECISION", "LEGAL_DECISION", "FINANCIAL_DECISION"
+			);
 		assertThat(schema.toString())
 			.doesNotContain("currentLuckCycle", "calculationVersion", "uniqueItems");
 		@SuppressWarnings("unchecked")
@@ -169,7 +171,7 @@ class OpenAiSajuReadingGeneratorTests {
 			new SajuPromptCatalog(
 				new ClassPathResource("prompts/saju/common-ko-v1.md"),
 				new ReadingSafetyPrompt(
-					new ClassPathResource("prompts/reading/safety/reading-safety-ko-v1.md")
+					new ClassPathResource("prompts/reading/safety/reading-safety-ko-v2.md")
 				),
 				new ClassPathResource("prompts/saju/interpretation/interpretation-guide-ko-v1.md"),
 				new ClassPathResource(

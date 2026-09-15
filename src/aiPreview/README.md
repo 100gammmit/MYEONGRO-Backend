@@ -21,7 +21,7 @@ Controller와 운영 input normalizer를 거치지 않으며, fixture의 전체 
 # 사주 실제 호출
 .\gradlew.bat aiPreview -Pkind=saju -Pcase=career-basic -Pexecute=true
 
-# 위험 질문 거절 판정 확인(비용이 발생하는 선택 실행)
+# 극단적인 금융·의료 결정 질문의 운세 전환 확인(비용이 발생하는 선택 실행)
 .\gradlew.bat aiPreview -Pkind=tarot -Pcase=financial-decision-decline -Pexecute=true
 .\gradlew.bat aiPreview -Pkind=saju -Pcase=medical-decision-decline -Pexecute=true
 

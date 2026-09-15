@@ -29,7 +29,7 @@ class ReadingGeneratorBeanSelectionTests {
 		new ApplicationContextRunner()
 			.withPropertyValues(
 				"app.reading.openai.model=gpt-test",
-				"app.reading.prompts.safety=classpath:prompts/reading/safety/reading-safety-ko-v1.md",
+				"app.reading.prompts.safety=classpath:prompts/reading/safety/reading-safety-ko-v2.md",
 				"app.reading.prompts.tarot.common=classpath:prompts/tarot/common-ko-v6.md",
 				"app.reading.prompts.tarot.cards=classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md",
 				"app.reading.prompts.tarot.spreads.mind-three-card=classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v4.md",

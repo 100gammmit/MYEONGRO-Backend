@@ -18,7 +18,7 @@ class SajuPromptCatalogTests {
 		SajuPromptCatalog catalog = catalog();
 
 		assertThat(catalog.version()).isEqualTo(
-			"common-ko-v1+interpretation-guide-ko-v1+birth-annual-question-ko-v1+reading-safety-ko-v1"
+			"common-ko-v1+interpretation-guide-ko-v1+birth-annual-question-ko-v1+reading-safety-ko-v2"
 		);
 		assertThat(catalog.prompt())
 			.containsSubsequence(
@@ -70,7 +70,7 @@ class SajuPromptCatalogTests {
 
 	private ReadingSafetyPrompt safety() {
 		return new ReadingSafetyPrompt(
-			new ClassPathResource("prompts/reading/safety/reading-safety-ko-v1.md")
+			new ClassPathResource("prompts/reading/safety/reading-safety-ko-v2.md")
 		);
 	}
 

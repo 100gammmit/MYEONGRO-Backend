@@ -38,7 +38,7 @@ class OpenAiTarotReadingGeneratorTests {
 		assertThat(metadata.provider()).isEqualTo("openai");
 		assertThat(metadata.model()).isEqualTo("gpt-test");
 		assertThat(metadata.promptVersion())
-			.isEqualTo("common-ko-v6+major-arcana-ko-v4+mind-three-card-ko-v4+reading-safety-ko-v1");
+			.isEqualTo("common-ko-v6+major-arcana-ko-v4+mind-three-card-ko-v4+reading-safety-ko-v2");
 	}
 
 	@ParameterizedTest
@@ -57,8 +57,10 @@ class OpenAiTarotReadingGeneratorTests {
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
 		assertThat(options.getMaxCompletionTokens()).isEqualTo(spread.maxOutputTokens());
 		assertThat(options.getResponseFormat().getJsonSchema().getSchema().toString())
-			.contains("HIGH_STAKES_DECISION")
-			.doesNotContain("MEDICAL_DECISION", "LEGAL_DECISION", "FINANCIAL_DECISION");
+			.contains("CRISIS_OR_IMMEDIATE_DANGER", "HARMFUL_OR_ILLEGAL_ACTION")
+			.doesNotContain(
+				"HIGH_STAKES_DECISION", "MEDICAL_DECISION", "LEGAL_DECISION", "FINANCIAL_DECISION"
+			);
 		Map<String, Object> schema = readingSchema(options);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
@@ -159,7 +161,7 @@ class OpenAiTarotReadingGeneratorTests {
 	@Test
 	void returnsServerOwnedDeclineResultWithoutTarotSections() {
 		OpenAiTarotReadingGenerator generator = generator(new CapturingChatModel("""
-			{"output":{"resultType":"declined","reasonCode":"HIGH_STAKES_DECISION"}}
+			{"output":{"resultType":"declined","reasonCode":"HARMFUL_OR_ILLEGAL_ACTION"}}
 			"""));
 
 		GeneratedReading generated = generator.generate(
@@ -171,7 +173,7 @@ class OpenAiTarotReadingGeneratorTests {
 
 		assertThat(generated.payload())
 			.containsEntry("resultType", "declined")
-			.containsEntry("reasonCode", "HIGH_STAKES_DECISION")
+			.containsEntry("reasonCode", "HARMFUL_OR_ILLEGAL_ACTION")
 			.doesNotContainKeys("sections", "summary");
 	}
 
@@ -201,7 +203,7 @@ class OpenAiTarotReadingGeneratorTests {
 		return new TarotPromptCatalog(
 			new ClassPathResource("prompts/tarot/common-ko-v6.md"),
 			new ReadingSafetyPrompt(
-				new ClassPathResource("prompts/reading/safety/reading-safety-ko-v1.md")
+				new ClassPathResource("prompts/reading/safety/reading-safety-ko-v2.md")
 			),
 			new ClassPathResource("prompts/tarot/arcana/major/major-arcana-ko-v4.md"),
 			new ClassPathResource("prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v4.md"),
