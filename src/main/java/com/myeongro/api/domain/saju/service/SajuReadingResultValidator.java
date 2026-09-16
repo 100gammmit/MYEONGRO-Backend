@@ -38,7 +38,10 @@ public class SajuReadingResultValidator {
 		if (result.readingMode() == null) {
 			throw new IllegalArgumentException("Saju reading mode is required");
 		}
-		if (result.questionRedirected() && result.readingMode() == ReadingMode.STANDARD) {
+		if (result.questionRedirected() == null) {
+			throw new IllegalArgumentException("Saju question redirected flag is required");
+		}
+		if (Boolean.TRUE.equals(result.questionRedirected()) && result.readingMode() == ReadingMode.STANDARD) {
 			throw new IllegalArgumentException("Redirected Saju question requires a fortune reading mode");
 		}
 		requireText(result.summary(), "Saju reading summary is required");

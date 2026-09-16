@@ -139,6 +139,21 @@ class OpenAiTarotReadingGeneratorTests {
 	}
 
 	@Test
+	void rejectsResponseWithoutQuestionRedirected() {
+		String missing = response(TarotSpreadType.MIND_THREE_CARD)
+			.replace("\"questionRedirected\":false,", "");
+
+		assertThatThrownBy(() -> generator(new CapturingChatModel(missing)).generate(
+			ReadingKind.TAROT,
+			TarotSpreadType.MIND_THREE_CARD.value(),
+			"질문",
+			input(TarotSpreadType.MIND_THREE_CARD)
+		)).isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
+			assertThat(exception.getStage()).isEqualTo(OpenAiReadingGenerationStage.RESPONSE_CONTRACT)
+		);
+	}
+
+	@Test
 	void identifiesProviderAndResponseParseFailureStages() {
 		assertThatThrownBy(() -> generator(new ThrowingChatModel()).generate(
 			ReadingKind.TAROT,

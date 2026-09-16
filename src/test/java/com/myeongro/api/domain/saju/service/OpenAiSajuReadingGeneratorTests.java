@@ -153,6 +153,17 @@ class OpenAiSajuReadingGeneratorTests {
 	}
 
 	@Test
+	void rejectsResponseWithoutQuestionRedirected() {
+		String missing = validResponse().replace("\"questionRedirected\":false,", "");
+
+		assertThatThrownBy(() -> generator(new CapturingChatModel(missing)).generate(
+			ReadingKind.SAJU, null, "질문", input()
+		)).isInstanceOfSatisfying(OpenAiReadingGenerationException.class, exception ->
+			assertThat(exception.getStage()).isEqualTo(OpenAiReadingGenerationStage.RESPONSE_CONTRACT)
+		);
+	}
+
+	@Test
 	void returnsServerOwnedDeclineResultWithoutSajuSections() {
 		OpenAiSajuReadingGenerator generator = generator(new CapturingChatModel("""
 			{"output":{"resultType":"declined","reasonCode":"CRISIS_OR_IMMEDIATE_DANGER"}}

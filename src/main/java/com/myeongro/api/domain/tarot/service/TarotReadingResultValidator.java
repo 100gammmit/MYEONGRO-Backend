@@ -20,7 +20,10 @@ public class TarotReadingResultValidator {
 		if (result.readingMode() == null) {
 			throw new IllegalArgumentException("Tarot reading mode is required");
 		}
-		if (result.questionRedirected() && result.readingMode() == ReadingMode.STANDARD) {
+		if (result.questionRedirected() == null) {
+			throw new IllegalArgumentException("Tarot question redirected flag is required");
+		}
+		if (Boolean.TRUE.equals(result.questionRedirected()) && result.readingMode() == ReadingMode.STANDARD) {
 			throw new IllegalArgumentException("Redirected Tarot question requires a fortune reading mode");
 		}
 		requireText(result.summary(), "Tarot reading summary is required");

@@ -6,7 +6,7 @@ import com.myeongro.api.domain.reading.service.ReadingMode;
 
 public record SajuReadingResult(
 	ReadingMode readingMode,
-	boolean questionRedirected,
+	Boolean questionRedirected,
 	String title,
 	String summary,
 	List<SajuReadingSection> natalSections,

@@ -6,7 +6,7 @@ import com.myeongro.api.domain.reading.service.ReadingMode;
 
 public record TarotReadingResult(
 	ReadingMode readingMode,
-	boolean questionRedirected,
+	Boolean questionRedirected,
 	String title,
 	String summary,
 	List<TarotReadingSection> sections,
