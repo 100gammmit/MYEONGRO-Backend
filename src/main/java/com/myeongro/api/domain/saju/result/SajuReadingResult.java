@@ -6,6 +6,7 @@ import com.myeongro.api.domain.reading.service.ReadingMode;
 
 public record SajuReadingResult(
 	ReadingMode readingMode,
+	boolean questionRedirected,
 	String title,
 	String summary,
 	List<SajuReadingSection> natalSections,
@@ -29,7 +30,7 @@ public record SajuReadingResult(
 		String disclaimer
 	) {
 		this(
-			ReadingMode.STANDARD, title, summary, natalSections,
+			ReadingMode.STANDARD, false, title, summary, natalSections,
 			annualReading, questionReading, guidance, disclaimer
 		);
 	}

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import com.myeongro.api.domain.tarot.result.TarotReadingResult;
 import com.myeongro.api.domain.tarot.result.TarotReadingSection;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
+import com.myeongro.api.domain.reading.service.ReadingMode;
 
 class TarotReadingResultValidatorTests {
 
@@ -48,6 +49,19 @@ class TarotReadingResultValidatorTests {
 		);
 		assertThatThrownBy(() -> validator.validate(spread, invalid))
 			.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void rejectsRedirectedQuestionInStandardMode() {
+		TarotReadingResult valid = result(TarotSpreadType.MIND_THREE_CARD);
+		TarotReadingResult invalid = new TarotReadingResult(
+			ReadingMode.STANDARD, true, valid.title(), valid.summary(), valid.sections(),
+			valid.guidance(), valid.disclaimer()
+		);
+
+		assertThatThrownBy(() -> validator.validate(TarotSpreadType.MIND_THREE_CARD, invalid))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("fortune reading mode");
 	}
 
 	private TarotReadingResult result(TarotSpreadType spread) {

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import com.myeongro.api.domain.tarot.result.TarotReadingResult;
 import com.myeongro.api.domain.tarot.result.TarotReadingSection;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
+import com.myeongro.api.domain.reading.service.ReadingMode;
 
 @Component
 public class TarotReadingResultValidator {
@@ -18,6 +19,9 @@ public class TarotReadingResultValidator {
 		requireText(result.title(), "Tarot reading title is required");
 		if (result.readingMode() == null) {
 			throw new IllegalArgumentException("Tarot reading mode is required");
+		}
+		if (result.questionRedirected() && result.readingMode() == ReadingMode.STANDARD) {
+			throw new IllegalArgumentException("Redirected Tarot question requires a fortune reading mode");
 		}
 		requireText(result.summary(), "Tarot reading summary is required");
 		requireText(result.disclaimer(), "Tarot reading disclaimer is required");

@@ -6,6 +6,7 @@ import com.myeongro.api.domain.reading.service.ReadingMode;
 
 public record TarotReadingResult(
 	ReadingMode readingMode,
+	boolean questionRedirected,
 	String title,
 	String summary,
 	List<TarotReadingSection> sections,
@@ -19,6 +20,6 @@ public record TarotReadingResult(
 		List<String> guidance,
 		String disclaimer
 	) {
-		this(ReadingMode.STANDARD, title, summary, sections, guidance, disclaimer);
+		this(ReadingMode.STANDARD, false, title, summary, sections, guidance, disclaimer);
 	}
 }

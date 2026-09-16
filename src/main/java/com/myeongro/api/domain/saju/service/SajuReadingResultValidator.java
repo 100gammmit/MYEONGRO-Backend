@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.myeongro.api.domain.saju.result.SajuReadingResult;
 import com.myeongro.api.domain.saju.result.SajuReadingSection;
+import com.myeongro.api.domain.reading.service.ReadingMode;
 
 @Component
 public class SajuReadingResultValidator {
@@ -36,6 +37,9 @@ public class SajuReadingResultValidator {
 		requireText(result.title(), "Saju reading title is required");
 		if (result.readingMode() == null) {
 			throw new IllegalArgumentException("Saju reading mode is required");
+		}
+		if (result.questionRedirected() && result.readingMode() == ReadingMode.STANDARD) {
+			throw new IllegalArgumentException("Redirected Saju question requires a fortune reading mode");
 		}
 		requireText(result.summary(), "Saju reading summary is required");
 		requireText(result.disclaimer(), "Saju reading disclaimer is required");

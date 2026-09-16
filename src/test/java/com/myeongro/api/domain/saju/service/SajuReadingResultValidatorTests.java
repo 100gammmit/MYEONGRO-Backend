@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import com.myeongro.api.domain.saju.result.SajuReadingResult;
 import com.myeongro.api.domain.saju.result.SajuReadingSection;
+import com.myeongro.api.domain.reading.service.ReadingMode;
 
 class SajuReadingResultValidatorTests {
 
@@ -79,7 +80,7 @@ class SajuReadingResultValidatorTests {
 	void rejectsMoreThanOneGuidanceItem() {
 		SajuReadingResult valid = result("차분히 가능성을 살펴보세요", "annualFlow");
 		SajuReadingResult duplicateGuidance = new SajuReadingResult(
-			valid.readingMode(), valid.title(), valid.summary(), valid.natalSections(),
+			valid.readingMode(), valid.questionRedirected(), valid.title(), valid.summary(), valid.natalSections(),
 			valid.annualReading(), valid.questionReading(),
 			List.of("첫 번째 제안입니다", "두 번째 제안입니다"), valid.disclaimer()
 		);
@@ -88,6 +89,19 @@ class SajuReadingResultValidatorTests {
 			duplicateGuidance, 2026, trusted("exact")
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("guidance");
+	}
+
+	@Test
+	void rejectsRedirectedQuestionInStandardMode() {
+		SajuReadingResult valid = result("차분히 가능성을 살펴보세요", "annualFlow");
+		SajuReadingResult invalid = new SajuReadingResult(
+			ReadingMode.STANDARD, true, valid.title(), valid.summary(), valid.natalSections(),
+			valid.annualReading(), valid.questionReading(), valid.guidance(), valid.disclaimer()
+		);
+
+		assertThatThrownBy(() -> validator.validate(invalid, 2026, trusted("exact")))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("fortune reading mode");
 	}
 
 	@Test

@@ -51,7 +51,7 @@ class OpenAiTarotReadingGeneratorTests {
 			ReadingKind.TAROT, spread.value(), "질문", input(spread)
 		);
 		assertThat(generated.payload()).containsOnlyKeys(
-			"readingMode", "title", "summary", "sections", "guidance", "disclaimer"
+			"readingMode", "questionRedirected", "title", "summary", "sections", "guidance", "disclaimer"
 		);
 
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
@@ -69,6 +69,8 @@ class OpenAiTarotReadingGeneratorTests {
 				"standard", "health_fortune", "money_fortune",
 				"relationship_fortune", "career_life_fortune"
 			));
+		assertThat(properties.get("questionRedirected"))
+			.isEqualTo(Map.of("type", "boolean"));
 		@SuppressWarnings("unchecked")
 		Map<String, Object> sections = (Map<String, Object>) properties.get("sections");
 		assertThat(sections)
@@ -120,7 +122,7 @@ class OpenAiTarotReadingGeneratorTests {
 	@Test
 	void rejectsResponseWithWrongPositionOrder() {
 		String invalid = """
-			{"output":{"resultType":"reading","reading":{"readingMode":"standard","title":"제목","summary":"요약","sections":[
+			{"output":{"resultType":"reading","reading":{"readingMode":"standard","questionRedirected":false,"title":"제목","summary":"요약","sections":[
 			{"position":"underlying_need","heading":"욕구","body":"본문"},
 			{"position":"emotion","heading":"감정","body":"본문"},
 			{"position":"self_action","heading":"행동","body":"본문"}],
@@ -232,7 +234,7 @@ class OpenAiTarotReadingGeneratorTests {
 				""".formatted(position.id(), position.displayName()).trim())
 			.collect(java.util.stream.Collectors.joining(","));
 		return """
-			{"output":{"resultType":"reading","reading":{"readingMode":"standard","title":"제목","summary":"요약","sections":[%s],
+			{"output":{"resultType":"reading","reading":{"readingMode":"standard","questionRedirected":false,"title":"제목","summary":"요약","sections":[%s],
 			"guidance":["작은 행동"],"disclaimer":"오락과 자기 성찰을 위한 참고입니다."}}}
 			""".formatted(sections);
 	}

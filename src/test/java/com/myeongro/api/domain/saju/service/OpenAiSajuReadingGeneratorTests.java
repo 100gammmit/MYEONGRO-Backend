@@ -52,7 +52,7 @@ class OpenAiSajuReadingGeneratorTests {
 
 		assertThat(generated.title()).isEqualTo("변화를 준비하며 기준을 세우는 해");
 		assertThat(generated.payload()).containsOnlyKeys(
-			"readingMode", "title", "summary", "natalSections", "annualReading",
+			"readingMode", "questionRedirected", "title", "summary", "natalSections", "annualReading",
 			"questionReading", "guidance", "disclaimer"
 		);
 
@@ -125,6 +125,8 @@ class OpenAiSajuReadingGeneratorTests {
 		Map<String, Object> readingProperties = (Map<String, Object>)generator.readingResultSchema(
 			2026, List.of("dayMaster")
 		).get("properties");
+		assertThat(readingProperties.get("questionRedirected"))
+			.isEqualTo(Map.of("type", "boolean"));
 		@SuppressWarnings("unchecked")
 		Map<String, Object> questionSchema = (Map<String, Object>)readingProperties.get("questionReading");
 		assertThat(questionSchema.toString()).doesNotContain("focusArea");
@@ -241,7 +243,7 @@ class OpenAiSajuReadingGeneratorTests {
 
 	private String validResponse() {
 		return """
-			{"output":{"resultType":"reading","reading":{"readingMode":"standard","title":"변화를 준비하며 기준을 세우는 해","summary":"가능성을 현실 정보와 함께 살펴보세요.",
+			{"output":{"resultType":"reading","reading":{"readingMode":"standard","questionRedirected":false,"title":"변화를 준비하며 기준을 세우는 해","summary":"가능성을 현실 정보와 함께 살펴보세요.",
 			"natalSections":[
 			{"id":"core","heading":"나를 움직이는 중심","body":"중심을 살펴봅니다.","evidenceKeys":["dayMaster"]},
 			{"id":"strengths","heading":"강점과 균형점","body":"균형을 살펴봅니다.","evidenceKeys":["elementBalance"]},

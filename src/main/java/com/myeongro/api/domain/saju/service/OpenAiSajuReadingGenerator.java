@@ -244,7 +244,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 			"type", "object",
 			"additionalProperties", false,
 			"required", List.of(
-				"readingMode", "title", "summary", "natalSections", "annualReading",
+				"readingMode", "questionRedirected", "title", "summary", "natalSections", "annualReading",
 				"questionReading", "guidance", "disclaimer"
 			),
 			"properties", Map.of(
@@ -254,6 +254,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 						.map(com.myeongro.api.domain.reading.service.ReadingMode::value)
 						.toList()
 				),
+				"questionRedirected", Map.of("type", "boolean"),
 				"title", textSchema(),
 				"summary", textSchema(),
 				"natalSections", Map.of(

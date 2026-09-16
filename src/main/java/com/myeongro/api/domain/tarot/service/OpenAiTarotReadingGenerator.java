@@ -241,9 +241,12 @@ public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
 		return Map.of(
 			"type", "object",
 			"additionalProperties", false,
-			"required", List.of("readingMode", "title", "summary", "sections", "guidance", "disclaimer"),
+			"required", List.of(
+				"readingMode", "questionRedirected", "title", "summary", "sections", "guidance", "disclaimer"
+			),
 			"properties", Map.of(
 				"readingMode", readingModeSchema(),
+				"questionRedirected", Map.of("type", "boolean"),
 				"title", textSchema(),
 				"summary", textSchema(),
 				"sections", Map.of(
