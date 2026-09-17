@@ -6,9 +6,9 @@ import java.util.Set;
 
 public final class SajuCalculationRules {
 
-	public static final String CALCULATION_VERSION = "saju-ko-v3";
+	public static final String CALCULATION_VERSION = "saju-ko-v4";
 	private static final Set<String> SUPPORTED_VERSIONS = Set.of(
-		"saju-ko-v1", "saju-ko-v2", CALCULATION_VERSION
+		"saju-ko-v1", "saju-ko-v2", "saju-ko-v3", CALCULATION_VERSION
 	);
 	public static final String ENGINE = "lunar-java";
 	public static final String ENGINE_VERSION = "1.7.7";

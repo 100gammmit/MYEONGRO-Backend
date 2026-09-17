@@ -124,12 +124,12 @@ public class SajuCalculationService {
 			birthPlaceCatalog.version(),
 			targetYear,
 			correction,
-			candidate.pillars(),
-			candidate.dayMaster(),
+			SajuKoreanTerms.pillars(candidate.pillars()),
+			SajuKoreanTerms.stem(candidate.dayMaster()),
 			candidate.fiveElements(),
-			candidate.relations(),
-			candidate.luckCycle(),
-			candidate.annualFortune(),
+			SajuKoreanTerms.relations(candidate.relations()),
+			SajuKoreanTerms.luckCycle(candidate.luckCycle()),
+			SajuKoreanTerms.annualFortune(candidate.annualFortune()),
 			limitations.stream().distinct().map(Enum::name).toList(),
 			uncertainty
 		);

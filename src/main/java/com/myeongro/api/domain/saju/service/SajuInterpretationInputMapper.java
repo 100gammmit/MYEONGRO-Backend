@@ -7,41 +7,17 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.myeongro.api.domain.saju.calculation.SajuKoreanTerms;
+
 @Component
 public class SajuInterpretationInputMapper {
 
-	private static final Map<String, String> STEMS = Map.ofEntries(
-		Map.entry("甲", "갑"), Map.entry("갑", "갑"),
-		Map.entry("乙", "을"), Map.entry("을", "을"),
-		Map.entry("丙", "병"), Map.entry("병", "병"),
-		Map.entry("丁", "정"), Map.entry("정", "정"),
-		Map.entry("戊", "무"), Map.entry("무", "무"),
-		Map.entry("己", "기"), Map.entry("기", "기"),
-		Map.entry("庚", "경"), Map.entry("경", "경"),
-		Map.entry("辛", "신"), Map.entry("신", "신"),
-		Map.entry("壬", "임"), Map.entry("임", "임"),
-		Map.entry("癸", "계"), Map.entry("계", "계")
-	);
 	private static final Map<String, String> STEM_ELEMENTS = Map.ofEntries(
 		Map.entry("갑", "목"), Map.entry("을", "목"),
 		Map.entry("병", "화"), Map.entry("정", "화"),
 		Map.entry("무", "토"), Map.entry("기", "토"),
 		Map.entry("경", "금"), Map.entry("신", "금"),
 		Map.entry("임", "수"), Map.entry("계", "수")
-	);
-	private static final Map<String, String> BRANCHES = Map.ofEntries(
-		Map.entry("子", "자"), Map.entry("자", "자"),
-		Map.entry("丑", "축"), Map.entry("축", "축"),
-		Map.entry("寅", "인"), Map.entry("인", "인"),
-		Map.entry("卯", "묘"), Map.entry("묘", "묘"),
-		Map.entry("辰", "진"), Map.entry("진", "진"),
-		Map.entry("巳", "사"), Map.entry("사", "사"),
-		Map.entry("午", "오"), Map.entry("오", "오"),
-		Map.entry("未", "미"), Map.entry("미", "미"),
-		Map.entry("申", "신"), Map.entry("신", "신"),
-		Map.entry("酉", "유"), Map.entry("유", "유"),
-		Map.entry("戌", "술"), Map.entry("술", "술"),
-		Map.entry("亥", "해"), Map.entry("해", "해")
 	);
 	private static final Map<String, String> BRANCH_ELEMENTS = Map.ofEntries(
 		Map.entry("자", "수"), Map.entry("축", "토"),
@@ -53,18 +29,6 @@ public class SajuInterpretationInputMapper {
 	);
 	private static final Map<String, String> ELEMENTS = Map.of(
 		"wood", "목", "fire", "화", "earth", "토", "metal", "금", "water", "수"
-	);
-	private static final Map<String, String> TEN_GODS = Map.ofEntries(
-		Map.entry("比肩", "비견"), Map.entry("비견", "비견"),
-		Map.entry("劫财", "겁재"), Map.entry("劫財", "겁재"), Map.entry("겁재", "겁재"),
-		Map.entry("食神", "식신"), Map.entry("식신", "식신"),
-		Map.entry("伤官", "상관"), Map.entry("傷官", "상관"), Map.entry("상관", "상관"),
-		Map.entry("偏财", "편재"), Map.entry("偏財", "편재"), Map.entry("편재", "편재"),
-		Map.entry("正财", "정재"), Map.entry("正財", "정재"), Map.entry("정재", "정재"),
-		Map.entry("七杀", "편관"), Map.entry("七殺", "편관"), Map.entry("편관", "편관"),
-		Map.entry("正官", "정관"), Map.entry("정관", "정관"),
-		Map.entry("偏印", "편인"), Map.entry("편인", "편인"),
-		Map.entry("正印", "정인"), Map.entry("정인", "정인")
 	);
 	private static final Map<String, String> RELATIONS = Map.ofEntries(
 		Map.entry("stem_combination", "천간의 합"),
@@ -219,13 +183,14 @@ public class SajuInterpretationInputMapper {
 		return immutable(result);
 	}
 
+	// Snapshots before saju-ko-v4 stored engine hanja; SajuKoreanTerms reads both forms.
 	private String stemWithElement(String value) {
-		String stem = STEMS.getOrDefault(value, value);
+		String stem = SajuKoreanTerms.stem(value);
 		return stem + STEM_ELEMENTS.getOrDefault(stem, "");
 	}
 
 	private String branchWithElement(String value) {
-		String branch = BRANCHES.getOrDefault(value, value);
+		String branch = SajuKoreanTerms.branch(value);
 		return branch + BRANCH_ELEMENTS.getOrDefault(branch, "");
 	}
 
@@ -237,11 +202,11 @@ public class SajuInterpretationInputMapper {
 	}
 
 	private String ganZhi(String stem, String branch) {
-		return STEMS.getOrDefault(stem, stem) + BRANCHES.getOrDefault(branch, branch);
+		return SajuKoreanTerms.stem(stem) + SajuKoreanTerms.branch(branch);
 	}
 
 	private String tenGod(String value) {
-		return TEN_GODS.getOrDefault(value, value);
+		return SajuKoreanTerms.tenGod(value);
 	}
 
 	private String direction(String value) {

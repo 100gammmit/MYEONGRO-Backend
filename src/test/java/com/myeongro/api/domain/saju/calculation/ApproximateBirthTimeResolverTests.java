@@ -46,6 +46,10 @@ class ApproximateBirthTimeResolverTests {
 		assertThat(resolution.uncertainty().candidateCount()).isEqualTo(121);
 		assertThat(resolution.trusted().pillars().year().ganZhi()).isEqualTo("壬申");
 		assertThat(resolution.trusted().pillars().time()).isNull();
+		// Counted from the shared 壬申·戊申·乙丑 pillars only, not from the candidates' own totals.
+		assertThat(resolution.trusted().fiveElements()).containsExactlyInAnyOrderEntriesOf(Map.of(
+			"wood", 1, "fire", 0, "earth", 2, "metal", 2, "water", 1
+		));
 		assertThat(resolution.uncertainty().varyingFields()).contains("pillars.time");
 		verify(adapter, times(121)).calculate(
 			any(), any(), org.mockito.ArgumentMatchers.eq(true), any(), anyInt()

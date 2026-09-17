@@ -19,11 +19,11 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 class SajuCalculationGoldenTests {
 
 	@Test
-	void matchesFrozenSajuKoV3Fixtures() throws Exception {
+	void matchesFrozenSajuKoV4Fixtures() throws Exception {
 		ObjectMapper objectMapper = new ObjectMapper();
 		SajuCalculationService service = service(objectMapper);
 		JsonNode fixture = objectMapper.readTree(
-			new ClassPathResource("saju/golden/saju-ko-v3.json").getInputStream()
+			new ClassPathResource("saju/golden/saju-ko-v4.json").getInputStream()
 		);
 		assertThat(fixture.path("calculationVersion").asText())
 			.isEqualTo(SajuCalculationRules.CALCULATION_VERSION);
@@ -46,11 +46,18 @@ class SajuCalculationGoldenTests {
 					"BIRTH_TIME_UNKNOWN", "MONTH_PILLAR_UNCERTAIN",
 					"DAY_PILLAR_UNCERTAIN", "TIME_PILLAR_UNCERTAIN"
 				);
-				assertThat(snapshot.annualFortune().ganZhi()).isEqualTo("丙午");
+				assertThat(snapshot.annualFortune().ganZhi()).isEqualTo("병오");
 				assertThat(snapshot.annualFortune().stemTenGod()).isNull();
 				assertThat(snapshot.uncertainty().varyingFields())
 					.contains("annualFortune.stemTenGod");
+				// Only the fixed year pillar 무진 is counted: 무 earth, 진 earth.
+				assertThat(snapshot.fiveElements()).containsExactlyInAnyOrderEntriesOf(Map.of(
+					"wood", 0, "fire", 0, "earth", 2, "metal", 0, "water", 0
+				));
 			}
+			assertThat(objectMapper.writeValueAsString(snapshot))
+				.as("stored terms are Korean for %s", testCase.path("id").asText())
+				.doesNotContainPattern("\\p{IsHan}");
 			if ("lichun-before-female".equals(testCase.path("id").asText())) {
 				assertThat(snapshot.timeCorrection().engineCivilTime())
 					.isEqualTo("2020-02-04T17:00");

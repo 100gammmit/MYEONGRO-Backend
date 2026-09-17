@@ -5,6 +5,11 @@
 요청 연도의 공통 간지는 보존하고, 달라지는 세운 십성만 불확실 값으로 제외한다.
 `saju-ko-v3`는 출생지를 시·도 단위로 간소화하고 시·도 내부 행정구역 좌표의 중앙값을
 진태양시 보정에 사용한다. 출생시간 미상은 대한민국 표준 자오선을 기준으로 계산한다.
+`saju-ko-v4`는 v3와 같은 산술 규칙을 유지하면서 두 가지를 바꾼다. 첫째, 엔진이 돌려주는
+한자 간지·오행과 중국어 간체 십성을 snapshot에 저장하기 전에 한국어 명리 용어(`SajuKoreanTerms`)로
+바꾼다. 계산 규칙 판정은 여전히 엔진의 한자 값으로 하고, 합충 종류는 코드(`branch_clash` 등)로 둔다.
+둘째, 오행 분포는 후보끼리 같은 값만 남기지 않고 모든 후보에 공통으로 확정된 기둥만으로 다섯 오행을
+모두 센다.
 
 - 계산 엔진: `lunar-java` `1.7.7`
 - 출생지 카탈로그: 계산 시점의 `cityCatalogVersion`을 snapshot에 저장
@@ -28,6 +33,8 @@ strict decode하고 계산을 다시 수행하지 않는다. 엔진·규칙·카
 fixture 기대값을 덮어쓰지 말고 새 계산 버전을 추가한다.
 
 골든 fixture는 `src/test/resources/saju/golden/saju-ko-v1.json`과
-`src/test/resources/saju/golden/saju-ko-v2.json`, `src/test/resources/saju/golden/saju-ko-v3.json`에 있으며 공식 엔진 소스
-`https://github.com/6tail/lunar-java/tree/v1.7.7`을 검증 출처로 기록한다.
-실패 리딩 재시도는 저장된 v1, v2, v3 snapshot을 모두 읽을 수 있다.
+`src/test/resources/saju/golden/saju-ko-v2.json`, `src/test/resources/saju/golden/saju-ko-v3.json`,
+`src/test/resources/saju/golden/saju-ko-v4.json`에 있으며 공식 엔진 소스
+`https://github.com/6tail/lunar-java/tree/v1.7.7`을 검증 출처로 기록한다. v4 fixture는 v3와 같은
+케이스의 기대값을 한국어 용어로 옮긴 것이다.
+실패 리딩 재시도는 저장된 v1~v4 snapshot을 모두 읽을 수 있고, 해석 입력 변환은 한자와 한국어 용어를 모두 받는다.

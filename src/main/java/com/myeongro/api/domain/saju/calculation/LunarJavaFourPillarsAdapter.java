@@ -155,23 +155,24 @@ public class LunarJavaFourPillarsAdapter {
 		return new AnnualFortune(targetYear, ganZhi, tenGod);
 	}
 
-	Map<String, Integer> countElements(Pillars pillars) {
+	// Counts only the pillars that are present, so a merged snapshot never counts a pillar it could not fix.
+	static Map<String, Integer> countElements(Pillars pillars) {
 		Map<String, Integer> counts = new LinkedHashMap<>();
 		for (String element : List.of("wood", "fire", "earth", "metal", "water")) {
 			counts.put(element, 0);
 		}
-		for (Pillar pillar : List.of(pillars.year(), pillars.month(), pillars.day())) {
-			increment(counts, pillar.stem());
-			increment(counts, pillar.branch());
-		}
-		if (pillars.time() != null) {
-			increment(counts, pillars.time().stem());
-			increment(counts, pillars.time().branch());
+		for (Pillar pillar : java.util.Arrays.asList(
+			pillars.year(), pillars.month(), pillars.day(), pillars.time()
+		)) {
+			if (pillar != null) {
+				increment(counts, pillar.stem());
+				increment(counts, pillar.branch());
+			}
 		}
 		return counts;
 	}
 
-	private void increment(Map<String, Integer> counts, String symbol) {
+	private static void increment(Map<String, Integer> counts, String symbol) {
 		String element = ELEMENTS.get(symbol);
 		counts.computeIfPresent(element, (ignored, value) -> value + 1);
 	}

@@ -3,7 +3,6 @@ package com.myeongro.api.domain.saju.calculation;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -118,7 +117,9 @@ public class ApproximateBirthTimeResolver {
 		String dayMaster = common(candidates, Candidate::dayMaster);
 		LuckCycle luckCycle = includeTime ? common(candidates, Candidate::luckCycle) : null;
 		AnnualFortune annual = commonAnnualFortune(candidates);
-		Map<String, Integer> elements = commonElementCounts(candidates);
+		Map<String, Integer> elements = LunarJavaFourPillarsAdapter.countElements(
+			new Pillars(year, month, day, time)
+		);
 		List<Relation> relations = commonRelations(candidates);
 
 		List<String> varying = new ArrayList<>();
@@ -241,18 +242,6 @@ public class ApproximateBirthTimeResolver {
 		return values.stream().allMatch(value -> Objects.equals(first, getter.apply(value)))
 			? first
 			: null;
-	}
-
-	private Map<String, Integer> commonElementCounts(List<Candidate> candidates) {
-		Map<String, Integer> first = candidates.getFirst().fiveElements();
-		Map<String, Integer> common = new LinkedHashMap<>();
-		for (Map.Entry<String, Integer> entry : first.entrySet()) {
-			if (candidates.stream().allMatch(candidate ->
-				Objects.equals(entry.getValue(), candidate.fiveElements().get(entry.getKey())))) {
-				common.put(entry.getKey(), entry.getValue());
-			}
-		}
-		return common;
 	}
 
 	private List<Relation> commonRelations(List<Candidate> candidates) {
