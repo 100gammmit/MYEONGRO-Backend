@@ -26,7 +26,6 @@ create table public.oauth_accounts (
 create table public.readings (
   id uuid primary key,
   user_id uuid not null,
-  deleted_at timestamp with time zone,
   foreign key (user_id) references public.profiles(id) on delete cascade
 );
 
