@@ -48,7 +48,6 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 			r.updated_at
 		from public.readings r
 		where r.user_id = :userId
-		  and r.deleted_at is null
 		""";
 
 	@PersistenceContext
@@ -87,18 +86,16 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 
 	@Override
 	@Transactional
-	public boolean softDeleteByUserAndId(UUID userId, UUID readingId) {
-		int updated = entityManager.createNativeQuery("""
-			update public.readings
-			set deleted_at = current_timestamp
+	public boolean deleteByUserAndId(UUID userId, UUID readingId) {
+		int deleted = entityManager.createNativeQuery("""
+			delete from public.readings
 			where user_id = :userId
 			  and id = :readingId
-			  and deleted_at is null
 			""")
 			.setParameter("userId", userId)
 			.setParameter("readingId", readingId)
 			.executeUpdate();
-		return updated > 0;
+		return deleted > 0;
 	}
 
 	private CreatedReadingResponse toResponse(Object[] row) {

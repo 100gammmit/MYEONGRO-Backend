@@ -35,9 +35,6 @@ class JpaReadingRecordsRepositoryTests {
 		UUID.fromString("4c524cf3-3c92-4913-9d7b-7c97996e9e94");
 	private static final UUID READING_ID =
 		UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dfc");
-	private static final UUID DELETED_READING_ID =
-		UUID.fromString("20e84e95-f5ff-4d9d-a6c4-a3c8ea2e2dff");
-
 	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
@@ -49,10 +46,9 @@ class JpaReadingRecordsRepositoryTests {
 	}
 
 	@Test
-	void listsOnlyActiveReadingsOwnedByUserWithLatestGenerationError() {
-		insertReading(READING_ID, USER_ID, null, "failed");
-		insertReading(DELETED_READING_ID, USER_ID, "2026-06-16T00:00:00Z", "completed");
-		insertReading(UUID.randomUUID(), OTHER_USER_ID, null, "completed");
+	void listsOnlyReadingsOwnedByUserWithLatestGenerationError() {
+		insertReading(READING_ID, USER_ID, "failed");
+		insertReading(UUID.randomUUID(), OTHER_USER_ID, "completed");
 		insertGeneration(READING_ID, "OLD_ERROR", "2026-06-15T00:00:00Z");
 		insertGeneration(READING_ID, "LATEST_ERROR", "2026-06-16T00:00:00Z");
 
@@ -70,20 +66,26 @@ class JpaReadingRecordsRepositoryTests {
 	}
 
 	@Test
-	void softDeletesOnlyActiveReadingOwnedByUser() {
-		insertReading(READING_ID, USER_ID, null, "completed");
+	void permanentlyDeletesOnlyReadingOwnedByUserAndCascadesGenerationRecords() {
+		insertReading(READING_ID, USER_ID, "completed");
+		insertGeneration(READING_ID, null, "2026-06-16T00:00:00Z");
 
-		boolean deleted = repository.softDeleteByUserAndId(USER_ID, READING_ID);
-		boolean secondDelete = repository.softDeleteByUserAndId(USER_ID, READING_ID);
+		boolean deleted = repository.deleteByUserAndId(USER_ID, READING_ID);
+		boolean secondDelete = repository.deleteByUserAndId(USER_ID, READING_ID);
 
 		assertThat(deleted).isTrue();
 		assertThat(secondDelete).isFalse();
 		assertThat(repository.findByUserAndId(USER_ID, READING_ID)).isEmpty();
+		assertThat(jdbcTemplate.queryForObject(
+			"select count(*) from public.generation_records where reading_id = ?",
+			Integer.class,
+			READING_ID
+		)).isZero();
 	}
 
 	@Test
 	void preservesUnknownPayloadSchemaMetadataForReadOnlyAccess() {
-		insertReading(READING_ID, USER_ID, null, "completed", 2);
+		insertReading(READING_ID, USER_ID, "completed", 2);
 
 		CreatedReadingResponse reading = repository.listByUser(USER_ID).getFirst();
 
@@ -121,16 +123,14 @@ class JpaReadingRecordsRepositoryTests {
 	private void insertReading(
 		UUID readingId,
 		UUID userId,
-		String deletedAt,
 		String status
 	) {
-		insertReading(readingId, userId, deletedAt, status, 1);
+		insertReading(readingId, userId, status, 1);
 	}
 
 	private void insertReading(
 		UUID readingId,
 		UUID userId,
-		String deletedAt,
 		String status,
 		int schemaVersion
 	) {
@@ -139,9 +139,9 @@ class JpaReadingRecordsRepositoryTests {
 			insert into public.readings (
 				id, user_id, kind, spread_type, schema_version,
 				status, title, input_payload, result_payload,
-				deleted_at, created_at, updated_at
+				created_at, updated_at
 			)
-			values (?, ?, 'tarot', 'mind_three_card', ?, ?, 'A title', ?, ?, ?, ?, ?)
+			values (?, ?, 'tarot', 'mind_three_card', ?, ?, 'A title', ?, ?, ?, ?)
 			""",
 			readingId,
 			userId,
@@ -149,7 +149,6 @@ class JpaReadingRecordsRepositoryTests {
 			status,
 			"{\"question\":\"How is today?\"}",
 			"{\"title\":\"A title\"}",
-			deletedAt == null ? null : OffsetDateTime.parse(deletedAt),
 			OffsetDateTime.parse("2026-06-15T00:00:00Z"),
 			OffsetDateTime.parse("2026-06-15T00:00:00Z")
 		);

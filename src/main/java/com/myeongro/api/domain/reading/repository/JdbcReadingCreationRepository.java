@@ -46,7 +46,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 			created_at,
 			updated_at
 		from public.readings
-		where user_id = ? and request_id = ? and deleted_at is null
+		where user_id = ? and request_id = ?
 		""";
 
 	private static final String CREATE_PENDING = """

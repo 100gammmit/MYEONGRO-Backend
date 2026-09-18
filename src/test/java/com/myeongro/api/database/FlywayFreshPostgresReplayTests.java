@@ -65,6 +65,9 @@ class FlywayFreshPostgresReplayTests {
 		LegacySajuReading unknownLegacy = seedLegacySajuReading(
 			jdbcUrl, username, password, activeUserId, "unknown", "completed"
 		);
+		UUID softDeletedReadingId = seedSoftDeletedReading(
+			jdbcUrl, username, password, activeUserId
+		);
 		Flyway latest = Flyway.configure()
 			.dataSource(jdbcUrl, username, password)
 			.locations("classpath:db/migration")
@@ -75,12 +78,15 @@ class FlywayFreshPostgresReplayTests {
 		var latestResult = latest.migrate();
 
 		assertThat(latestResult.success).isTrue();
-		assertThat(latestResult.migrationsExecuted).isEqualTo(4);
+		assertThat(latestResult.migrationsExecuted).isEqualTo(6);
 		verifyImmediateDeletionMigration(
 			jdbcUrl, username, password, withdrawnUserId, activeUserId
 		);
 		verifyPromptRemovalMigration(
 			jdbcUrl, username, password, activeUserId, exactLegacy, unknownLegacy
+		);
+		verifyHardDeletionMigration(
+			jdbcUrl, username, password, softDeletedReadingId
 		);
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -92,7 +98,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(14);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(16);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -133,10 +139,15 @@ class FlywayFreshPostgresReplayTests {
 				   not exists (
 				     select 1 from public.consent_events
 				     where document_type in ('PRIVACY', 'SENSITIVE_DATA')
+				   ),
+				   not exists (
+				     select 1 from information_schema.columns
+				     where table_schema = 'public' and table_name = 'readings'
+				       and column_name = 'deleted_at'
 				   )
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			for (int column = 1; column <= 16; column++) {
+			for (int column = 1; column <= 17; column++) {
 				assertThat(resultSet.getBoolean(column)).isTrue();
 			}
 		}
@@ -254,6 +265,67 @@ class FlywayFreshPostgresReplayTests {
 			}
 		}
 		return new LegacySajuReading(readingId, requestId);
+	}
+
+	private UUID seedSoftDeletedReading(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId
+	) throws SQLException {
+		UUID readingId = UUID.randomUUID();
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			try (var reading = connection.prepareStatement("""
+				insert into public.readings (
+				  id, user_id, request_id, input_hash, kind, status, title,
+				  input_payload, result_payload, spread_type, schema_version,
+				  credit_cost, deleted_at
+				) values (?, ?, ?, 'soft-deleted-hash', 'tarot', 'completed',
+				  'Deleted reading', '{}'::jsonb, '{}'::jsonb,
+				  'mind_three_card', 1, 2, current_timestamp)
+				""")) {
+				reading.setObject(1, readingId);
+				reading.setObject(2, userId);
+				reading.setObject(3, UUID.randomUUID());
+				reading.executeUpdate();
+			}
+			try (var generation = connection.prepareStatement("""
+				insert into public.generation_records (
+				  reading_id, provider, model, prompt_version, idempotency_key, status
+				) values (?, 'test', 'test-model', 'test-prompt', ?, 'completed')
+				""")) {
+				generation.setObject(1, readingId);
+				generation.setString(2, "soft-deleted:" + readingId);
+				generation.executeUpdate();
+			}
+		}
+		return readingId;
+	}
+
+	private void verifyHardDeletionMigration(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID readingId
+	) throws SQLException {
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			try (var reading = connection.prepareStatement(
+				"select count(*) from public.readings where id = ?")) {
+				reading.setObject(1, readingId);
+				try (var resultSet = reading.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					assertThat(resultSet.getInt(1)).isZero();
+				}
+			}
+			try (var generation = connection.prepareStatement(
+				"select count(*) from public.generation_records where reading_id = ?")) {
+				generation.setObject(1, readingId);
+				try (var resultSet = generation.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					assertThat(resultSet.getInt(1)).isZero();
+				}
+			}
+		}
 	}
 
 	private void verifyPromptRemovalMigration(

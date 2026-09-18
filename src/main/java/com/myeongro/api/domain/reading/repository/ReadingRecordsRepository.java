@@ -12,6 +12,6 @@ public interface ReadingRecordsRepository {
 
 	Optional<CreatedReadingResponse> findByUserAndId(UUID userId, UUID readingId);
 
-	boolean softDeleteByUserAndId(UUID userId, UUID readingId);
+	boolean deleteByUserAndId(UUID userId, UUID readingId);
 
 }

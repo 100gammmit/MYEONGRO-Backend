@@ -32,7 +32,7 @@ public class ReadingRecordsService {
 	}
 
 	public void deleteByUserAndId(UUID userId, UUID readingId) {
-		if (!repository.softDeleteByUserAndId(userId, readingId)) {
+		if (!repository.deleteByUserAndId(userId, readingId)) {
 			throw new ReadingRecordNotFoundException();
 		}
 	}

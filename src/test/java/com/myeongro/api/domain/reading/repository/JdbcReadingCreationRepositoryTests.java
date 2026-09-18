@@ -92,7 +92,8 @@ class JdbcReadingCreationRepositoryTests {
 			args.capture()
 		);
 		assertThat(sql.getValue())
-			.contains("where user_id = ? and request_id = ? and deleted_at is null");
+			.contains("where user_id = ? and request_id = ?")
+			.doesNotContain("deleted_at");
 		assertThat(args.getValue()).containsExactly(USER_ID, REQUEST_ID);
 	}
 

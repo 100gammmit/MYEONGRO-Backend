@@ -262,4 +262,23 @@ class FlywayBaselineContractTests {
 			.contains("'SAJU_INPUT'");
 	}
 
+	@Test
+	void v16PermanentlyDeletesReadingsAndRemovesSoftDeleteSchema()
+		throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V16__hard_delete_readings"))
+			.findFirst()
+			.orElseThrow();
+
+		var sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("delete from public.readings where deleted_at is not null")
+			.contains("drop column deleted_at")
+			.contains("create index readings_tarot_spread_created_idx")
+			.contains("create unique index readings_one_generating_per_user_uq")
+			.doesNotContain("readings.deleted_at");
+	}
+
 }
