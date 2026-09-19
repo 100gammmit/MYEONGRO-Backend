@@ -78,6 +78,7 @@ class JdbcReadingCreationRepositoryTests {
 			ReadingKind.TAROT,
 			TarotSpreadType.MIND_THREE_CARD.value(),
 			2,
+			"input-hash",
 			Map.of("cards", List.of())
 		);
 
@@ -105,6 +106,7 @@ class JdbcReadingCreationRepositoryTests {
 			ReadingKind.TAROT,
 			TarotSpreadType.MIND_THREE_CARD.value(),
 			2,
+			"input-hash",
 			Map.of("cards", List.of(Map.of("cardId", "major-00-fool")))
 		))
 			.isInstanceOf(ReadingIdempotencyConflictException.class);
@@ -136,6 +138,7 @@ class JdbcReadingCreationRepositoryTests {
 			ReadingKind.SAJU,
 			null,
 			4,
+			"legacy-input-hash-is-not-used",
 			Map.of("focusArea", "career", "birthProfile", birthProfile)
 		);
 
@@ -143,6 +146,29 @@ class JdbcReadingCreationRepositoryTests {
 		assertThat(existing.orElseThrow().input())
 			.containsKeys("focusArea", "birthProfile", "targetYear", "calculationSnapshot")
 			.doesNotContainKey("question");
+	}
+
+	@Test
+	void matchesSajuVersionFiveBySecretFingerprintInsteadOfStoredPayload()
+		throws SQLException {
+		when(jdbcTemplate.query(
+			anyString(),
+			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+			any(Object[].class)
+		)).thenAnswer(invocation -> {
+			RowMapper<?> rowMapper = invocation.getArgument(1);
+			return List.of(rowMapper.mapRow(sajuV5ResultSet("expected-hmac"), 0));
+		});
+
+		assertThat(repository.findExisting(
+			USER_ID, REQUEST_ID, ReadingKind.SAJU, null, 5,
+			"expected-hmac", Map.of("birthProfile", Map.of("birthDate", "secret"))
+		)).isPresent();
+
+		assertThatThrownBy(() -> repository.findExisting(
+			USER_ID, REQUEST_ID, ReadingKind.SAJU, null, 5,
+			"different-hmac", Map.of("birthProfile", Map.of("birthDate", "different"))
+		)).isInstanceOf(ReadingIdempotencyConflictException.class);
 	}
 
 	@Test
@@ -337,6 +363,7 @@ class JdbcReadingCreationRepositoryTests {
 		when(resultSet.getString("kind")).thenReturn("tarot");
 		when(resultSet.getString("spread_type")).thenReturn("mind_three_card");
 		when(resultSet.getInt("schema_version")).thenReturn(2);
+		when(resultSet.getString("input_hash")).thenReturn("input-hash");
 		when(resultSet.getString("status")).thenReturn("generating");
 		when(resultSet.getString("title")).thenReturn("Generating...");
 		when(resultSet.getString("input_payload"))
@@ -355,6 +382,7 @@ class JdbcReadingCreationRepositoryTests {
 		when(resultSet.getString("kind")).thenReturn("saju");
 		when(resultSet.getString("spread_type")).thenReturn(null);
 		when(resultSet.getInt("schema_version")).thenReturn(4);
+		when(resultSet.getString("input_hash")).thenReturn("legacy-input-hash");
 		when(resultSet.getString("status")).thenReturn("completed");
 		when(resultSet.getString("title")).thenReturn("사주 리딩");
 		when(resultSet.getString("input_payload")).thenReturn("""
@@ -372,6 +400,26 @@ class JdbcReadingCreationRepositoryTests {
 			  "calculationSnapshot":{}
 			}
 			""");
+		when(resultSet.getString("result_payload")).thenReturn("{}");
+		when(resultSet.getTimestamp("created_at"))
+			.thenReturn(Timestamp.from(Instant.parse("2026-06-16T00:00:00Z")));
+		when(resultSet.getTimestamp("updated_at"))
+			.thenReturn(Timestamp.from(Instant.parse("2026-06-16T00:00:01Z")));
+		return resultSet;
+	}
+
+	private ResultSet sajuV5ResultSet(String inputHash) throws SQLException {
+		ResultSet resultSet = org.mockito.Mockito.mock(ResultSet.class);
+		when(resultSet.getObject("id", UUID.class)).thenReturn(READING_ID);
+		when(resultSet.getString("kind")).thenReturn("saju");
+		when(resultSet.getString("spread_type")).thenReturn(null);
+		when(resultSet.getInt("schema_version")).thenReturn(5);
+		when(resultSet.getString("input_hash")).thenReturn(inputHash);
+		when(resultSet.getString("status")).thenReturn("completed");
+		when(resultSet.getString("title")).thenReturn("사주 리딩");
+		when(resultSet.getString("input_payload")).thenReturn(
+			"{\"targetYear\":2026,\"calculationSnapshot\":{}}"
+		);
 		when(resultSet.getString("result_payload")).thenReturn("{}");
 		when(resultSet.getTimestamp("created_at"))
 			.thenReturn(Timestamp.from(Instant.parse("2026-06-16T00:00:00Z")));

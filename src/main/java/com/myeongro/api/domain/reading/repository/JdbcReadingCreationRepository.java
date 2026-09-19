@@ -39,6 +39,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 			kind::text as kind,
 			spread_type,
 			schema_version,
+			input_hash,
 			status::text as status,
 			title,
 			input_payload::text as input_payload,
@@ -98,19 +99,26 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		ReadingKind kind,
 		String spreadType,
 		int schemaVersion,
+		String inputHash,
 		Map<String, Object> input
 	) {
-		List<CreatedReadingResponse> existing = jdbcTemplate.query(
+		List<ExistingReading> existing = jdbcTemplate.query(
 			SELECT_EXISTING,
-			this::toResponse,
+			(resultSet, rowNumber) -> new ExistingReading(
+				toResponse(resultSet, rowNumber),
+				resultSet.getString("input_hash")
+			),
 			userId,
 			requestId
 		);
 		if (existing.isEmpty()) {
 			return Optional.empty();
 		}
-		CreatedReadingResponse reading = existing.getFirst();
-		if (!matchesPersistentRequest(reading, kind, spreadType, schemaVersion, input)) {
+		ExistingReading stored = existing.getFirst();
+		CreatedReadingResponse reading = stored.reading();
+		if (!matchesPersistentRequest(
+			reading, stored.inputHash(), kind, spreadType, schemaVersion, inputHash, input
+		)) {
 			throw new ReadingIdempotencyConflictException();
 		}
 		return Optional.of(reading);
@@ -118,15 +126,23 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 
 	private boolean matchesPersistentRequest(
 		CreatedReadingResponse reading,
+		String storedInputHash,
 		ReadingKind kind,
 		String spreadType,
 		int schemaVersion,
+		String inputHash,
 		Map<String, Object> input
 	) {
-		return reading.kind() == kind
+		boolean metadataMatches = reading.kind() == kind
 			&& Objects.equals(reading.spreadType(), spreadType)
-			&& reading.schemaVersion() == schemaVersion
-			&& idempotencyInput(kind, reading.input()).equals(idempotencyInput(kind, input));
+			&& reading.schemaVersion() == schemaVersion;
+		if (!metadataMatches) {
+			return false;
+		}
+		if (kind == ReadingKind.SAJU && schemaVersion >= 5) {
+			return Objects.equals(storedInputHash, inputHash);
+		}
+		return idempotencyInput(kind, reading.input()).equals(idempotencyInput(kind, input));
 	}
 
 	private Map<String, Object> idempotencyInput(
@@ -308,6 +324,9 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	}
 
 	private record PendingIds(UUID readingId, Long generationId) {
+	}
+
+	private record ExistingReading(CreatedReadingResponse reading, String inputHash) {
 	}
 
 }

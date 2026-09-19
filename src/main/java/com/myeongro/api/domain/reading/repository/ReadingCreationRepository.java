@@ -16,6 +16,7 @@ public interface ReadingCreationRepository {
 		ReadingKind kind,
 		String spreadType,
 		int schemaVersion,
+		String inputHash,
 		Map<String, Object> input
 	);
 

@@ -28,6 +28,7 @@ import com.myeongro.api.domain.reading.repository.JdbcReadingCreationRepository;
 import com.myeongro.api.domain.reading.service.DirectIdentifierInputGuard;
 import com.myeongro.api.domain.reading.service.NormalizedReadingInput;
 import com.myeongro.api.domain.reading.service.ReadingCreationWorkflow;
+import com.myeongro.api.domain.reading.service.ReadingInputFingerprinter;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadataResolver;
 import com.myeongro.api.domain.reading.service.ReadingGenerator;
 import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
@@ -68,6 +69,9 @@ class FlywayFreshPostgresReplayTests {
 		UUID softDeletedReadingId = seedSoftDeletedReading(
 			jdbcUrl, username, password, activeUserId
 		);
+		UUID retainedTarotReadingId = seedRetainedTarotReading(
+			jdbcUrl, username, password, activeUserId
+		);
 		Flyway latest = Flyway.configure()
 			.dataSource(jdbcUrl, username, password)
 			.locations("classpath:db/migration")
@@ -78,12 +82,13 @@ class FlywayFreshPostgresReplayTests {
 		var latestResult = latest.migrate();
 
 		assertThat(latestResult.success).isTrue();
-		assertThat(latestResult.migrationsExecuted).isEqualTo(6);
+		assertThat(latestResult.migrationsExecuted).isEqualTo(7);
 		verifyImmediateDeletionMigration(
 			jdbcUrl, username, password, withdrawnUserId, activeUserId
 		);
-		verifyPromptRemovalMigration(
-			jdbcUrl, username, password, activeUserId, exactLegacy, unknownLegacy
+		verifySajuV5MinimizationMigration(
+			jdbcUrl, username, password, activeUserId, exactLegacy, unknownLegacy,
+			retainedTarotReadingId
 		);
 		verifyHardDeletionMigration(
 			jdbcUrl, username, password, softDeletedReadingId
@@ -98,7 +103,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(16);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(17);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -302,6 +307,30 @@ class FlywayFreshPostgresReplayTests {
 		return readingId;
 	}
 
+	private UUID seedRetainedTarotReading(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId
+	) throws SQLException {
+		UUID readingId = UUID.randomUUID();
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var reading = connection.prepareStatement("""
+				 insert into public.readings (
+				   id, user_id, request_id, input_hash, kind, status, title,
+				   input_payload, result_payload, spread_type, schema_version, credit_cost
+				 ) values (?, ?, ?, 'retained-tarot-hash', 'tarot', 'completed',
+				   'Retained tarot', '{}'::jsonb, '{}'::jsonb,
+				   'mind_three_card', 2, 2)
+				 """)) {
+			reading.setObject(1, readingId);
+			reading.setObject(2, userId);
+			reading.setObject(3, UUID.randomUUID());
+			reading.executeUpdate();
+		}
+		return readingId;
+	}
+
 	private void verifyHardDeletionMigration(
 		String jdbcUrl,
 		String username,
@@ -328,66 +357,86 @@ class FlywayFreshPostgresReplayTests {
 		}
 	}
 
-	private void verifyPromptRemovalMigration(
+	private void verifySajuV5MinimizationMigration(
 		String jdbcUrl,
 		String username,
 		String password,
 		UUID userId,
 		LegacySajuReading exactLegacy,
-		LegacySajuReading unknownLegacy
+		LegacySajuReading unknownLegacy,
+		UUID retainedTarotReadingId
 	) throws SQLException {
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
-			verifyMigratedSajuProfile(connection, exactLegacy.readingId(), false);
-			verifyMigratedSajuProfile(connection, unknownLegacy.readingId(), true);
-			try (var function = connection.createStatement();
-				 var resultSet = function.executeQuery("""
-					 select to_regprocedure(
-					   'public.start_failed_reading_retry(uuid,uuid,text,text,text,integer,integer)'
-					 ) is null
-					 """)) {
-				assertThat(resultSet.next()).isTrue();
-				assertThat(resultSet.getBoolean(1)).isTrue();
+			assertReadingCount(connection, exactLegacy.readingId(), 0);
+			assertReadingCount(connection, unknownLegacy.readingId(), 0);
+			assertReadingCount(connection, retainedTarotReadingId, 1);
+			try (var generation = connection.prepareStatement(
+				"select count(*) from public.generation_records where reading_id = ?")) {
+				generation.setObject(1, exactLegacy.readingId());
+				try (var resultSet = generation.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					assertThat(resultSet.getInt(1)).isZero();
+				}
 			}
 			assertSqlState("23514", () -> {
 				try (var invalid = connection.prepareStatement("""
-					 update public.readings
-					 set input_payload = jsonb_set(input_payload, '{question}', '"blocked"'::jsonb)
-					 where id = ?
+					 insert into public.readings (
+					   id, user_id, request_id, input_hash, kind, status, title,
+					   input_payload, spread_type, schema_version, credit_cost
+					 ) values (?, ?, ?, 'saju-hmac', 'saju', 'generating', '사주 리딩',
+					   cast(? as jsonb), null, 5, 4)
 					 """)) {
-					invalid.setObject(1, exactLegacy.readingId());
+					invalid.setObject(1, UUID.randomUUID());
+					invalid.setObject(2, userId);
+					invalid.setObject(3, UUID.randomUUID());
+					invalid.setString(4, validSajuV5Input().replace(
+						"\"targetYear\":2026", "\"targetYear\":2026,\"birthDate\":\"1992-08-17\""
+					));
 					invalid.executeUpdate();
 				}
 			});
+			try (var valid = connection.prepareStatement("""
+				 insert into public.readings (
+				   id, user_id, request_id, input_hash, kind, status, title,
+				   input_payload, spread_type, schema_version, credit_cost
+				 ) values (?, ?, ?, 'saju-hmac-valid', 'saju', 'generating', '사주 리딩',
+				   cast(? as jsonb), null, 5, 4)
+				 """)) {
+				valid.setObject(1, UUID.randomUUID());
+				valid.setObject(2, userId);
+				valid.setObject(3, UUID.randomUUID());
+				valid.setString(4, validSajuV5Input());
+				assertThat(valid.executeUpdate()).isOne();
+			}
 		}
+	}
 
-		var dataSource = new DriverManagerDataSource(jdbcUrl, username, password);
-		var repository = new JdbcReadingCreationRepository(
-			new JdbcTemplate(dataSource),
-			new ObjectMapper(),
-			ReadingCreditTestFixtures.properties()
-		);
-		Map<String, Object> currentInput = Map.of(
-			"focusArea", "career",
-			"birthProfile", Map.of(
-				"calendarType", "solar",
-				"birthDate", "1992-08-17",
-				"birthTime", "14:30",
-				"birthTimePrecision", "exact",
-				"provinceCode", "11",
-				"luckDirectionBasis", "female"
-			)
-		);
-		assertThat(repository.findExisting(
-			userId,
-			exactLegacy.requestId(),
-			ReadingKind.SAJU,
-			null,
-			4,
-			currentInput
-		)).get().extracting(reading -> reading.status()).isEqualTo("generating");
-		verifyMigratedGeneratingRequest(
-			repository, userId, exactLegacy.requestId(), currentInput
-		);
+	private void assertReadingCount(Connection connection, UUID readingId, int expected)
+		throws SQLException {
+		try (var statement = connection.prepareStatement(
+			"select count(*) from public.readings where id = ?")) {
+			statement.setObject(1, readingId);
+			try (var resultSet = statement.executeQuery()) {
+				assertThat(resultSet.next()).isTrue();
+				assertThat(resultSet.getInt(1)).isEqualTo(expected);
+			}
+		}
+	}
+
+	private String validSajuV5Input() {
+		return """
+			{"targetYear":2026,"calculationSnapshot":{
+			"calculationVersion":"saju-ko-v4","engine":"lunar-java",
+			"engineVersion":"1.7.7","cityCatalogVersion":"kr-admin-v1",
+			"targetYear":2026,"pillars":{
+			"year":{"ganZhi":"임신","stemTenGod":"편인"},
+			"month":{"ganZhi":"무신","stemTenGod":"편재"},
+			"day":{"ganZhi":"을축","stemTenGod":"비견"},"time":null},
+			"dayMaster":"을","fiveElements":{"wood":1,"fire":0,"earth":3,"metal":2,"water":2},
+			"relations":[],"currentLuckCycle":{"startYear":2023,"endYear":2032,"ganZhi":"병오"},
+			"annualFortune":{"year":2026,"ganZhi":"병오","stemTenGod":"상관"},
+			"limitations":[],"uncertainty":{"varyingFields":[]}}}
+			""";
 	}
 
 	private void verifyMigratedGeneratingRequest(
@@ -406,7 +455,9 @@ class FlywayFreshPostgresReplayTests {
 			consentService,
 			repository,
 			generator,
-			new ObjectMapper(),
+			new ReadingInputFingerprinter(
+				new ObjectMapper(), "test-only-saju-idempotency-secret-32-bytes"
+			),
 			metadataResolver,
 			ReadingCreditTestFixtures.properties(),
 			new DirectIdentifierInputGuard()

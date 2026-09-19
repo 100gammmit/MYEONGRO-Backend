@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.time.Clock;
 import java.time.ZoneOffset;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +36,7 @@ import com.myeongro.api.domain.reading.repository.ReadingCreationRepository;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
 import com.myeongro.api.domain.saju.service.SajuReadingInputAssembler;
+import com.myeongro.api.domain.saju.service.SajuCalculationInput;
 import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
 import com.myeongro.api.domain.saju.service.SajuReadingInputNormalizer;
 import com.myeongro.api.domain.tarot.service.TarotCardSelector;
@@ -181,7 +181,7 @@ class ReadingCreationWorkflowTests {
 	}
 
 	@Test
-	void reservesSajuSchemaVersionTwoWithoutTarotFields() {
+	void persistsOnlySajuSchemaVersionFiveCalculationSnapshot() {
 		ConsentService consentService = acceptedConsent();
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
@@ -210,8 +210,8 @@ class ReadingCreationWorkflowTests {
 		assertThat(command.getValue().schemaVersion()).isEqualTo(ReadingSchemaVersions.SAJU);
 		assertThat(command.getValue().creditCost()).isEqualTo(4);
 		assertThat(command.getValue().input())
-			.containsOnlyKeys("focusArea", "birthProfile", "targetYear", "calculationSnapshot")
-			.doesNotContainKey("question");
+			.containsOnlyKeys("targetYear", "calculationSnapshot")
+			.doesNotContainKeys("question", "focusArea", "birthProfile");
 		assertThat(command.getValue().input()).containsEntry("targetYear", 2026);
 		verify(consentService).hasAccepted(USER_ID, ConsentScope.SAJU);
 	}
@@ -228,6 +228,7 @@ class ReadingCreationWorkflowTests {
 			org.mockito.ArgumentMatchers.eq(ReadingKind.SAJU),
 			org.mockito.ArgumentMatchers.isNull(),
 			org.mockito.ArgumentMatchers.eq(ReadingSchemaVersions.SAJU),
+			org.mockito.ArgumentMatchers.anyString(),
 			org.mockito.ArgumentMatchers.anyMap()
 		)).thenReturn(Optional.of(existing));
 
@@ -310,6 +311,7 @@ class ReadingCreationWorkflowTests {
 			org.mockito.ArgumentMatchers.eq(ReadingKind.TAROT),
 			org.mockito.ArgumentMatchers.eq(TarotSpreadType.RELATIONSHIP_THREE_CARD.value()),
 			org.mockito.ArgumentMatchers.eq(ReadingSchemaVersions.TAROT),
+			org.mockito.ArgumentMatchers.anyString(),
 			org.mockito.ArgumentMatchers.anyMap()
 		)).thenReturn(Optional.of(tarotReading("failed")));
 
@@ -334,6 +336,7 @@ class ReadingCreationWorkflowTests {
 			org.mockito.ArgumentMatchers.eq(ReadingKind.TAROT),
 			org.mockito.ArgumentMatchers.eq(TarotSpreadType.RELATIONSHIP_THREE_CARD.value()),
 			org.mockito.ArgumentMatchers.eq(ReadingSchemaVersions.TAROT),
+			org.mockito.ArgumentMatchers.anyString(),
 			org.mockito.ArgumentMatchers.anyMap()
 		)).thenReturn(Optional.of(tarotReading("generating")));
 
@@ -343,44 +346,6 @@ class ReadingCreationWorkflowTests {
 
 		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
 		verifyNoInteractions(generator);
-	}
-
-	@Test
-	void hashesEquivalentNestedMapsIdenticallyWithoutReorderingArrays() {
-		CreationFacade service = service(
-			acceptedConsent(),
-			org.mockito.Mockito.mock(ReadingCreationRepository.class),
-			successfulGenerator()
-		);
-		Map<String, Object> firstCard = new LinkedHashMap<>();
-		firstCard.put("cardId", "major-00-fool");
-		firstCard.put("position", "today");
-		Map<String, Object> secondCard = new LinkedHashMap<>();
-		secondCard.put("position", "today");
-		secondCard.put("cardId", "major-00-fool");
-		Map<String, Object> first = new LinkedHashMap<>();
-		first.put("cards", List.of(firstCard));
-		first.put("question", "question");
-		Map<String, Object> second = new LinkedHashMap<>();
-		second.put("question", "question");
-		second.put("cards", List.of(secondCard));
-
-		assertThat(service.inputHash(first)).isEqualTo(service.inputHash(second));
-
-		Map<String, Object> differentArrayOrder = new LinkedHashMap<>();
-		differentArrayOrder.put("question", "question");
-		differentArrayOrder.put("cards", List.of(
-			Map.of("cardId", "major-01-magician"),
-			Map.of("cardId", "major-00-fool")
-		));
-		Map<String, Object> originalArrayOrder = new LinkedHashMap<>();
-		originalArrayOrder.put("cards", List.of(
-			Map.of("cardId", "major-00-fool"),
-			Map.of("cardId", "major-01-magician")
-		));
-		originalArrayOrder.put("question", "question");
-		assertThat(service.inputHash(originalArrayOrder))
-			.isNotEqualTo(service.inputHash(differentArrayOrder));
 	}
 
 	private CreationFacade service(
@@ -400,21 +365,28 @@ class ReadingCreationWorkflowTests {
 			org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.anyInt()
 		)).thenAnswer(invocation -> {
-			NormalizedReadingInput input = invocation.getArgument(0);
+			SajuCalculationInput input = invocation.getArgument(0);
 			int targetYear = invocation.getArgument(1);
-			Map<String, Object> payload = new LinkedHashMap<>(input.payload());
-			payload.put("targetYear", targetYear);
-			payload.put("calculationSnapshot", Map.of("calculationVersion", "saju-ko-v1"));
-			return new NormalizedReadingInput(
+			return new PreparedReadingInput(
 				input.kind(), input.spreadType(), input.schemaVersion(), input.question(),
-				payload
+				Map.of(
+					"focusArea", input.focusArea().value(),
+					"targetYear", targetYear,
+					"calculation", Map.of("pillars", Map.of())
+				),
+				Map.of(
+					"targetYear", targetYear,
+					"calculationSnapshot", Map.of("calculationVersion", "saju-ko-v1")
+				)
 			);
 		});
 		ReadingCreationWorkflow workflow = new ReadingCreationWorkflow(
 			consentService,
 			repository,
 			generator,
-			new ObjectMapper(),
+			new ReadingInputFingerprinter(
+				new ObjectMapper(), "test-only-saju-idempotency-secret-32-bytes"
+			),
 			metadataResolver,
 			ReadingCreditTestFixtures.properties(),
 			new DirectIdentifierInputGuard()
@@ -573,9 +545,28 @@ class ReadingCreationWorkflowTests {
 		) {
 			return saju.create(userId, requestId, request);
 		}
+	}
 
-		private String inputHash(Map<String, Object> input) {
-			return workflow.inputHash(input);
-		}
+	@Test
+	void rejectsSajuDirectIdentifierBeforeCalculation() {
+		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		ReadingGenerator generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		CreationFacade service = service(acceptedConsent(), repository, generator);
+		SajuReadingCreateRequest request = new SajuReadingCreateRequest(
+			"연락처 010-1234-5678로 이직 상담을 받고 싶어요",
+			REQUEST_ID,
+			new SajuBirthProfileRequest(
+				"solar", "1992-08-17", null, "unknown", null, "unspecified"
+			),
+			"career"
+		);
+
+		assertThatThrownBy(() -> service.createSajuReading(USER_ID, REQUEST_ID, request))
+			.isInstanceOf(InvalidReadingRequestException.class);
+
+		verifyNoInteractions(repository, generator);
+		verify(sajuInputAssembler, never()).assemble(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+		);
 	}
 }

@@ -12,6 +12,10 @@ import com.myeongro.api.domain.saju.calculation.SajuKoreanTerms;
 @Component
 public class SajuInterpretationInputMapper {
 
+	private static final List<String> TRANSIENT_PRECISION_LIMITATIONS = List.of(
+		"BIRTH_TIME_UNKNOWN", "APPROXIMATE_BIRTH_TIME"
+	);
+
 	private static final Map<String, String> STEM_ELEMENTS = Map.ofEntries(
 		Map.entry("갑", "목"), Map.entry("을", "목"),
 		Map.entry("병", "화"), Map.entry("정", "화"),
@@ -59,8 +63,16 @@ public class SajuInterpretationInputMapper {
 		if (snapshot.get("annualFortune") instanceof Map<?, ?> annual) {
 			trusted.put("annualFlow", annualFlow(castMap(annual)));
 		}
-		trusted.put("limitations", List.copyOf(requiredList(snapshot.get("limitations"))));
-		trusted.put("uncertainty", uncertainty(requiredMap(snapshot.get("uncertainty"))));
+		List<?> limitations = requiredList(snapshot.get("limitations")).stream()
+			.filter(value -> value instanceof String code
+				&& !TRANSIENT_PRECISION_LIMITATIONS.contains(code))
+			.toList();
+		if (!limitations.isEmpty()) {
+			trusted.put("limitations", List.copyOf(limitations));
+		}
+		putIfNotEmpty(
+			trusted, "uncertainty", uncertainty(requiredMap(snapshot.get("uncertainty")))
+		);
 		return immutable(trusted);
 	}
 
@@ -152,7 +164,6 @@ public class SajuInterpretationInputMapper {
 				continue;
 			}
 			Map<String, Object> result = new LinkedHashMap<>();
-			result.put("direction", direction(requiredText(cycle.get("direction"))));
 			result.put("startYear", startYear);
 			result.put("endYear", endYear);
 			result.put("ganZhi", ganZhi(requiredText(period.get("ganZhi"))));
@@ -173,12 +184,8 @@ public class SajuInterpretationInputMapper {
 
 	private Map<String, Object> uncertainty(Map<String, Object> source) {
 		Map<String, Object> result = new LinkedHashMap<>();
-		result.put("precision", requiredText(source.get("precision")));
-		result.put("candidateCount", requiredInteger(source.get("candidateCount")));
-		for (String key : List.of("varyingFields", "candidateZoneOffsets")) {
-			if (source.get(key) instanceof List<?> values) {
-				result.put(key, List.copyOf(values));
-			}
+		if (source.get("varyingFields") instanceof List<?> values && !values.isEmpty()) {
+			result.put("varyingFields", List.copyOf(values));
 		}
 		return immutable(result);
 	}
@@ -207,14 +214,6 @@ public class SajuInterpretationInputMapper {
 
 	private String tenGod(String value) {
 		return SajuKoreanTerms.tenGod(value);
-	}
-
-	private String direction(String value) {
-		return switch (value) {
-			case "forward" -> "순행";
-			case "backward" -> "역행";
-			default -> value;
-		};
 	}
 
 	private int requiredInteger(Object value) {

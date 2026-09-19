@@ -281,4 +281,26 @@ class FlywayBaselineContractTests {
 			.doesNotContain("readings.deleted_at");
 	}
 
+	@Test
+	void v17DeletesLegacySajuAndConstrainsMinimalVersionFiveInput()
+		throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V17__minimize_saju_reading_input"))
+			.findFirst()
+			.orElseThrow();
+
+		var sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("delete from public.readings where kind = 'saju'")
+			.contains("readings_saju_v5_input_check")
+			.contains("schema_version = 5")
+			.contains("currentLuckCycle")
+			.contains("varyingFields")
+			.contains("BIRTH_TIME_UNKNOWN")
+			.contains("APPROXIMATE_BIRTH_TIME")
+			.doesNotContain("update public.readings\nset schema_version = 5");
+	}
+
 }

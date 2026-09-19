@@ -5,7 +5,7 @@ import com.myeongro.api.domain.reading.entity.ReadingKind;
 public final class ReadingSchemaVersions {
 
 	public static final int TAROT = 2;
-	public static final int SAJU = 4;
+	public static final int SAJU = 5;
 
 	private ReadingSchemaVersions() {
 	}

@@ -38,7 +38,6 @@ class SajuInterpretationInputMapperTests {
 		@SuppressWarnings("unchecked")
 		Map<String, Object> current = (Map<String, Object>)actual.get("currentLuckCycle");
 		assertThat(current).containsOnly(
-			Map.entry("direction", "순행"),
 			Map.entry("startYear", 2023),
 			Map.entry("endYear", 2032),
 			Map.entry("ganZhi", "병오")
@@ -116,7 +115,7 @@ class SajuInterpretationInputMapperTests {
 		snapshot.put("annualFortune", Map.of(
 			"year", 2026, "ganZhi", "丙午", "stemTenGod", "伤官"
 		));
-		snapshot.put("limitations", List.of("BIRTH_TIME_UNKNOWN"));
+		snapshot.put("limitations", List.of("BIRTH_TIME_UNKNOWN", "TIME_PILLAR_VARIES"));
 		snapshot.put("uncertainty", Map.of(
 			"precision", "unknown", "candidateCount", 1440,
 			"varyingFields", List.of("pillars.time"),

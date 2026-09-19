@@ -94,6 +94,7 @@ class OpenAiSajuReadingGeneratorTests {
 		@SuppressWarnings("unchecked")
 		Map<String, Object> uncertainty = (Map<String, Object>)trusted.get("uncertainty");
 		assertThat(uncertainty).doesNotContainKeys("rangeStart", "rangeEnd");
+		assertThat(uncertainty).containsOnlyKeys("varyingFields");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> untrusted = (Map<String, Object>)message.get("untrustedUserInput");
 		assertThat(untrusted)
@@ -194,7 +195,6 @@ class OpenAiSajuReadingGeneratorTests {
 					"prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md"
 				)
 			),
-			new SajuInterpretationInputMapper(),
 			new SajuReadingResultValidator(),
 			new DeclinedReadingFactory()
 		);
@@ -221,23 +221,20 @@ class OpenAiSajuReadingGeneratorTests {
 		snapshot.put("annualFortune", Map.of(
 			"year", 2026, "ganZhi", "병오", "stemTenGod", "상관"
 		));
-		snapshot.put("limitations", List.of("BIRTH_TIME_UNKNOWN"));
+		snapshot.put("limitations", List.of("TIME_PILLAR_VARIES"));
 		snapshot.put("uncertainty", Map.of(
 			"precision", "unknown", "candidateCount", 1440,
 			"varyingFields", List.of("timePillar"),
 			"rangeStart", "1992-08-17T00:00",
 			"rangeEnd", "1992-08-17T23:59"
 		));
+		Map<String, Object> calculation = new SajuInterpretationInputMapper().map(
+			snapshot, 2026
+		);
 		return Map.of(
-			"question", ATTACK,
 			"focusArea", "career",
 			"targetYear", 2026,
-			"birthProfile", Map.of(
-				"birthDate", "1992-08-17", "birthTime", "14:30",
-				"provinceCode", "36", "cityCode", "36110",
-				"cityName", "세종특별자치시", "luckDirectionBasis", "female"
-			),
-			"calculationSnapshot", snapshot
+			"calculation", calculation
 		);
 	}
 

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.service.ReadingCreationWorkflow;
+import com.myeongro.api.domain.reading.service.PreparedReadingInput;
 import com.myeongro.api.domain.tarot.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 
@@ -43,7 +44,7 @@ public class TarotReadingCreationService {
 				);
 				return inputNormalizer.normalize(request, spread, cardIds);
 			},
-			input -> input
+			PreparedReadingInput::fromNormalized
 		);
 	}
 }

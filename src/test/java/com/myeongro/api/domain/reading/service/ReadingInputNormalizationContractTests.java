@@ -22,6 +22,7 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.domain.saju.service.SajuReadingInputNormalizer;
+import com.myeongro.api.domain.saju.service.SajuCalculationInput;
 import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
 
 class ReadingInputNormalizationContractTests {
@@ -58,8 +59,8 @@ class ReadingInputNormalizationContractTests {
 	}
 
 	@Test
-	void normalizesExactSajuInputAsSchemaVersionFour() {
-		NormalizedReadingInput normalized = sajuNormalizer.normalize(sajuRequest(
+	void normalizesExactSajuInputAsSchemaVersionFiveCalculationInput() {
+		SajuCalculationInput normalized = sajuNormalizer.normalize(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", "14:30", "exact",
 				"11", "female"
@@ -68,24 +69,22 @@ class ReadingInputNormalizationContractTests {
 
 		assertThat(normalized.schemaVersion()).isEqualTo(ReadingSchemaVersions.SAJU);
 		assertThat(normalized.spreadType()).isNull();
-		assertThat(normalized.payload()).containsEntry("question", "올해 이직운이 궁금해요")
-			.containsEntry("focusArea", "career");
-		assertThat(normalized.payload()).containsOnlyKeys("question", "focusArea", "birthProfile");
+		assertThat(normalized.question()).isEqualTo("올해 이직운이 궁금해요");
+		assertThat(normalized.focusArea().value()).isEqualTo("career");
 		@SuppressWarnings("unchecked")
-		Map<String, Object> profile =
-			(Map<String, Object>) normalized.payload().get("birthProfile");
+		Map<String, Object> profile = normalized.birthProfile();
 		assertThat(profile).containsEntry("birthTime", "14:30")
 			.containsEntry("birthTimePrecision", "exact")
 			.containsEntry("provinceCode", "11")
 			.doesNotContainKeys("cityCode", "latitude", "longitude", "pillars");
-		assertThat(normalized.schemaVersion()).isEqualTo(4);
-		assertThat(normalized.storedPayload())
-			.containsOnlyKeys("focusArea", "birthProfile");
+		assertThat(normalized.schemaVersion()).isEqualTo(5);
+		assertThat(normalized.idempotencyPayload())
+			.containsOnlyKeys("question", "focusArea", "birthProfile");
 	}
 
 	@Test
 	void omitsBirthTimeWhenPrecisionIsUnknown() {
-		NormalizedReadingInput normalized = sajuNormalizer.normalize(sajuRequest(
+		SajuCalculationInput normalized = sajuNormalizer.normalize(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", null, "unknown",
 				null, "unspecified"
@@ -93,8 +92,7 @@ class ReadingInputNormalizationContractTests {
 		));
 
 		@SuppressWarnings("unchecked")
-		Map<String, Object> profile =
-			(Map<String, Object>) normalized.payload().get("birthProfile");
+		Map<String, Object> profile = normalized.birthProfile();
 		assertThat(profile).doesNotContainKeys("birthTime", "provinceCode", "cityCode")
 			.containsEntry("birthTimePrecision", "unknown");
 	}
@@ -114,7 +112,7 @@ class ReadingInputNormalizationContractTests {
 
 	@Test
 	void acceptsApproximateBirthTimeWithoutClientOwnedUncertaintyRange() {
-		NormalizedReadingInput normalized = sajuNormalizer.normalize(sajuRequest(
+		SajuCalculationInput normalized = sajuNormalizer.normalize(sajuRequest(
 			new SajuBirthProfileRequest(
 				"solar", "1992-08-17", "14:00", "approximate",
 				"11", "unspecified"
@@ -122,8 +120,7 @@ class ReadingInputNormalizationContractTests {
 		));
 
 		@SuppressWarnings("unchecked")
-		Map<String, Object> profile =
-			(Map<String, Object>) normalized.payload().get("birthProfile");
+		Map<String, Object> profile = normalized.birthProfile();
 		assertThat(profile).containsEntry("birthTime", "14:00")
 			.containsEntry("birthTimePrecision", "approximate")
 			.doesNotContainKeys("birthTimeWindow", "uncertaintyMinutes");

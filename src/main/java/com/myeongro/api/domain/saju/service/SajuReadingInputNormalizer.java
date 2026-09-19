@@ -8,8 +8,6 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import com.myeongro.api.domain.reading.entity.ReadingKind;
-import com.myeongro.api.domain.reading.service.NormalizedReadingInput;
 import com.myeongro.api.domain.reading.service.ReadingInputSupport;
 import com.myeongro.api.domain.reading.service.ReadingSchemaVersions;
 import com.myeongro.api.domain.saju.controller.SajuReadingCreateRequest;
@@ -31,11 +29,11 @@ public class SajuReadingInputNormalizer {
 		this.birthPlaceCatalog = birthPlaceCatalog;
 	}
 
-	public NormalizedReadingInput normalize(SajuReadingCreateRequest request) {
+	public SajuCalculationInput normalize(SajuReadingCreateRequest request) {
 		return normalize(request, ReadingSchemaVersions.SAJU, null);
 	}
 
-	private NormalizedReadingInput normalize(
+	private SajuCalculationInput normalize(
 		SajuReadingCreateRequest request,
 		int schemaVersion,
 		String legacyCityCode
@@ -89,17 +87,11 @@ public class SajuReadingInputNormalizer {
 		}
 		normalizedProfile.put("luckDirectionBasis", direction.value());
 
-		Map<String, Object> payload = ReadingInputSupport.orderedMap(
-			"question", question,
-			"focusArea", focusArea.value(),
-			"birthProfile", ReadingInputSupport.immutable(normalizedProfile)
-		);
-		return new NormalizedReadingInput(
-			ReadingKind.SAJU,
-			null,
+		return new SajuCalculationInput(
 			schemaVersion,
 			question,
-			payload
+			focusArea,
+			ReadingInputSupport.immutable(normalizedProfile)
 		);
 	}
 

@@ -39,7 +39,7 @@ public class DirectIdentifierInputGuard {
 		2, 3, 4, 5, 6, 7, 8, 9, 2, 3, 4, 5
 	};
 
-	public void validate(NormalizedReadingInput input) {
+	public void validate(ReadingRequestInput input) {
 		for (FreeTextField field : freeTextFields(input)) {
 			String normalized = Normalizer.normalize(field.value(), Normalizer.Form.NFKC);
 			if (containsDirectIdentifier(normalized)) {
@@ -114,10 +114,10 @@ public class DirectIdentifierInputGuard {
 		return sum % 10 == 0;
 	}
 
-	private List<FreeTextField> freeTextFields(NormalizedReadingInput input) {
+	private List<FreeTextField> freeTextFields(ReadingRequestInput input) {
 		List<FreeTextField> fields = new ArrayList<>();
 		fields.add(new FreeTextField("question", input.question()));
-		Object choiceOptions = input.payload().get("choiceOptions");
+		Object choiceOptions = input.validationPayload().get("choiceOptions");
 		if (choiceOptions instanceof Map<?, ?> choices) {
 			addText(fields, "choiceOptions.a", choices.get("a"));
 			addText(fields, "choiceOptions.b", choices.get("b"));

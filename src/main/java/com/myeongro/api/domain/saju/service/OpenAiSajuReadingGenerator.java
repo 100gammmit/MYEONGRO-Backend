@@ -42,7 +42,6 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 	private final ObjectMapper objectMapper;
 	private final String model;
 	private final SajuPromptCatalog promptCatalog;
-	private final SajuInterpretationInputMapper interpretationInputMapper;
 	private final SajuReadingResultValidator resultValidator;
 	private final DeclinedReadingFactory declinedReadingFactory;
 
@@ -51,7 +50,6 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 		ObjectMapper objectMapper,
 		@Value("${app.reading.openai.model}") String model,
 		SajuPromptCatalog promptCatalog,
-		SajuInterpretationInputMapper interpretationInputMapper,
 		SajuReadingResultValidator resultValidator,
 		DeclinedReadingFactory declinedReadingFactory
 	) {
@@ -59,7 +57,6 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 		this.objectMapper = objectMapper;
 		this.model = model;
 		this.promptCatalog = promptCatalog;
-		this.interpretationInputMapper = interpretationInputMapper;
 		this.resultValidator = resultValidator;
 		this.declinedReadingFactory = declinedReadingFactory;
 	}
@@ -92,9 +89,8 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 		int targetYear;
 		String focusArea;
 		try {
-			Map<String, Object> snapshot = requiredMap(input.get("calculationSnapshot"));
 			targetYear = requiredInteger(input.get("targetYear"));
-			trustedCalculation = interpretationInputMapper.map(snapshot, targetYear);
+			trustedCalculation = requiredMap(input.get("calculation"));
 			focusArea = requiredText(input.get("focusArea"));
 			prompt = new Prompt(
 				List.of(

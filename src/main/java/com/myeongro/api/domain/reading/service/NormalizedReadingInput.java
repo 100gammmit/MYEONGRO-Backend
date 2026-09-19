@@ -11,7 +11,7 @@ public record NormalizedReadingInput(
 	int schemaVersion,
 	String question,
 	Map<String, Object> payload
-) {
+) implements ReadingRequestInput {
 
 	public NormalizedReadingInput {
 		payload = Collections.unmodifiableMap(new LinkedHashMap<>(payload));
@@ -22,5 +22,15 @@ public record NormalizedReadingInput(
 		stored.remove("question");
 		stored.remove("choiceOptions");
 		return Collections.unmodifiableMap(stored);
+	}
+
+	@Override
+	public Map<String, Object> idempotencyPayload() {
+		return storedPayload();
+	}
+
+	@Override
+	public Map<String, Object> validationPayload() {
+		return payload;
 	}
 }

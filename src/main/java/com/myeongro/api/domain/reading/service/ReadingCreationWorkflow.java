@@ -1,18 +1,11 @@
 package com.myeongro.api.domain.reading.service;
 
-import java.security.GeneralSecurityException;
-import java.security.MessageDigest;
-import java.util.Base64;
-import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.service.ConsentService;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
@@ -31,7 +24,7 @@ public class ReadingCreationWorkflow {
 	private final ConsentService consentService;
 	private final ReadingCreationRepository repository;
 	private final ReadingGenerator generator;
-	private final ObjectMapper objectMapper;
+	private final ReadingInputFingerprinter inputFingerprinter;
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 	private final ReadingCreditProperties creditProperties;
 	private final DirectIdentifierInputGuard directIdentifierInputGuard;
@@ -40,7 +33,7 @@ public class ReadingCreationWorkflow {
 		ConsentService consentService,
 		ReadingCreationRepository repository,
 		ReadingGenerator generator,
-		ObjectMapper objectMapper,
+		ReadingInputFingerprinter inputFingerprinter,
 		ReadingGenerationMetadataResolver generationMetadataResolver,
 		ReadingCreditProperties creditProperties,
 		DirectIdentifierInputGuard directIdentifierInputGuard
@@ -48,32 +41,31 @@ public class ReadingCreationWorkflow {
 		this.consentService = consentService;
 		this.repository = repository;
 		this.generator = generator;
-		this.objectMapper = objectMapper;
+		this.inputFingerprinter = inputFingerprinter;
 		this.generationMetadataResolver = generationMetadataResolver;
 		this.creditProperties = creditProperties;
 		this.directIdentifierInputGuard = directIdentifierInputGuard;
 	}
 
-	public CreatedReadingResponse create(
+	public <T extends ReadingRequestInput> CreatedReadingResponse create(
 		UUID userId,
 		UUID requestId,
 		ConsentScope consentScope,
-		Supplier<NormalizedReadingInput> inputSupplier,
-		UnaryOperator<NormalizedReadingInput> pendingInputFinalizer
+		Supplier<T> inputSupplier,
+		Function<T, PreparedReadingInput> pendingInputFinalizer
 	) {
 		requireCreationAllowed(userId, requestId, consentScope);
-		NormalizedReadingInput input = inputSupplier.get();
+		T input = inputSupplier.get();
 		validateInput(input);
-		String inputHash = inputHash(ReadingInputSupport.hashMaterial(
-			input.kind(), input.spreadType(), input.schemaVersion(), input.storedPayload()
-		));
+		String inputHash = inputFingerprinter.fingerprint(input);
 		var existing = repository.findExisting(
 			userId,
 			requestId,
 			input.kind(),
 			input.spreadType(),
 			input.schemaVersion(),
-			input.storedPayload()
+			inputHash,
+			input.idempotencyPayload()
 		);
 		if (existing.isPresent()) {
 			CreatedReadingResponse reading = existing.get();
@@ -88,37 +80,37 @@ public class ReadingCreationWorkflow {
 			}
 		}
 
-		input = pendingInputFinalizer.apply(input);
+		PreparedReadingInput prepared = pendingInputFinalizer.apply(input);
 		ReadingGenerationMetadata metadata = generationMetadataResolver.resolve(
-			input.kind(), input.spreadType()
+			prepared.kind(), prepared.spreadType()
 		);
 		PendingReadingCreation pending = repository.createPending(PendingReadingCommand.builder()
 			.userId(userId)
 			.requestId(requestId)
 			.inputHash(inputHash)
-			.kind(input.kind())
-			.spreadType(input.spreadType())
-			.schemaVersion(input.schemaVersion())
-			.input(input.storedPayload())
+			.kind(prepared.kind())
+			.spreadType(prepared.spreadType())
+			.schemaVersion(prepared.schemaVersion())
+			.input(prepared.storedPayload())
 			.provider(metadata.provider())
 			.model(metadata.model())
 			.promptVersion(metadata.promptVersion())
-			.creditCost(creditProperties.cost(input.kind(), input.spreadType()))
+			.creditCost(creditProperties.cost(prepared.kind(), prepared.spreadType()))
 			.build());
 		if (pending.reading().result() != null) {
 			return pending.reading();
 		}
-		return generatePending(input, pending);
+		return generatePending(prepared, pending);
 	}
 
 	public CreatedReadingResponse generatePending(
-		NormalizedReadingInput input,
+		PreparedReadingInput input,
 		PendingReadingCreation pending
 	) {
 		GeneratedReading result;
 		try {
 			result = generator.generate(
-				input.kind(), input.spreadType(), input.question(), input.payload()
+				input.kind(), input.spreadType(), input.question(), input.aiPayload()
 			);
 		} catch (OpenAiReadingGenerationException exception) {
 			repository.failPending(pending, exception.getCode());
@@ -130,25 +122,13 @@ public class ReadingCreationWorkflow {
 		return repository.completePending(pending, result);
 	}
 
-	public void validateInput(NormalizedReadingInput input) {
+	public void validateInput(ReadingRequestInput input) {
 		directIdentifierInputGuard.validate(input);
 	}
 
 	public void requireConsent(UUID userId, ConsentScope consentScope) {
 		if (!consentService.hasAccepted(userId, consentScope)) {
 			throw new RequiredConsentMissingException("필수 동의가 필요합니다.");
-		}
-	}
-
-	String inputHash(Map<String, Object> input) {
-		try {
-			byte[] json = objectMapper.writer()
-				.with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
-				.writeValueAsBytes(input);
-			byte[] digest = MessageDigest.getInstance("SHA-256").digest(json);
-			return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
-		} catch (GeneralSecurityException | JsonProcessingException exception) {
-			throw new IllegalStateException("Cannot hash reading input", exception);
 		}
 	}
 

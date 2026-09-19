@@ -40,6 +40,7 @@ app:
 
   reading:
     tarot-selection-secret: test-only-tarot-selection-secret-32-bytes
+    saju-idempotency-secret: test-only-saju-idempotency-secret-32-bytes
     # Test-only HMAC secret.
     openai:
       model: gpt-test

@@ -117,7 +117,7 @@ class SajuReadingResultValidatorTests {
 	@Test
 	void rejectsDefinitiveLanguageWhenExactCivilTimeHasMultipleInstants() {
 		Map<String, Object> trusted = new java.util.LinkedHashMap<>(trusted("exact"));
-		trusted.put("uncertainty", Map.of("precision", "exact", "candidateCount", 2));
+		trusted.put("uncertainty", Map.of("varyingFields", List.of("pillars.time")));
 		assertThatThrownBy(() -> validator.validate(
 			result("올해 반드시 성공합니다", "annualFlow"),
 			2026,
@@ -159,7 +159,9 @@ class SajuReadingResultValidatorTests {
 			"interactions", List.of(),
 			"annualFlow", Map.of("year", 2026),
 			"limitations", List.of(),
-			"uncertainty", Map.of("precision", precision, "candidateCount", 1)
+			"uncertainty", Map.of(
+				"varyingFields", "exact".equals(precision) ? List.of() : List.of("pillars.time")
+			)
 		);
 	}
 }

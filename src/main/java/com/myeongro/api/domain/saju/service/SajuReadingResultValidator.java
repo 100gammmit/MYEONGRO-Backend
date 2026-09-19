@@ -119,9 +119,8 @@ public class SajuReadingResultValidator {
 		if (!(uncertainty instanceof Map<?, ?> values)) {
 			return false;
 		}
-		Object candidateCount = values.get("candidateCount");
-		return !"exact".equals(values.get("precision"))
-			|| candidateCount instanceof Number number && number.intValue() > 1;
+		return values.get("varyingFields") instanceof List<?> varyingFields
+			&& !varyingFields.isEmpty();
 	}
 
 	private boolean containsCertaintyMarker(String value) {
