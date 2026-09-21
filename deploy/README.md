@@ -30,11 +30,16 @@ OAUTH_GOOGLE_REDIRECT_URI=https://api.example.com/login/oauth2/code/google
 FRONTEND_ORIGIN=https://www.example.com
 SESSION_COOKIE_DOMAIN=example.com
 TAROT_SELECTION_SECRET=<at-least-32-random-bytes>
+SAJU_IDEMPOTENCY_SECRET=<at-least-32-random-bytes>
 ```
 
 Do not include `SPRING_PROFILES_ACTIVE`, `REDIS_HOST`, or `REDIS_PORT`; production Compose owns them.
 `SESSION_COOKIE_DOMAIN` is required in production and must be the shared parent of the Amplify frontend
 and Spring API hosts. For example, use `example.com` for `www.example.com` and `api.example.com`.
+`SAJU_IDEMPOTENCY_SECRET` is a dedicated HMAC key for Saju request idempotency. Generate at least
+32 random bytes, keep it separate from `TAROT_SELECTION_SECRET` and all OAuth/API secrets, and retain
+the same value across deployments. Rotating it makes retries for existing Saju request IDs fail with an
+idempotency conflict, so back it up and plan a versioned-key migration before any future rotation.
 
 ## EC2 instance role and host
 
