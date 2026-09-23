@@ -213,8 +213,8 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 			);
 			if (Boolean.TRUE.equals(balanceMismatch)) {
 				log.error(
-					"CREDIT_COMPLETION_BALANCE_MISMATCH readingId={} generationId={}",
-					pending.readingId(), pending.generationId()
+					"CREDIT_COMPLETION_BALANCE_MISMATCH readingId={}",
+					pending.readingId()
 				);
 			}
 			return findCreatedReading(pending.readingId());

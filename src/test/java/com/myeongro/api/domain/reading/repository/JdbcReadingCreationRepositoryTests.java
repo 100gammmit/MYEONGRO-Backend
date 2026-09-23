@@ -16,12 +16,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.UncategorizedSQLException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
@@ -47,9 +52,16 @@ class JdbcReadingCreationRepositoryTests {
 		new JdbcReadingCreationRepository(
 			jdbcTemplate, new ObjectMapper(), ReadingCreditTestFixtures.properties()
 		);
+	private final ch.qos.logback.classic.Logger repositoryLogger =
+		(ch.qos.logback.classic.Logger) LoggerFactory.getLogger(
+			JdbcReadingCreationRepository.class
+		);
+	private final ListAppender<ILoggingEvent> logAppender = new ListAppender<>();
 
 	@BeforeEach
 	void setUp() {
+		logAppender.start();
+		repositoryLogger.addAppender(logAppender);
 		when(jdbcTemplate.queryForObject(
 			anyString(),
 			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
@@ -68,6 +80,12 @@ class JdbcReadingCreationRepositoryTests {
 			RowMapper<?> rowMapper = invocation.getArgument(1);
 			return List.of(rowMapper.mapRow(resultSetFor(sql), 0));
 		});
+	}
+
+	@AfterEach
+	void tearDown() {
+		repositoryLogger.detachAppender(logAppender);
+		logAppender.stop();
 	}
 
 	@Test
@@ -243,6 +261,26 @@ class JdbcReadingCreationRepositoryTests {
 			.contains("\"title\":\"Completed title\"")
 			.contains("\"summary\":\"Summary\"");
 		assertThat(args.getValue()[4]).isEqualTo(10);
+	}
+
+	@Test
+	void logsOnlyReadingIdWhenCompletionBalanceMismatchIsDetected() {
+		when(jdbcTemplate.queryForObject(anyString(), eq(Boolean.class), any(Object[].class)))
+			.thenReturn(true);
+		PendingReadingCreation pending = new PendingReadingCreation(
+			READING_ID,
+			GENERATION_ID,
+			null
+		);
+
+		repository.completePending(pending, result());
+
+		assertThat(logAppender.list)
+			.extracting(ILoggingEvent::getFormattedMessage)
+			.anySatisfy(message -> assertThat(message)
+				.contains("CREDIT_COMPLETION_BALANCE_MISMATCH")
+				.contains(READING_ID.toString())
+				.doesNotContain(GENERATION_ID.toString()));
 	}
 
 	@Test

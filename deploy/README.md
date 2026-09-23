@@ -73,3 +73,17 @@ this file no longer keeps its own copy that could drift from it.
 All third-party Actions are pinned to full commit SHAs. Dependabot checks GitHub Actions updates weekly.
 
 The deploy script records the last healthy image and environment file. A failed readiness check restores both. Database migrations are forward-only and are not rolled back automatically.
+
+## Privacy and retention launch gates
+
+Production must not be enabled until all of the following are configured and verified:
+
+- application and container logs rotate and are automatically deleted within 30 days;
+- a deletion test confirms logs older than 30 days are no longer retrievable;
+- RDS region and encryption settings are recorded;
+- automated backup and point-in-time recovery retention are fixed;
+- manual snapshot creation and expiry rules are fixed;
+- restore procedures re-delete accounts and readings that were deleted after the restored backup was created; and
+- the deployed database, backup, and log settings match the published privacy policy.
+
+Redis intentionally has no persistence or data volume. A Redis restart invalidates login and pending-signup sessions, so users must sign in again.

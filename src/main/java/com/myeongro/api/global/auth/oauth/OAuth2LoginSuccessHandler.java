@@ -11,6 +11,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 
 import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
+import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
 import com.myeongro.api.global.auth.session.SessionPrincipal;
 
 import jakarta.servlet.ServletException;
@@ -68,7 +69,23 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 			AdultEligibilitySessionFilter.SESSION_ATTRIBUTE,
 			AdultEligibilitySessionFilter.CONFIRMED_SESSION_VALUE
 		);
+		storeMinimalAuthenticatedPrincipal(session, principal);
 		response.sendRedirect(frontendOrigin + next);
+	}
+
+	private void storeMinimalAuthenticatedPrincipal(
+		HttpSession session,
+		SessionPrincipal principal
+	) {
+		storeSecurityContext(
+			session,
+			new SessionAuthenticatedPrincipal(
+				principal.userId(),
+				principal.displayName(),
+				principal.provider(),
+				principal.providerUserId()
+			)
+		);
 	}
 
 	private void storeMinimalPendingSignupPrincipal(
@@ -76,13 +93,20 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 		SignupAttemptCoordinator.Attempt attempt,
 		PendingSignupPrincipal pendingSignup
 	) {
-		var pendingAuthentication = UsernamePasswordAuthenticationToken.authenticated(
-			PendingSignupSessionPrincipal.from(attempt, pendingSignup),
+		storeSecurityContext(
+			session,
+			PendingSignupSessionPrincipal.from(attempt, pendingSignup)
+		);
+	}
+
+	private void storeSecurityContext(HttpSession session, Object principal) {
+		var minimalAuthentication = UsernamePasswordAuthenticationToken.authenticated(
+			principal,
 			null,
 			SessionAuthorities.user()
 		);
 		SecurityContext context = SecurityContextHolder.createEmptyContext();
-		context.setAuthentication(pendingAuthentication);
+		context.setAuthentication(minimalAuthentication);
 		SecurityContextHolder.setContext(context);
 		session.setAttribute(
 			HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,

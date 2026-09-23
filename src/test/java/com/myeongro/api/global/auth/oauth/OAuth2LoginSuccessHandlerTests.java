@@ -19,6 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.oauth2.core.user.OAuth2UserAuthority;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
@@ -57,6 +58,60 @@ class OAuth2LoginSuccessHandlerTests {
 		assertThat(request.getSession().getAttribute(
 			AdultEligibilitySessionFilter.SESSION_ATTRIBUTE
 		)).isEqualTo(AdultEligibilitySessionFilter.CONFIRMED_SESSION_VALUE);
+	}
+
+	@Test
+	void replacesExistingOAuthPrincipalWithMinimalRedisSecurityContext() throws Exception {
+		MockHttpServletRequest request = requestWithNext("/records");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		var sourcePrincipal = new SessionOAuth2User(
+			provisionedUser(),
+			Map.of("email", "source-sensitive-oauth@example.com"),
+			SessionAuthorities.user()
+		);
+		var authentication = UsernamePasswordAuthenticationToken.authenticated(
+			sourcePrincipal,
+			null,
+			sourcePrincipal.getAuthorities()
+		);
+		when(eligibilityService.hasConfirmationForUser(USER_ID)).thenReturn(true);
+
+		handler.onAuthenticationSuccess(request, response, authentication);
+
+		assertMinimalExistingUserContext(
+			request,
+			"source-sensitive-oauth@example.com"
+		);
+	}
+
+	@Test
+	void replacesExistingOidcPrincipalWithMinimalRedisSecurityContext() throws Exception {
+		MockHttpServletRequest request = requestWithNext("/records");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		OidcIdToken idToken = new OidcIdToken(
+			"source-sensitive-oidc-token",
+			Instant.parse("2026-09-13T00:00:00Z"),
+			Instant.parse("2026-09-13T01:00:00Z"),
+			Map.of("sub", "provider-user", "private-claim", "source-sensitive-oidc-claim")
+		);
+		OidcUser delegate = org.mockito.Mockito.mock(OidcUser.class);
+		when(delegate.getClaims()).thenReturn(idToken.getClaims());
+		when(delegate.getAttributes()).thenReturn(idToken.getClaims());
+		when(delegate.getIdToken()).thenReturn(idToken);
+		var sourcePrincipal = new SessionOidcUser(provisionedUser(), delegate);
+		var authentication = UsernamePasswordAuthenticationToken.authenticated(
+			sourcePrincipal,
+			null,
+			sourcePrincipal.getAuthorities()
+		);
+		when(eligibilityService.hasConfirmationForUser(USER_ID)).thenReturn(true);
+
+		handler.onAuthenticationSuccess(request, response, authentication);
+
+		assertMinimalExistingUserContext(request, "source-sensitive-oidc-token");
+		SecurityContext context = storedContext(request);
+		String serialized = new String(serialize(context), StandardCharsets.ISO_8859_1);
+		assertThat(serialized).doesNotContain("source-sensitive-oidc-claim");
 	}
 
 	@Test
@@ -164,6 +219,41 @@ class OAuth2LoginSuccessHandlerTests {
 			"provider-user"
 		);
 		return new TestingAuthenticationToken(principal, null);
+	}
+
+	private ProvisionedOAuthUser provisionedUser() {
+		return new ProvisionedOAuthUser(
+			USER_ID,
+			"명로 사용자",
+			"google",
+			"provider-user"
+		);
+	}
+
+	private void assertMinimalExistingUserContext(
+		MockHttpServletRequest request,
+		String forbiddenSerializedValue
+	) throws Exception {
+		SecurityContext context = storedContext(request);
+		assertThat(context.getAuthentication().getPrincipal())
+			.isEqualTo(new SessionAuthenticatedPrincipal(
+				USER_ID,
+				"명로 사용자",
+				"google",
+				"provider-user"
+			));
+		assertThat(context.getAuthentication().getAuthorities())
+			.allMatch(authority -> authority.getClass().equals(
+				org.springframework.security.core.authority.SimpleGrantedAuthority.class
+			));
+		String serialized = new String(serialize(context), StandardCharsets.ISO_8859_1);
+		assertThat(serialized).doesNotContain(forbiddenSerializedValue);
+	}
+
+	private SecurityContext storedContext(MockHttpServletRequest request) {
+		return (SecurityContext) request.getSession().getAttribute(
+			HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
+		);
 	}
 
 	private TestingAuthenticationToken pendingAuthentication() {
