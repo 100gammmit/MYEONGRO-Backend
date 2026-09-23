@@ -22,6 +22,9 @@ services:
     container_name: myeongro-redis
     ports:
       - "6379:6379"
+    command: [ "redis-server", "--save", "", "--appendonly", "no" ]
+    tmpfs:
+      - /data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s

@@ -86,4 +86,19 @@ Production must not be enabled until all of the following are configured and ver
 - restore procedures re-delete accounts and readings that were deleted after the restored backup was created; and
 - the deployed database, backup, and log settings match the published privacy policy.
 
-Redis intentionally has no persistence or data volume. A Redis restart invalidates login and pending-signup sessions, so users must sign in again.
+Redis explicitly disables both RDB snapshots (`--save ""`) and AOF (`--appendonly no`),
+and mounts `/data` as `tmpfs`. A Redis restart invalidates login and pending-signup
+sessions, so users must sign in again.
+
+When upgrading a host that previously used the `redis-data` named volume:
+
+1. announce that all active sessions will be invalidated and stop the old Redis service;
+2. deploy the new Compose configuration with a renewed container mount
+   (`docker compose up -d --force-recreate --renew-anon-volumes redis`), inspect the
+   container to confirm `/data` is only `tmpfs`, and confirm `CONFIG GET save` is empty
+   while `CONFIG GET appendonly` returns `no`;
+3. write a synthetic key, restart Redis, and confirm the key no longer exists;
+4. list volumes carrying the Compose label `com.docker.compose.volume=redis-data`, inspect
+   each resolved volume name, and remove only the verified legacy Redis volume; and
+5. never reattach or restore an old Redis RDB/AOF volume because it can contain expired
+   login and pending-signup session data.
