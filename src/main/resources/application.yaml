@@ -133,7 +133,6 @@ app:
     versions:
       terms: 2026-09-09
       ai-overseas-transfer: draft-2026-09-07
-      saju-input: draft-2026-09-07
 
 springdoc:
   swagger-ui:

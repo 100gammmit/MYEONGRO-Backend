@@ -47,7 +47,7 @@ class ConsentServiceTests {
 	}
 
 	@Test
-	void sajuAlsoRequiresTheSajuInputDocument() {
+	void sajuRequiresTheSameTermsAndOverseasTransferDocumentsAsTarot() {
 		ConsentEventRepository repository = repositoryWith(
 			accepted(ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasVersion()),
 			accepted(ConsentDocumentType.TERMS, termsVersion())
@@ -55,8 +55,12 @@ class ConsentServiceTests {
 
 		var status = service(repository).getUserStatus(USER_ID, ConsentScope.SAJU);
 
-		assertThat(status.hasAcceptedRequired()).isFalse();
+		assertThat(status.hasAcceptedRequired()).isTrue();
 		assertThat(status.acceptedDocumentTypes()).containsExactly(
+			ConsentDocumentType.TERMS,
+			ConsentDocumentType.AI_OVERSEAS_TRANSFER
+		);
+		assertThat(status.requiredDocumentTypes()).containsExactly(
 			ConsentDocumentType.TERMS,
 			ConsentDocumentType.AI_OVERSEAS_TRANSFER
 		);
@@ -148,28 +152,25 @@ class ConsentServiceTests {
 	}
 
 	@Test
-	void recordsOnlyTheMissingDocumentWhenExpandingFromTarotToSaju() {
-		ConsentEventRepository repository = repositoryWith(
-			accepted(ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasVersion()),
-			accepted(ConsentDocumentType.TERMS, termsVersion())
-		);
+	void recordsExactlyTheSharedRequiredDocumentsForSaju() {
+		ConsentEventRepository repository = repositoryWith();
 		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
 			.thenAnswer(invocation -> invocation.getArgument(0));
 
 		var status = service(repository).completeRequiredForUser(
 			USER_ID,
 			ConsentScope.SAJU,
-			Map.of(
-				"terms", termsVersion(),
-				"ai-overseas-transfer", overseasVersion(),
-				"saju-input", sajuInputVersion()
-			)
+			tarotVersions()
 		);
 
 		assertThat(status.hasAcceptedRequired()).isTrue();
 		verify(repository).save(org.mockito.ArgumentMatchers.argThat(event ->
-			event.getDocumentType() == ConsentDocumentType.SAJU_INPUT
-				&& event.getDocumentVersion().equals(sajuInputVersion())
+			event.getDocumentType() == ConsentDocumentType.TERMS
+				&& event.getDocumentVersion().equals(termsVersion())
+		));
+		verify(repository).save(org.mockito.ArgumentMatchers.argThat(event ->
+			event.getDocumentType() == ConsentDocumentType.AI_OVERSEAS_TRANSFER
+				&& event.getDocumentVersion().equals(overseasVersion())
 		));
 	}
 
@@ -205,11 +206,11 @@ class ConsentServiceTests {
 		)).isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> service.completeRequiredForUser(
 			USER_ID,
-			ConsentScope.TAROT,
+			ConsentScope.SAJU,
 			Map.of(
 				"terms", termsVersion(),
 				"ai-overseas-transfer", overseasVersion(),
-				"saju-input", sajuInputVersion()
+				"saju-input", "retired-version"
 			)
 		)).isInstanceOf(IllegalArgumentException.class);
 	}
@@ -263,10 +264,13 @@ class ConsentServiceTests {
 			USER_ID,
 			ConsentDocumentType.TERMS
 		)).isInstanceOf(IllegalArgumentException.class);
-		assertThatThrownBy(() -> service(repositoryWith()).withdrawForUser(
-			USER_ID,
-			ConsentDocumentType.SAJU_INPUT
-		)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void rejectsTheRetiredSajuInputDocumentType() {
+		assertThatThrownBy(() -> ConsentDocumentType.fromValue("saju-input"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("Unknown consent document type");
 	}
 
 	private ConsentEventRepository repositoryWith(ConsentEventEntity... events) {
@@ -290,8 +294,7 @@ class ConsentServiceTests {
 			transitionLock,
 			Map.of(
 				ConsentDocumentType.TERMS, termsVersion(),
-				ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasVersion(),
-				ConsentDocumentType.SAJU_INPUT, sajuInputVersion()
+				ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasVersion()
 			),
 			Clock.fixed(NOW, ZoneOffset.UTC)
 		);
@@ -309,10 +312,6 @@ class ConsentServiceTests {
 	}
 
 	private String overseasVersion() {
-		return "draft-2026-09-07";
-	}
-
-	private String sajuInputVersion() {
 		return "draft-2026-09-07";
 	}
 

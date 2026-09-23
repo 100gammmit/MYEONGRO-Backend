@@ -10,8 +10,7 @@ public enum ConsentScope {
 	)),
 	SAJU("saju", List.of(
 		ConsentDocumentType.TERMS,
-		ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-		ConsentDocumentType.SAJU_INPUT
+		ConsentDocumentType.AI_OVERSEAS_TRANSFER
 	));
 
 	private final String value;

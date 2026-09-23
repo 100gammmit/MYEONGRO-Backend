@@ -8,13 +8,11 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum ConsentDocumentType {
 
 	TERMS("terms"),
-	AI_OVERSEAS_TRANSFER("ai-overseas-transfer"),
-	SAJU_INPUT("saju-input");
+	AI_OVERSEAS_TRANSFER("ai-overseas-transfer");
 
 	private static final List<ConsentDocumentType> ACTIVE = List.of(
 		TERMS,
-		AI_OVERSEAS_TRANSFER,
-		SAJU_INPUT
+		AI_OVERSEAS_TRANSFER
 	);
 
 	private final String value;

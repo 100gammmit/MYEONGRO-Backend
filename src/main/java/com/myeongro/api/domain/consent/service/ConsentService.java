@@ -33,16 +33,14 @@ public class ConsentService {
 		ConsentEventRepository repository,
 		ConsentTransitionLock transitionLock,
 		@Value("${app.consent.versions.terms}") String termsVersion,
-		@Value("${app.consent.versions.ai-overseas-transfer}") String overseasTransferVersion,
-		@Value("${app.consent.versions.saju-input}") String sajuInputVersion
+		@Value("${app.consent.versions.ai-overseas-transfer}") String overseasTransferVersion
 	) {
 		this(
 			repository,
 			transitionLock,
 			Map.of(
 				ConsentDocumentType.TERMS, termsVersion,
-				ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasTransferVersion,
-				ConsentDocumentType.SAJU_INPUT, sajuInputVersion
+				ConsentDocumentType.AI_OVERSEAS_TRANSFER, overseasTransferVersion
 			),
 			Clock.systemUTC()
 		);

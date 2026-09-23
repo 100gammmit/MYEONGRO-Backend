@@ -12,7 +12,6 @@ class ProductionConsentConfigurationValidatorTests {
 		var validator = new ProductionConsentConfigurationValidator(
 			"2026-08-28",
 			"2026-09-20",
-			"2026-09-20",
 			"2026-09-09"
 		);
 
@@ -24,7 +23,6 @@ class ProductionConsentConfigurationValidatorTests {
 		var validator = new ProductionConsentConfigurationValidator(
 			"2026-08-28",
 			"draft-2026-09-07",
-			"2026-09-20",
 			"2026-09-09"
 		);
 
@@ -38,7 +36,6 @@ class ProductionConsentConfigurationValidatorTests {
 		var validator = new ProductionConsentConfigurationValidator(
 			"draft-terms",
 			"2026-09-20",
-			"2026-09-20",
 			"2026-09-09"
 		);
 
@@ -51,7 +48,6 @@ class ProductionConsentConfigurationValidatorTests {
 	void rejectsADraftAdultEligibilityVersionInProduction() {
 		var validator = new ProductionConsentConfigurationValidator(
 			"2026-09-09",
-			"2026-09-20",
 			"2026-09-20",
 			"draft-adult-policy"
 		);

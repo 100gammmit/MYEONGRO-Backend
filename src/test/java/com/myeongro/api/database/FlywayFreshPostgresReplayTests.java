@@ -60,6 +60,7 @@ class FlywayFreshPostgresReplayTests {
 
 		UUID withdrawnUserId = seedWithdrawnAccount(jdbcUrl, username, password);
 		UUID activeUserId = seedActiveAccount(jdbcUrl, username, password);
+		seedSajuInputConsent(jdbcUrl, username, password, activeUserId);
 		LegacySajuReading exactLegacy = seedLegacySajuReading(
 			jdbcUrl, username, password, activeUserId, "exact", "generating"
 		);
@@ -82,7 +83,7 @@ class FlywayFreshPostgresReplayTests {
 		var latestResult = latest.migrate();
 
 		assertThat(latestResult.success).isTrue();
-		assertThat(latestResult.migrationsExecuted).isEqualTo(7);
+		assertThat(latestResult.migrationsExecuted).isEqualTo(8);
 		verifyImmediateDeletionMigration(
 			jdbcUrl, username, password, withdrawnUserId, activeUserId
 		);
@@ -93,6 +94,7 @@ class FlywayFreshPostgresReplayTests {
 		verifyHardDeletionMigration(
 			jdbcUrl, username, password, softDeletedReadingId
 		);
+		verifyRetiredSajuInputConsent(jdbcUrl, username, password, activeUserId);
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
 			 var statement = connection.createStatement();
@@ -103,7 +105,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(17);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(18);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -209,6 +211,54 @@ class FlywayFreshPostgresReplayTests {
 			profile.executeUpdate();
 		}
 		return userId;
+	}
+
+	private void seedSajuInputConsent(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId
+	) throws SQLException {
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var consent = connection.prepareStatement("""
+				 insert into public.consent_events (
+				   user_id, document_type, document_version, action, occurred_at, method
+				 ) values (?, 'SAJU_INPUT', 'legacy-saju-input', 'ACCEPTED', current_timestamp, 'test')
+				 """)) {
+			consent.setObject(1, userId);
+			consent.executeUpdate();
+		}
+	}
+
+	private void verifyRetiredSajuInputConsent(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId
+	) throws SQLException {
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			try (var count = connection.prepareStatement("""
+				select count(*) from public.consent_events
+				where user_id = ? and document_type = 'SAJU_INPUT'
+				""")) {
+				count.setObject(1, userId);
+				try (var resultSet = count.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					assertThat(resultSet.getInt(1)).isZero();
+				}
+			}
+
+			assertSqlState("23514", () -> {
+				try (var retired = connection.prepareStatement("""
+					insert into public.consent_events (
+					  user_id, document_type, document_version, action, occurred_at, method
+					) values (?, 'SAJU_INPUT', 'retired', 'ACCEPTED', current_timestamp, 'test')
+					""")) {
+					retired.setObject(1, userId);
+					retired.executeUpdate();
+				}
+			});
+		}
 	}
 
 	private LegacySajuReading seedLegacySajuReading(

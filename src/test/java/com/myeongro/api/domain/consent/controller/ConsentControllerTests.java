@@ -68,6 +68,28 @@ class ConsentControllerTests {
 	}
 
 	@Test
+	void returnsOnlyTermsAndOverseasTransferForSaju() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(consentService.getUserStatus(USER_ID, ConsentScope.SAJU))
+			.thenReturn(new ConsentStatus(
+				ConsentScope.SAJU.requiredDocuments(),
+				ConsentScope.SAJU.requiredDocuments(),
+				true
+			));
+
+		mockMvc.perform(get("/api/consents?scope=saju").principal(authentication))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status.hasAcceptedRequired").value(true))
+			.andExpect(jsonPath("$.status.requiredDocumentTypes.length()").value(2))
+			.andExpect(jsonPath("$.status.requiredDocumentTypes[0]").value("terms"))
+			.andExpect(jsonPath("$.status.requiredDocumentTypes[1]")
+				.value("ai-overseas-transfer"));
+
+		verify(consentService).getUserStatus(USER_ID, ConsentScope.SAJU);
+	}
+
+	@Test
 	void recordsAllRequiredDocumentsInOneRequest() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
@@ -98,6 +120,78 @@ class ConsentControllerTests {
 					"""))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status.hasAcceptedRequired").value(true));
+	}
+
+	@Test
+	void recordsSajuConsentWithTheSharedTwoDocumentContract() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		Map<String, String> versions = Map.of(
+			"terms", "2026-08-28",
+			"ai-overseas-transfer", "draft-2026-09-07"
+		);
+		when(consentService.completeRequiredForUser(
+			USER_ID,
+			ConsentScope.SAJU,
+			versions
+		)).thenReturn(new ConsentStatus(
+			ConsentScope.SAJU.requiredDocuments(),
+			ConsentScope.SAJU.requiredDocuments(),
+			true
+		));
+
+		mockMvc.perform(post("/api/consents")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "scope":"saju",
+					  "documentVersions":{
+					    "terms":"2026-08-28",
+					    "ai-overseas-transfer":"draft-2026-09-07"
+					  }
+					}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status.hasAcceptedRequired").value(true));
+
+		verify(consentService).completeRequiredForUser(
+			USER_ID,
+			ConsentScope.SAJU,
+			versions
+		);
+	}
+
+	@Test
+	void rejectsTheRetiredSajuInputDocumentInASajuRequest() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		Map<String, String> versions = Map.of(
+			"terms", "2026-08-28",
+			"ai-overseas-transfer", "draft-2026-09-07",
+			"saju-input", "retired-version"
+		);
+		when(consentService.completeRequiredForUser(
+			USER_ID,
+			ConsentScope.SAJU,
+			versions
+		)).thenThrow(new IllegalArgumentException("Unknown consent document type: saju-input"));
+
+		mockMvc.perform(post("/api/consents")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "scope":"saju",
+					  "documentVersions":{
+					    "terms":"2026-08-28",
+					    "ai-overseas-transfer":"draft-2026-09-07",
+					    "saju-input":"retired-version"
+					  }
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.error").value("Unknown consent document type: saju-input"));
 	}
 
 	@Test

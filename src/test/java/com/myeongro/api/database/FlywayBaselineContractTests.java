@@ -303,4 +303,25 @@ class FlywayBaselineContractTests {
 			.doesNotContain("update public.readings\nset schema_version = 5");
 	}
 
+	@Test
+	void v18RetiresSajuInputConsentEventsAndDocumentType() throws IOException {
+		var migration = Files.list(MIGRATION_DIRECTORY)
+			.filter(path -> path.getFileName().toString()
+				.startsWith("V18__retire_saju_input_consent"))
+			.findFirst()
+			.orElseThrow();
+
+		var sql = Files.readString(migration);
+
+		assertThat(sql)
+			.contains("delete from public.consent_events")
+			.contains("where document_type = 'SAJU_INPUT'")
+			.contains("drop constraint if exists consent_events_document_type_check")
+			.contains("add constraint consent_events_document_type_check")
+			.contains("check (document_type in (")
+			.contains("'TERMS'")
+			.contains("'AI_OVERSEAS_TRANSFER'")
+			.doesNotContain("'AI_OVERSEAS_TRANSFER',\n    'SAJU_INPUT'");
+	}
+
 }
