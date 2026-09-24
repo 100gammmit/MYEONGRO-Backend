@@ -20,17 +20,9 @@ class DatabaseOAuthUserProvisionerTests {
 
 	@Test
 	void delegatesExistingAccountLookupWithoutCreatingAnything() {
-		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo(
-			"google",
-			"google-user",
-			"명로 사용자",
-			"user@example.com"
-		);
+		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo("google", "google-user");
 		ProvisionedOAuthUser expected = new ProvisionedOAuthUser(
-			UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43"),
-			"명로 사용자",
-			"google",
-			"google-user"
+			UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43")
 		);
 		when(repository.findExisting(userInfo)).thenReturn(Optional.of(expected));
 
@@ -40,17 +32,9 @@ class DatabaseOAuthUserProvisionerTests {
 
 	@Test
 	void delegatesProvisioningToRepository() {
-		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo(
-			"kakao",
-			"12345",
-			"명로 사용자",
-			"user@example.com"
-		);
+		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo("kakao", "12345");
 		ProvisionedOAuthUser expected = new ProvisionedOAuthUser(
-			UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43"),
-			"명로 사용자",
-			"kakao",
-			"12345"
+			UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43")
 		);
 		when(repository.provision(userInfo)).thenReturn(expected);
 

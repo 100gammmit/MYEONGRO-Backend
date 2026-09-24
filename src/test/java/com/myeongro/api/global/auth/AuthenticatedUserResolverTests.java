@@ -45,12 +45,7 @@ class AuthenticatedUserResolverTests {
 	}
 
 	private TestingAuthenticationToken sessionAuthentication(UUID userId) {
-		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(
-			userId,
-			"명로 사용자",
-			"kakao",
-			"12345"
-		);
+		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(userId);
 		TestingAuthenticationToken authentication = new TestingAuthenticationToken(
 			principal,
 			null

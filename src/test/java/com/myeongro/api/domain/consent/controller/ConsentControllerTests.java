@@ -262,7 +262,7 @@ class ConsentControllerTests {
 
 	private TestingAuthenticationToken authentication() {
 		return new TestingAuthenticationToken(
-			new SessionAuthenticatedPrincipal(USER_ID, "User", "kakao", "provider-user"),
+			new SessionAuthenticatedPrincipal(USER_ID),
 			null,
 			"ROLE_USER"
 		);

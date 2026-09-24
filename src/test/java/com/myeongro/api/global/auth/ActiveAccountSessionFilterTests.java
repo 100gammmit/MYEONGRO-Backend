@@ -67,12 +67,7 @@ class ActiveAccountSessionFilterTests {
 	}
 
 	private MockHttpServletRequest authenticatedRequest() {
-		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(
-			USER_ID,
-			"명로 사용자",
-			"google",
-			"provider-user"
-		);
+		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(USER_ID);
 		TestingAuthenticationToken authentication =
 			new TestingAuthenticationToken(principal, null);
 		authentication.setAuthenticated(true);

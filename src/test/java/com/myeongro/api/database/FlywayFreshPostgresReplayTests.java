@@ -83,7 +83,7 @@ class FlywayFreshPostgresReplayTests {
 		var latestResult = latest.migrate();
 
 		assertThat(latestResult.success).isTrue();
-		assertThat(latestResult.migrationsExecuted).isEqualTo(8);
+		assertThat(latestResult.migrationsExecuted).isEqualTo(9);
 		verifyImmediateDeletionMigration(
 			jdbcUrl, username, password, withdrawnUserId, activeUserId
 		);
@@ -105,7 +105,7 @@ class FlywayFreshPostgresReplayTests {
 				   and version is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(18);
+			assertThat(resultSet.getInt(1)).isGreaterThanOrEqualTo(19);
 		}
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
@@ -151,10 +151,36 @@ class FlywayFreshPostgresReplayTests {
 				     select 1 from information_schema.columns
 				     where table_schema = 'public' and table_name = 'readings'
 				       and column_name = 'deleted_at'
+				   ),
+				   not exists (
+				     select 1 from information_schema.columns
+				     where table_schema = 'public' and table_name = 'profiles'
+				       and column_name = 'display_name'
+				   ),
+				   not exists (
+				     select 1 from information_schema.columns
+				     where table_schema = 'public' and table_name = 'oauth_accounts'
+				       and column_name in ('email', 'display_name', 'updated_at')
+				   ),
+				   not exists (
+				     select 1 from information_schema.columns
+				     where table_schema = 'public' and table_name = 'generation_records'
+				       and column_name in ('idempotency_key', 'input_tokens', 'output_tokens')
+				   ),
+				   not exists (
+				     select 1 from information_schema.triggers
+				     where event_object_schema = 'public'
+				       and event_object_table = 'oauth_accounts'
+				       and trigger_name = 'oauth_accounts_set_updated_at'
+				   ),
+				   exists (
+				     select 1 from information_schema.columns
+				     where table_schema = 'public' and table_name = 'profiles'
+				       and column_name = 'paid_credit_balance'
 				   )
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			for (int column = 1; column <= 17; column++) {
+			for (int column = 1; column <= 22; column++) {
 				assertThat(resultSet.getBoolean(column)).isTrue();
 			}
 		}

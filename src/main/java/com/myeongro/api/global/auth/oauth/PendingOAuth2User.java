@@ -14,8 +14,6 @@ public class PendingOAuth2User implements OAuth2User, PendingSignupPrincipal, Se
 
 	private final String provider;
 	private final String providerUserId;
-	private final String displayName;
-	private final String email;
 	private final String accessToken;
 	private final Map<String, Object> attributes;
 	private final List<GrantedAuthority> authorities;
@@ -28,8 +26,6 @@ public class PendingOAuth2User implements OAuth2User, PendingSignupPrincipal, Se
 	) {
 		this.provider = userInfo.provider();
 		this.providerUserId = userInfo.providerUserId();
-		this.displayName = userInfo.displayName();
-		this.email = userInfo.email();
 		this.accessToken = accessToken;
 		this.attributes = Map.copyOf(attributes);
 		this.authorities = SessionAuthorities.user();
@@ -58,16 +54,6 @@ public class PendingOAuth2User implements OAuth2User, PendingSignupPrincipal, Se
 	@Override
 	public String providerUserId() {
 		return providerUserId;
-	}
-
-	@Override
-	public String displayName() {
-		return displayName;
-	}
-
-	@Override
-	public String email() {
-		return email;
 	}
 
 	@Override

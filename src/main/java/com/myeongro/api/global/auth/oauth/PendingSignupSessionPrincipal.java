@@ -7,8 +7,6 @@ public record PendingSignupSessionPrincipal(
 	String attemptGenerationId,
 	String provider,
 	String providerUserId,
-	String displayName,
-	String email,
 	String accessToken
 ) implements PendingSignupPrincipal, Serializable {
 
@@ -23,8 +21,6 @@ public record PendingSignupSessionPrincipal(
 			attempt.generationId(),
 			principal.provider(),
 			principal.providerUserId(),
-			principal.displayName(),
-			principal.email(),
 			principal.accessToken()
 		);
 	}

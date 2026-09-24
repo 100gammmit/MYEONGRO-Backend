@@ -16,9 +16,6 @@ public class ProfileEntity {
 	@Id
 	private UUID id;
 
-	@Column(name = "display_name")
-	private String displayName;
-
 	@Column(name = "free_credit_balance", nullable = false)
 	private int freeCreditBalance;
 
@@ -37,21 +34,16 @@ public class ProfileEntity {
 	protected ProfileEntity() {
 	}
 
-	private ProfileEntity(UUID id, String displayName) {
+	private ProfileEntity(UUID id) {
 		this.id = id;
-		this.displayName = displayName;
 	}
 
-	public static ProfileEntity create(UUID id, String displayName) {
-		return new ProfileEntity(id, displayName);
+	public static ProfileEntity create(UUID id) {
+		return new ProfileEntity(id);
 	}
 
 	public UUID getId() {
 		return id;
-	}
-
-	public String getDisplayName() {
-		return displayName;
 	}
 
 }

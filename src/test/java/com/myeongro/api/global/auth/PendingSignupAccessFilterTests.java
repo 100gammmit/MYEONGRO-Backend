@@ -76,7 +76,7 @@ class PendingSignupAccessFilterTests {
 
 	private void setPendingAuthentication() {
 		var principal = new PendingOAuth2User(
-			new OAuthProviderUserInfo("google", "google-user", "명로 사용자", "user@example.com"),
+			new OAuthProviderUserInfo("google", "google-user"),
 			"access-token",
 			Map.of("sub", "google-user"),
 			List.of()

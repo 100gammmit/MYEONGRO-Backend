@@ -146,7 +146,10 @@ class OAuth2LoginSuccessHandlerTests {
 				org.springframework.security.core.authority.SimpleGrantedAuthority.class
 			));
 		String serialized = new String(serialize(context), StandardCharsets.ISO_8859_1);
-		assertThat(serialized).doesNotContain("source-sensitive-value");
+		assertThat(serialized)
+			.doesNotContain("source-sensitive-value")
+			.doesNotContain("source-sensitive-name")
+			.doesNotContain("source-sensitive-email@example.com");
 	}
 
 	@Test
@@ -212,22 +215,12 @@ class OAuth2LoginSuccessHandlerTests {
 	}
 
 	private TestingAuthenticationToken existingAuthentication() {
-		var principal = new SessionAuthenticatedPrincipal(
-			USER_ID,
-			"명로 사용자",
-			"google",
-			"provider-user"
-		);
+		var principal = new SessionAuthenticatedPrincipal(USER_ID);
 		return new TestingAuthenticationToken(principal, null);
 	}
 
 	private ProvisionedOAuthUser provisionedUser() {
-		return new ProvisionedOAuthUser(
-			USER_ID,
-			"명로 사용자",
-			"google",
-			"provider-user"
-		);
+		return new ProvisionedOAuthUser(USER_ID);
 	}
 
 	private void assertMinimalExistingUserContext(
@@ -236,12 +229,7 @@ class OAuth2LoginSuccessHandlerTests {
 	) throws Exception {
 		SecurityContext context = storedContext(request);
 		assertThat(context.getAuthentication().getPrincipal())
-			.isEqualTo(new SessionAuthenticatedPrincipal(
-				USER_ID,
-				"명로 사용자",
-				"google",
-				"provider-user"
-			));
+			.isEqualTo(new SessionAuthenticatedPrincipal(USER_ID));
 		assertThat(context.getAuthentication().getAuthorities())
 			.allMatch(authority -> authority.getClass().equals(
 				org.springframework.security.core.authority.SimpleGrantedAuthority.class
@@ -258,14 +246,13 @@ class OAuth2LoginSuccessHandlerTests {
 
 	private TestingAuthenticationToken pendingAuthentication() {
 		var principal = new PendingOAuth2User(
-			new OAuthProviderUserInfo(
-				"kakao",
-				"12345",
-				"명로 사용자",
-				"user@example.com"
-			),
+			new OAuthProviderUserInfo("kakao", "12345"),
 			"access-token",
-			Map.of("id", 12345L),
+			Map.of(
+				"id", 12345L,
+				"name", "source-sensitive-name",
+				"email", "source-sensitive-email@example.com"
+			),
 			List.of()
 		);
 		return new TestingAuthenticationToken(principal, null);

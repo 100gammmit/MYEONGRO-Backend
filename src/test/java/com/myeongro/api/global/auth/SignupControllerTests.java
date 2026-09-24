@@ -51,9 +51,7 @@ class SignupControllerTests {
 
 	private static final UUID USER_ID =
 		UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43");
-	private static final ProvisionedOAuthUser COMPLETED_USER = new ProvisionedOAuthUser(
-		USER_ID, "명로 사용자", "kakao", "12345"
-	);
+	private static final ProvisionedOAuthUser COMPLETED_USER = new ProvisionedOAuthUser(USER_ID);
 	private final SignupCompletionService signupCompletionService =
 		org.mockito.Mockito.mock(SignupCompletionService.class);
 	private final OAuthConnectionRevoker connectionRevoker =
@@ -270,7 +268,7 @@ class SignupControllerTests {
 			SignupController.COMPLETED_NEXT_SESSION_ATTRIBUTE, "/records"
 		);
 		Authentication completed = UsernamePasswordAuthenticationToken.authenticated(
-			new SessionAuthenticatedPrincipal(USER_ID, "명로 사용자", "kakao", "12345"),
+			new SessionAuthenticatedPrincipal(USER_ID),
 			null,
 			List.of()
 		);
@@ -405,8 +403,7 @@ class SignupControllerTests {
 
 	private Authentication pendingAuthentication(String attemptId, String generationId) {
 		var principal = new PendingSignupSessionPrincipal(
-			attemptId, generationId, "kakao", "12345", "명로 사용자",
-			"user@example.com", "access-token"
+			attemptId, generationId, "kakao", "12345", "access-token"
 		);
 		return UsernamePasswordAuthenticationToken.authenticated(
 			principal,

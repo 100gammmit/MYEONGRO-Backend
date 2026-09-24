@@ -39,7 +39,7 @@ class JpaAccountWithdrawalRepositoryTests {
 
 	@Test
 	void withdrawPermanentlyDeletesProfileAndCascadesAccountData() {
-		insertProfile(USER_ID, "Leaving user");
+		insertProfile(USER_ID);
 		insertOAuthAccount(USER_ID);
 		insertReading(READING_ID, USER_ID);
 		insertGenerationRecord(READING_ID);
@@ -63,14 +63,10 @@ class JpaAccountWithdrawalRepositoryTests {
 		assertThat(countProfiles(USER_ID)).isZero();
 	}
 
-	private void insertProfile(UUID userId, String displayName) {
+	private void insertProfile(UUID userId) {
 		jdbcTemplate.update(
-			"""
-			insert into public.profiles (id, display_name)
-			values (?, ?)
-			""",
-			userId,
-			displayName
+			"insert into public.profiles (id) values (?)",
+			userId
 		);
 	}
 

@@ -65,12 +65,7 @@ class AccountControllerTests {
 	}
 
 	private TestingAuthenticationToken authentication() {
-		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(
-			USER_ID,
-			"명로 사용자",
-			"kakao",
-			"12345"
-		);
+		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(USER_ID);
 		TestingAuthenticationToken authentication = new TestingAuthenticationToken(
 			principal,
 			null

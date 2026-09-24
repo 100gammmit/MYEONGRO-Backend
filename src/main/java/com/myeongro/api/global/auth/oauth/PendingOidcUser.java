@@ -16,8 +16,6 @@ public class PendingOidcUser implements OidcUser, PendingSignupPrincipal, Serial
 
 	private final String provider;
 	private final String providerUserId;
-	private final String displayName;
-	private final String email;
 	private final String accessToken;
 	private final Map<String, Object> claims;
 	private final OidcUserInfo userInfo;
@@ -32,8 +30,6 @@ public class PendingOidcUser implements OidcUser, PendingSignupPrincipal, Serial
 	) {
 		this.provider = providerUserInfo.provider();
 		this.providerUserId = providerUserInfo.providerUserId();
-		this.displayName = providerUserInfo.displayName();
-		this.email = providerUserInfo.email();
 		this.accessToken = accessToken;
 		this.claims = Map.copyOf(delegate.getClaims());
 		this.userInfo = delegate.getUserInfo();
@@ -80,16 +76,6 @@ public class PendingOidcUser implements OidcUser, PendingSignupPrincipal, Serial
 	@Override
 	public String providerUserId() {
 		return providerUserId;
-	}
-
-	@Override
-	public String displayName() {
-		return displayName;
-	}
-
-	@Override
-	public String email() {
-		return email;
 	}
 
 	@Override

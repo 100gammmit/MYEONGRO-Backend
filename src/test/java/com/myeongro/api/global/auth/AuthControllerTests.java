@@ -48,12 +48,7 @@ class AuthControllerTests {
 	@Test
 	void meReportsPendingSignupWithoutTreatingItAsAnAuthenticatedMember() throws Exception {
 		var pendingPrincipal = new PendingOAuth2User(
-			new OAuthProviderUserInfo(
-				"kakao",
-				"12345",
-				"명로 사용자",
-				"user@example.com"
-			),
+			new OAuthProviderUserInfo("kakao", "12345"),
 			"access-token",
 			Map.of("id", 12345L),
 			List.of()
@@ -76,7 +71,7 @@ class AuthControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.authenticated").value(true))
 			.andExpect(jsonPath("$.user.id").value(USER_ID.toString()))
-			.andExpect(jsonPath("$.user.displayName").value("명로 사용자"));
+			.andExpect(jsonPath("$.user.displayName").doesNotExist());
 	}
 
 	@Test
@@ -90,12 +85,7 @@ class AuthControllerTests {
 	}
 
 	private TestingAuthenticationToken authentication() {
-		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(
-			USER_ID,
-			"명로 사용자",
-			"kakao",
-			"12345"
-		);
+		SessionAuthenticatedPrincipal principal = new SessionAuthenticatedPrincipal(USER_ID);
 		TestingAuthenticationToken authentication = new TestingAuthenticationToken(
 			principal,
 			null

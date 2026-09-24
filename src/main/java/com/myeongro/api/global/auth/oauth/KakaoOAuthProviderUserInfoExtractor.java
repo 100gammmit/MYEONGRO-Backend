@@ -21,19 +21,7 @@ public class KakaoOAuthProviderUserInfoExtractor implements OAuthProviderUserInf
 		}
 		return new OAuthProviderUserInfo(
 			"kakao",
-			id.toString(),
-			nestedString(attributes, "properties", "nickname"),
-			nestedString(attributes, "kakao_account", "email")
+			id.toString()
 		);
-	}
-
-	@SuppressWarnings("unchecked")
-	private String nestedString(Map<String, Object> attributes, String objectName, String key) {
-		Object nested = attributes.get(objectName);
-		if (!(nested instanceof Map<?, ?> map)) {
-			return null;
-		}
-		Object value = ((Map<String, Object>) map).get(key);
-		return value == null ? null : value.toString();
 	}
 }

@@ -47,31 +47,18 @@ class JpaOAuthAccountRepositoryTests {
 
 	@Test
 	void returnsExistingActiveOauthAccount() {
-		insertProfile(ACTIVE_USER_ID, "Stored name");
-		insertOAuthAccount(ACTIVE_USER_ID, "kakao", "12345", "stored@example.com", "Provider name");
+		insertProfile(ACTIVE_USER_ID);
+		insertOAuthAccount(ACTIVE_USER_ID, "kakao", "12345");
 
-		var user = repository.provision(new OAuthProviderUserInfo(
-			"kakao",
-			"12345",
-			"Incoming name",
-			"incoming@example.com"
-		));
+		var user = repository.provision(new OAuthProviderUserInfo("kakao", "12345"));
 
 		assertThat(user.userId()).isEqualTo(ACTIVE_USER_ID);
-		assertThat(user.displayName()).isEqualTo("Stored name");
-		assertThat(user.provider()).isEqualTo("kakao");
-		assertThat(user.providerUserId()).isEqualTo("12345");
 		assertThat(countProfiles()).isEqualTo(1);
 	}
 
 	@Test
 	void lookupDoesNotCreateAProfileForANewOauthIdentity() {
-		var user = repository.findExisting(new OAuthProviderUserInfo(
-			"google",
-			"new-user",
-			"New user",
-			"new@example.com"
-		));
+		var user = repository.findExisting(new OAuthProviderUserInfo("google", "new-user"));
 
 		assertThat(user).isEmpty();
 		assertThat(countProfiles()).isZero();
@@ -79,55 +66,37 @@ class JpaOAuthAccountRepositoryTests {
 
 	@Test
 	void createsNewProfileWhenTheSameProviderReturnsAfterPermanentDeletion() {
-		insertProfile(DELETED_USER_ID, "Deleted user");
-		insertOAuthAccount(DELETED_USER_ID, "google", "abcde", "old@example.com", "Deleted user");
+		insertProfile(DELETED_USER_ID);
+		insertOAuthAccount(DELETED_USER_ID, "google", "abcde");
 		jdbcTemplate.update("delete from public.profiles where id = ?", DELETED_USER_ID);
 
-		var user = repository.provision(new OAuthProviderUserInfo(
-			"google",
-			"abcde",
-			"New user",
-			"new@example.com"
-		));
+		var user = repository.provision(new OAuthProviderUserInfo("google", "abcde"));
 
 		assertThat(user.userId()).isNotEqualTo(DELETED_USER_ID);
-		assertThat(user.displayName()).isEqualTo("New user");
-		assertThat(user.provider()).isEqualTo("google");
-		assertThat(user.providerUserId()).isEqualTo("abcde");
 		assertThat(countProfiles()).isEqualTo(1);
 		assertThat(countOAuthAccountsFor(user.userId())).isEqualTo(1);
 	}
 
-	private void insertProfile(UUID userId, String displayName) {
+	private void insertProfile(UUID userId) {
 		jdbcTemplate.update(
-			"""
-			insert into public.profiles (id, display_name)
-			values (?, ?)
-			""",
-			userId,
-			displayName
+			"insert into public.profiles (id) values (?)",
+			userId
 		);
 	}
 
 	private void insertOAuthAccount(
 		UUID profileId,
 		String provider,
-		String providerUserId,
-		String email,
-		String displayName
+		String providerUserId
 	) {
 		jdbcTemplate.update(
 			"""
-			insert into public.oauth_accounts (
-				profile_id, provider, provider_user_id, email, display_name
-			)
-			values (?, ?, ?, ?, ?)
+			insert into public.oauth_accounts (profile_id, provider, provider_user_id)
+			values (?, ?, ?)
 			""",
 			profileId,
 			provider,
-			providerUserId,
-			email,
-			displayName
+			providerUserId
 		);
 	}
 

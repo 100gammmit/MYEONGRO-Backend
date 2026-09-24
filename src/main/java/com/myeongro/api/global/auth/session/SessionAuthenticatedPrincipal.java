@@ -4,9 +4,6 @@ import java.io.Serializable;
 import java.util.UUID;
 
 public record SessionAuthenticatedPrincipal(
-	UUID userId,
-	String displayName,
-	String provider,
-	String providerUserId
+	UUID userId
 ) implements SessionPrincipal, Serializable {
 }

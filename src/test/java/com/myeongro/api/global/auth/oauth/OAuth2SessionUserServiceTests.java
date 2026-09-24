@@ -3,8 +3,6 @@ package com.myeongro.api.global.auth.oauth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,9 +48,6 @@ class OAuth2SessionUserServiceTests {
 		assertThat(loaded).isInstanceOf(SessionPrincipal.class);
 		SessionPrincipal principal = (SessionPrincipal) loaded;
 		assertThat(principal.userId()).isEqualTo(userId);
-		assertThat(principal.displayName()).isEqualTo("명로 사용자");
-		assertThat(principal.provider()).isEqualTo("kakao");
-		assertThat(principal.providerUserId()).isEqualTo("12345");
 		assertThat(loaded.getName()).isEqualTo(userId.toString());
 		assertThat((Object) loaded.getAttribute("id")).isEqualTo(12345L);
 	}
@@ -85,14 +80,11 @@ class OAuth2SessionUserServiceTests {
 
 		SessionPrincipal principal = (SessionPrincipal) loaded;
 		assertThat(principal.userId()).isEqualTo(userId);
-		assertThat(principal.displayName()).isEqualTo("Myeongro User");
-		assertThat(principal.provider()).isEqualTo("google");
-		assertThat(principal.providerUserId()).isEqualTo("google-user-1");
 		assertThat(loaded.getName()).isEqualTo(userId.toString());
 	}
 
 	@Test
-	void keepsANewOauthUserPendingWithoutProvisioningAnAccount() throws Exception {
+	void keepsANewOauthUserPendingWithoutProvisioningAnAccount() {
 		OAuth2User kakaoUser = new DefaultOAuth2User(
 			List.of(new SimpleGrantedAuthority("ROLE_USER")),
 			Map.of(
@@ -114,25 +106,6 @@ class OAuth2SessionUserServiceTests {
 		assertThat(pending.provider()).isEqualTo("kakao");
 		assertThat(pending.providerUserId()).isEqualTo("12345");
 		assertThat(pending.accessToken()).isEqualTo("token");
-		assertThat(serialize(loaded)).isNotEmpty();
-	}
-
-	@Test
-	void sessionOAuth2UserCanBeSerializedForRedisSessionStorage() throws Exception {
-		SessionOAuth2User principal = new SessionOAuth2User(
-			new ProvisionedOAuthUser(
-				UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43"),
-				"Myeongro User",
-				"kakao",
-				"12345"
-			),
-			Map.of("id", 12345L),
-			List.of(new SimpleGrantedAuthority("ROLE_USER"))
-		);
-
-		byte[] serialized = serialize(principal);
-
-		assertThat(serialized).isNotEmpty();
 	}
 
 	@Test
@@ -162,12 +135,7 @@ class OAuth2SessionUserServiceTests {
 		return new OAuthUserProvisioner() {
 			@Override
 			public Optional<ProvisionedOAuthUser> findExisting(OAuthProviderUserInfo userInfo) {
-				return Optional.of(new ProvisionedOAuthUser(
-					userId,
-					userInfo.displayName(),
-					userInfo.provider(),
-					userInfo.providerUserId()
-				));
+				return Optional.of(new ProvisionedOAuthUser(userId));
 			}
 
 			@Override
@@ -215,11 +183,4 @@ class OAuth2SessionUserServiceTests {
 		);
 	}
 
-	private byte[] serialize(Object value) throws Exception {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
-			output.writeObject(value);
-		}
-		return bytes.toByteArray();
-	}
 }

@@ -163,12 +163,7 @@ public class SignupController {
 		ProvisionedOAuthUser user
 	) {
 		String next = readNext(session);
-		var principal = new SessionAuthenticatedPrincipal(
-			user.userId(),
-			user.displayName(),
-			user.provider(),
-			user.providerUserId()
-		);
+		var principal = new SessionAuthenticatedPrincipal(user.userId());
 		var authenticated = UsernamePasswordAuthenticationToken.authenticated(
 			principal,
 			null,

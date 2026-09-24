@@ -68,18 +68,4 @@ public class SessionOidcUser implements OidcUser, SessionPrincipal, Serializable
 		return user.userId();
 	}
 
-	@Override
-	public String displayName() {
-		return user.displayName();
-	}
-
-	@Override
-	public String provider() {
-		return user.provider();
-	}
-
-	@Override
-	public String providerUserId() {
-		return user.providerUserId();
-	}
 }

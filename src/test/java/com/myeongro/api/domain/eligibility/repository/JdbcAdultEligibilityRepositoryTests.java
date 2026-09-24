@@ -73,9 +73,8 @@ class JdbcAdultEligibilityRepositoryTests {
 
 	private void insertProfile() {
 		jdbcTemplate.update(
-			"insert into public.profiles (id, display_name) values (?, ?)",
-			USER_ID,
-			"명로 사용자"
+			"insert into public.profiles (id) values (?)",
+			USER_ID
 		);
 	}
 }

@@ -44,7 +44,6 @@ import com.myeongro.testsupport.SecurityConfigTestEndpoint;
 	"spring.security.oauth2.client.registration.kakao.redirect-uri=http://localhost/login/oauth2/code/kakao",
 	"spring.security.oauth2.client.registration.kakao.authorization-grant-type=authorization_code",
 	"spring.security.oauth2.client.registration.kakao.client-authentication-method=client_secret_post",
-	"spring.security.oauth2.client.registration.kakao.scope=profile_nickname",
 	"spring.security.oauth2.client.provider.kakao.authorization-uri=https://kauth.kakao.com/oauth/authorize",
 	"spring.security.oauth2.client.provider.kakao.token-uri=https://kauth.kakao.com/oauth/token",
 	"spring.security.oauth2.client.provider.kakao.user-info-uri=https://kapi.kakao.com/v2/user/me",
@@ -150,8 +149,7 @@ class SecurityConfigTests {
 	@Test
 	void blocksDefaultSpringLogoutForAPendingSignup() throws Exception {
 		var principal = new PendingSignupSessionPrincipal(
-			"attempt-1", "generation-1", "kakao", "12345", "명로 사용자",
-			"user@example.com", "token"
+			"attempt-1", "generation-1", "kakao", "12345", "token"
 		);
 		var pending = UsernamePasswordAuthenticationToken.authenticated(
 			principal,

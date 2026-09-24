@@ -79,12 +79,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 	) {
 		storeSecurityContext(
 			session,
-			new SessionAuthenticatedPrincipal(
-				principal.userId(),
-				principal.displayName(),
-				principal.provider(),
-				principal.providerUserId()
-			)
+			new SessionAuthenticatedPrincipal(principal.userId())
 		);
 	}
 

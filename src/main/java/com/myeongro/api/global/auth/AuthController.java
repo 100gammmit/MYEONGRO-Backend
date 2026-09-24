@@ -40,7 +40,7 @@ public class AuthController {
 		}
 		if (!(authentication != null
 			&& authentication.isAuthenticated()
-			&& authentication.getPrincipal() instanceof SessionPrincipal principal)) {
+			&& authentication.getPrincipal() instanceof SessionPrincipal)) {
 			return ResponseEntity.ok(Map.of("authenticated", false));
 		}
 
@@ -50,12 +50,7 @@ public class AuthController {
 				"authenticated",
 				true,
 				"user",
-				Map.of(
-					"id",
-					user.id(),
-					"displayName",
-					principal.displayName()
-				)
+				Map.of("id", user.id())
 			));
 		} catch (UnauthenticatedUserException exception) {
 			return ResponseEntity.ok(Map.of("authenticated", false));

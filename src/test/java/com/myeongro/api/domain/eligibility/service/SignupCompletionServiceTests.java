@@ -32,18 +32,8 @@ class SignupCompletionServiceTests {
 	@Test
 	void createsTheAccountBeforeRecordingSignupEligibilityInOneServiceBoundary() {
 		PendingSignupSessionPrincipal pending = pendingSignup();
-		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo(
-			"google",
-			"google-user",
-			"명로 사용자",
-			"user@example.com"
-		);
-		ProvisionedOAuthUser user = new ProvisionedOAuthUser(
-			USER_ID,
-			"명로 사용자",
-			"google",
-			"google-user"
-		);
+		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo("google", "google-user");
+		ProvisionedOAuthUser user = new ProvisionedOAuthUser(USER_ID);
 		when(userProvisioner.provision(userInfo)).thenReturn(user);
 
 		assertThat(service.complete(pending)).isEqualTo(user);
@@ -56,12 +46,8 @@ class SignupCompletionServiceTests {
 	@Test
 	void recoversOnlyAnAccountThatAlreadyHasAnEligibilityAssertion() {
 		PendingSignupSessionPrincipal pending = pendingSignup();
-		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo(
-			"google", "google-user", "명로 사용자", "user@example.com"
-		);
-		ProvisionedOAuthUser user = new ProvisionedOAuthUser(
-			USER_ID, "명로 사용자", "google", "google-user"
-		);
+		OAuthProviderUserInfo userInfo = new OAuthProviderUserInfo("google", "google-user");
+		ProvisionedOAuthUser user = new ProvisionedOAuthUser(USER_ID);
 		when(userProvisioner.findExisting(userInfo)).thenReturn(Optional.of(user));
 		when(adultEligibilityService.hasSignupConfirmation(USER_ID, "generation-1"))
 			.thenReturn(true);
@@ -73,9 +59,7 @@ class SignupCompletionServiceTests {
 	void doesNotRecoverAnAccountCompletedByAnotherSignupGeneration() {
 		PendingSignupSessionPrincipal pending = pendingSignup();
 		OAuthProviderUserInfo userInfo = pending.userInfo();
-		ProvisionedOAuthUser user = new ProvisionedOAuthUser(
-			USER_ID, "명로 사용자", "google", "google-user"
-		);
+		ProvisionedOAuthUser user = new ProvisionedOAuthUser(USER_ID);
 		when(userProvisioner.findExisting(userInfo)).thenReturn(Optional.of(user));
 		when(adultEligibilityService.hasSignupConfirmation(USER_ID, "generation-1"))
 			.thenReturn(false);
@@ -89,8 +73,6 @@ class SignupCompletionServiceTests {
 			"generation-1",
 			"google",
 			"google-user",
-			"명로 사용자",
-			"user@example.com",
 			"access-token"
 		);
 	}

@@ -14,7 +14,7 @@ class GoogleOAuthProviderUserInfoExtractorTests {
 		new GoogleOAuthProviderUserInfoExtractor();
 
 	@Test
-	void extractsGoogleUserInfo() {
+	void extractsOnlyTheStableGoogleSubject() {
 		OAuthProviderUserInfo userInfo = extractor.extract(Map.of(
 			"sub", "google-user-1",
 			"name", "Myeongro User",
@@ -23,8 +23,6 @@ class GoogleOAuthProviderUserInfoExtractorTests {
 
 		assertThat(userInfo.provider()).isEqualTo("google");
 		assertThat(userInfo.providerUserId()).isEqualTo("google-user-1");
-		assertThat(userInfo.displayName()).isEqualTo("Myeongro User");
-		assertThat(userInfo.email()).isEqualTo("user@example.com");
 	}
 
 	@Test

@@ -35,16 +35,8 @@ public class OAuthAccountEntity {
 	@Column(name = "provider_user_id", nullable = false)
 	private String providerUserId;
 
-	private String email;
-
-	@Column(name = "display_name")
-	private String displayName;
-
 	@Column(name = "created_at", insertable = false, updatable = false)
 	private Instant createdAt;
-
-	@Column(name = "updated_at", insertable = false, updatable = false)
-	private Instant updatedAt;
 
 	protected OAuthAccountEntity() {
 	}
@@ -52,25 +44,19 @@ public class OAuthAccountEntity {
 	private OAuthAccountEntity(
 		ProfileEntity profile,
 		String provider,
-		String providerUserId,
-		String email,
-		String displayName
+		String providerUserId
 	) {
 		this.profile = profile;
 		this.provider = provider;
 		this.providerUserId = providerUserId;
-		this.email = email;
-		this.displayName = displayName;
 	}
 
 	public static OAuthAccountEntity create(
 		ProfileEntity profile,
 		String provider,
-		String providerUserId,
-		String email,
-		String displayName
+		String providerUserId
 	) {
-		return new OAuthAccountEntity(profile, provider, providerUserId, email, displayName);
+		return new OAuthAccountEntity(profile, provider, providerUserId);
 	}
 
 	public Long getId() {
@@ -89,7 +75,4 @@ public class OAuthAccountEntity {
 		return providerUserId;
 	}
 
-	public String getDisplayName() {
-		return displayName;
-	}
 }

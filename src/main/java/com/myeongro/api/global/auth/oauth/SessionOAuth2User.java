@@ -49,18 +49,4 @@ public class SessionOAuth2User implements OAuth2User, SessionPrincipal, Serializ
 		return user.userId();
 	}
 
-	@Override
-	public String displayName() {
-		return user.displayName();
-	}
-
-	@Override
-	public String provider() {
-		return user.provider();
-	}
-
-	@Override
-	public String providerUserId() {
-		return user.providerUserId();
-	}
 }

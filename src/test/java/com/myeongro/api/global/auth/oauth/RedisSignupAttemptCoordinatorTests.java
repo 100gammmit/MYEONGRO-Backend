@@ -77,8 +77,6 @@ class RedisSignupAttemptCoordinatorTests {
 			generationId,
 			"kakao",
 			"12345",
-			"명로 사용자",
-			"user@example.com",
 			"access-token"
 		);
 	}

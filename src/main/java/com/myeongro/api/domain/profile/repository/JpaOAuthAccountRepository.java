@@ -51,27 +51,19 @@ public class JpaOAuthAccountRepository implements OAuthAccountRepository {
 
 	private ProvisionedOAuthUser createAccount(OAuthProviderUserInfo userInfo) {
 		ProfileEntity profile = profileRepository.save(
-			ProfileEntity.create(UUID.randomUUID(), userInfo.displayName())
+			ProfileEntity.create(UUID.randomUUID())
 		);
 		OAuthAccountEntity account = accountRepository.save(
 			OAuthAccountEntity.create(
 				profile,
 				userInfo.provider(),
-				userInfo.providerUserId(),
-				userInfo.email(),
-				userInfo.displayName()
+				userInfo.providerUserId()
 			)
 		);
 		return toUser(account);
 	}
 
 	private ProvisionedOAuthUser toUser(OAuthAccountEntity account) {
-		ProfileEntity profile = account.getProfile();
-		return new ProvisionedOAuthUser(
-			profile.getId(),
-			profile.getDisplayName() == null ? account.getDisplayName() : profile.getDisplayName(),
-			account.getProvider(),
-			account.getProviderUserId()
-		);
+		return new ProvisionedOAuthUser(account.getProfile().getId());
 	}
 }

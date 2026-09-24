@@ -26,14 +26,7 @@ public class GoogleOAuthProviderUserInfoExtractor implements OAuthProviderUserIn
 		}
 		return new OAuthProviderUserInfo(
 			"google",
-			subject.toString(),
-			string(attributes, "name"),
-			string(attributes, "email")
+			subject.toString()
 		);
-	}
-
-	private String string(Map<String, Object> attributes, String key) {
-		Object value = attributes.get(key);
-		return value == null ? null : value.toString();
 	}
 }
