@@ -2,6 +2,7 @@ create schema if not exists public;
 
 create table public.profiles (
   id uuid primary key,
+  display_name varchar(255),
   free_credit_balance integer not null default 0,
   paid_credit_balance integer not null default 0,
   free_credit_reset_date date,
@@ -14,7 +15,10 @@ create table public.oauth_accounts (
   profile_id uuid not null,
   provider varchar(64) not null,
   provider_user_id varchar(255) not null,
+  email varchar(320),
+  display_name varchar(255),
   created_at timestamp with time zone not null default current_timestamp,
+  updated_at timestamp with time zone not null default current_timestamp,
   unique (provider, provider_user_id),
   foreign key (profile_id) references public.profiles(id) on delete cascade
 );

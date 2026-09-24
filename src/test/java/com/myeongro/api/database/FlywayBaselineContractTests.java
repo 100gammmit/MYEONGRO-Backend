@@ -325,7 +325,8 @@ class FlywayBaselineContractTests {
 	}
 
 	@Test
-	void v19RemovesUnusedOAuthAndGenerationMetadata() throws IOException {
+	void v19ScrubsOAuthPersonalDataAndRemovesUnusedGenerationMetadata()
+		throws IOException {
 		var migration = Files.list(MIGRATION_DIRECTORY)
 			.filter(path -> path.getFileName().toString()
 				.startsWith("V19__minimize_oauth_and_generation_metadata"))
@@ -335,17 +336,19 @@ class FlywayBaselineContractTests {
 		var sql = Files.readString(migration);
 
 		assertThat(sql)
-			.contains("drop trigger if exists oauth_accounts_set_updated_at")
-			.contains("alter table public.oauth_accounts")
-			.contains("drop column email")
-			.contains("drop column display_name")
-			.contains("alter table public.profiles")
+			.contains("update public.oauth_accounts")
+			.contains("set email = null")
+			.contains("display_name = null")
+			.contains("update public.profiles")
 			.contains("create or replace function public.create_pending_reading")
 			.contains("reading_id, provider, model, prompt_version, status")
 			.contains("drop column idempotency_key")
 			.contains("drop column input_tokens")
 			.contains("drop column output_tokens")
-			.doesNotContain("requested_prompt_version, 'reading:'");
+			.doesNotContain("requested_prompt_version, 'reading:'")
+			.doesNotContain("drop trigger if exists oauth_accounts_set_updated_at")
+			.doesNotContain("alter table public.oauth_accounts")
+			.doesNotContain("alter table public.profiles");
 	}
 
 }

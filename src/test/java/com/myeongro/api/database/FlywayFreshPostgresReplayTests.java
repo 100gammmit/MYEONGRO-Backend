@@ -95,6 +95,7 @@ class FlywayFreshPostgresReplayTests {
 			jdbcUrl, username, password, softDeletedReadingId
 		);
 		verifyRetiredSajuInputConsent(jdbcUrl, username, password, activeUserId);
+		verifyOAuthPersonalDataScrubbed(jdbcUrl, username, password, activeUserId);
 
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
 			 var statement = connection.createStatement();
@@ -152,13 +153,13 @@ class FlywayFreshPostgresReplayTests {
 				     where table_schema = 'public' and table_name = 'readings'
 				       and column_name = 'deleted_at'
 				   ),
-				   not exists (
+				   exists (
 				     select 1 from information_schema.columns
 				     where table_schema = 'public' and table_name = 'profiles'
 				       and column_name = 'display_name'
 				   ),
-				   not exists (
-				     select 1 from information_schema.columns
+				   (
+				     select count(*) = 3 from information_schema.columns
 				     where table_schema = 'public' and table_name = 'oauth_accounts'
 				       and column_name in ('email', 'display_name', 'updated_at')
 				   ),
@@ -167,7 +168,7 @@ class FlywayFreshPostgresReplayTests {
 				     where table_schema = 'public' and table_name = 'generation_records'
 				       and column_name in ('idempotency_key', 'input_tokens', 'output_tokens')
 				   ),
-				   not exists (
+				   exists (
 				     select 1 from information_schema.triggers
 				     where event_object_schema = 'public'
 				       and event_object_table = 'oauth_accounts'
@@ -230,13 +231,53 @@ class FlywayFreshPostgresReplayTests {
 		String password
 	) throws SQLException {
 		UUID userId = UUID.randomUUID();
-		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
-			 var profile = connection.prepareStatement(
-				 "insert into public.profiles (id, display_name) values (?, 'active')")) {
-			profile.setObject(1, userId);
-			profile.executeUpdate();
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			try (var profile = connection.prepareStatement(
+				"insert into public.profiles (id, display_name) values (?, 'active')")) {
+				profile.setObject(1, userId);
+				profile.executeUpdate();
+			}
+			try (var account = connection.prepareStatement("""
+				insert into public.oauth_accounts (
+				  profile_id, provider, provider_user_id, email, display_name
+				) values (?, 'google', ?, 'active@example.com', 'Active Provider')
+				""")) {
+				account.setObject(1, userId);
+				account.setString(2, "active-" + userId);
+				account.executeUpdate();
+			}
 		}
 		return userId;
+	}
+
+	private void verifyOAuthPersonalDataScrubbed(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId
+	) throws SQLException {
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password)) {
+			try (var profile = connection.prepareStatement(
+				"select display_name from public.profiles where id = ?")) {
+				profile.setObject(1, userId);
+				try (var resultSet = profile.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					assertThat(resultSet.getString("display_name")).isNull();
+				}
+			}
+			try (var account = connection.prepareStatement("""
+				select email, display_name
+				from public.oauth_accounts
+				where profile_id = ?
+				""")) {
+				account.setObject(1, userId);
+				try (var resultSet = account.executeQuery()) {
+					assertThat(resultSet.next()).isTrue();
+					assertThat(resultSet.getString("email")).isNull();
+					assertThat(resultSet.getString("display_name")).isNull();
+				}
+			}
+		}
 	}
 
 	private void seedSajuInputConsent(
