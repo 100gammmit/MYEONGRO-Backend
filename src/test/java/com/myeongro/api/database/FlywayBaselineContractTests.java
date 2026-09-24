@@ -339,7 +339,10 @@ class FlywayBaselineContractTests {
 			.contains("update public.oauth_accounts")
 			.contains("set email = null")
 			.contains("display_name = null")
+			.contains("alter column display_name set default ''")
 			.contains("update public.profiles")
+			.contains("set display_name = ''")
+			.contains("where display_name is distinct from ''")
 			.contains("create or replace function public.create_pending_reading")
 			.contains("reading_id, provider, model, prompt_version, status")
 			.contains("drop column idempotency_key")
@@ -348,7 +351,7 @@ class FlywayBaselineContractTests {
 			.doesNotContain("requested_prompt_version, 'reading:'")
 			.doesNotContain("drop trigger if exists oauth_accounts_set_updated_at")
 			.doesNotContain("alter table public.oauth_accounts")
-			.doesNotContain("alter table public.profiles");
+			.doesNotContain("drop column display_name");
 	}
 
 }

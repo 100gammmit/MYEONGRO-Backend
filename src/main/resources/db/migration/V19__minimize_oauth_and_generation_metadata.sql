@@ -8,9 +8,12 @@ set email = null,
 where email is not null
    or display_name is not null;
 
+alter table public.profiles
+  alter column display_name set default '';
+
 update public.profiles
-set display_name = null
-where display_name is not null;
+set display_name = ''
+where display_name is distinct from '';
 
 -- Generation idempotency is enforced by readings(user_id, request_id) and
 -- readings.input_hash. The removed columns were never read or populated.

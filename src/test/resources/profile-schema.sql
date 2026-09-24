@@ -2,7 +2,7 @@ create schema if not exists public;
 
 create table public.profiles (
   id uuid primary key,
-  display_name varchar(255),
+  display_name varchar(255) default '',
   free_credit_balance integer not null default 0,
   paid_credit_balance integer not null default 0,
   free_credit_reset_date date,
