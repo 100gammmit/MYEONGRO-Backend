@@ -115,7 +115,7 @@ class AuthenticatedReadingSecurityTests {
 		mockMvc.perform(post("/api/consents/ai-overseas-transfer")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"documentVersion":"draft-2026-09-07"}
+					{"documentVersion":"draft-2026-09-25"}
 					"""))
 			.andExpect(status().isUnauthorized());
 

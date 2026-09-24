@@ -102,11 +102,13 @@ class OpenAiSajuReadingGeneratorTests {
 			.containsEntry("question", ATTACK);
 		assertThat(chatModel.prompt.getUserMessage().getText())
 			.doesNotContain(
-				"1992-08-17", "14:30", "세종특별자치시", "36110", "female", "乙"
+				"1992-08-17", "14:30", "세종특별자치시", "36110", "female", "乙",
+				"userId", "oauth", "email", "safety_identifier"
 			);
 
 		OpenAiChatOptions options = (OpenAiChatOptions)chatModel.prompt.getOptions();
 		assertThat(options.getModel()).isEqualTo("gpt-test");
+		assertThat(options.getStore()).isFalse();
 		assertThat(options.getResponseFormat().getJsonSchema().getName())
 			.isEqualTo("saju_birth_annual_question");
 		@SuppressWarnings("unchecked")

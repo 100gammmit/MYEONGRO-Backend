@@ -55,6 +55,7 @@ class OpenAiTarotReadingGeneratorTests {
 		);
 
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
+		assertThat(options.getStore()).isFalse();
 		assertThat(options.getMaxCompletionTokens()).isEqualTo(spread.maxOutputTokens());
 		assertThat(options.getResponseFormat().getJsonSchema().getSchema().toString())
 			.contains("CRISIS_OR_IMMEDIATE_DANGER", "HARMFUL_OR_ILLEGAL_ACTION")
@@ -110,6 +111,8 @@ class OpenAiTarotReadingGeneratorTests {
 		assertThat(untrustedInput)
 			.containsEntry("question", "질문")
 			.containsKey("readingInput");
+		assertThat(chatModel.prompt.getUserMessage().getText())
+			.doesNotContain("userId", "oauth", "email", "safety_identifier");
 		assertThat(untrustedInput.get("readingInput")).isInstanceOf(Map.class);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> readingInput =

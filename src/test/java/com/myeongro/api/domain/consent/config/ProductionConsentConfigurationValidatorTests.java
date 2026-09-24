@@ -22,7 +22,7 @@ class ProductionConsentConfigurationValidatorTests {
 	void rejectsDraftDocumentVersionsInProduction() {
 		var validator = new ProductionConsentConfigurationValidator(
 			"2026-08-28",
-			"draft-2026-09-07",
+			"draft-2026-09-25",
 			"2026-09-09"
 		);
 

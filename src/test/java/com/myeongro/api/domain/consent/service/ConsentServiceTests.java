@@ -312,7 +312,7 @@ class ConsentServiceTests {
 	}
 
 	private String overseasVersion() {
-		return "draft-2026-09-07";
+		return "draft-2026-09-25";
 	}
 
 	private Map<String, String> tarotVersions() {

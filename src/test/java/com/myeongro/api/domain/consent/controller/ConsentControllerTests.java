@@ -98,7 +98,7 @@ class ConsentControllerTests {
 			ConsentScope.TAROT,
 			Map.of(
 				"terms", "2026-08-28",
-				"ai-overseas-transfer", "draft-2026-09-07"
+				"ai-overseas-transfer", "draft-2026-09-25"
 			)
 		)).thenReturn(new ConsentStatus(
 			ConsentScope.TAROT.requiredDocuments(),
@@ -114,7 +114,7 @@ class ConsentControllerTests {
 					  "scope":"tarot",
 					  "documentVersions":{
 					    "terms":"2026-08-28",
-					    "ai-overseas-transfer":"draft-2026-09-07"
+					    "ai-overseas-transfer":"draft-2026-09-25"
 					  }
 					}
 					"""))
@@ -128,7 +128,7 @@ class ConsentControllerTests {
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
 		Map<String, String> versions = Map.of(
 			"terms", "2026-08-28",
-			"ai-overseas-transfer", "draft-2026-09-07"
+			"ai-overseas-transfer", "draft-2026-09-25"
 		);
 		when(consentService.completeRequiredForUser(
 			USER_ID,
@@ -148,7 +148,7 @@ class ConsentControllerTests {
 					  "scope":"saju",
 					  "documentVersions":{
 					    "terms":"2026-08-28",
-					    "ai-overseas-transfer":"draft-2026-09-07"
+					    "ai-overseas-transfer":"draft-2026-09-25"
 					  }
 					}
 					"""))
@@ -168,7 +168,7 @@ class ConsentControllerTests {
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
 		Map<String, String> versions = Map.of(
 			"terms", "2026-08-28",
-			"ai-overseas-transfer", "draft-2026-09-07",
+			"ai-overseas-transfer", "draft-2026-09-25",
 			"saju-input", "retired-version"
 		);
 		when(consentService.completeRequiredForUser(
@@ -185,7 +185,7 @@ class ConsentControllerTests {
 					  "scope":"saju",
 					  "documentVersions":{
 					    "terms":"2026-08-28",
-					    "ai-overseas-transfer":"draft-2026-09-07",
+					    "ai-overseas-transfer":"draft-2026-09-25",
 					    "saju-input":"retired-version"
 					  }
 					}

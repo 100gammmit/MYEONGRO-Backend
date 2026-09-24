@@ -221,6 +221,7 @@ public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
 	private OpenAiChatOptions options(TarotSpreadType spreadType) {
 		return OpenAiChatOptions.builder()
 			.model(model)
+			.store(false)
 			.maxCompletionTokens(spreadType.maxOutputTokens())
 			.temperature(1d)
 			.responseFormat(ResponseFormat.builder()

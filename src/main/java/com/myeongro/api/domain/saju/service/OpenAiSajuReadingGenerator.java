@@ -200,6 +200,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 	) {
 		return OpenAiChatOptions.builder()
 			.model(model)
+			.store(false)
 			.maxCompletionTokens(MAX_COMPLETION_TOKENS)
 			.temperature(1d)
 			.responseFormat(ResponseFormat.builder()

@@ -34,13 +34,13 @@ class ConsentEventRepositoryTests {
 		repository.save(ConsentEventEntity.accepted(
 			USER_ID,
 			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			"draft-2026-09-07",
+			"draft-2026-09-25",
 			Instant.parse("2026-09-07T00:00:00Z")
 		));
 		repository.save(ConsentEventEntity.withdrawn(
 			USER_ID,
 			ConsentDocumentType.AI_OVERSEAS_TRANSFER,
-			"draft-2026-09-07",
+			"draft-2026-09-25",
 			Instant.parse("2026-09-07T01:00:00Z")
 		));
 

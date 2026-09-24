@@ -36,6 +36,7 @@ spring:
   ai:
     openai:
       api-key: ${openai.api-key:}
+      base-url: https://api.openai.com
 
   security:
     oauth2:
@@ -128,7 +129,7 @@ app:
   consent:
     versions:
       terms: 2026-09-09
-      ai-overseas-transfer: draft-2026-09-07
+      ai-overseas-transfer: draft-2026-09-25
 
 springdoc:
   swagger-ui:
