@@ -1,19 +1,13 @@
--- Stop retaining OAuth profile data immediately, while keeping the nullable
--- legacy columns for one deployment rollback window. The application no longer
--- reads or writes them, and a later contract migration can remove them after
--- the pre-V19 image is no longer a rollback target.
-update public.oauth_accounts
-set email = null,
-    display_name = null
-where email is not null
-   or display_name is not null;
+-- Retain only the identifiers required to reconnect an OAuth account.
+drop trigger if exists oauth_accounts_set_updated_at on public.oauth_accounts;
+
+alter table public.oauth_accounts
+  drop column email,
+  drop column display_name,
+  drop column updated_at;
 
 alter table public.profiles
-  alter column display_name set default '';
-
-update public.profiles
-set display_name = ''
-where display_name is distinct from '';
+  drop column display_name;
 
 -- Generation idempotency is enforced by readings(user_id, request_id) and
 -- readings.input_hash. The removed columns were never read or populated.
