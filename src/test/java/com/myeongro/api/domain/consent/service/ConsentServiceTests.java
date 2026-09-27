@@ -152,6 +152,66 @@ class ConsentServiceTests {
 	}
 
 	@Test
+	void acceptsOnlyTheMissingOverseasDocumentAfterSignupTermsAcceptance() {
+		ConsentEventRepository repository = repositoryWith(
+			accepted(ConsentDocumentType.TERMS, termsVersion())
+		);
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
+
+		var status = service(repository).completeRequiredForUser(
+			USER_ID,
+			ConsentScope.TAROT,
+			Map.of("ai-overseas-transfer", overseasVersion())
+		);
+
+		assertThat(status.hasAcceptedRequired()).isTrue();
+		verify(repository, never()).save(org.mockito.ArgumentMatchers.argThat(event ->
+			event.getDocumentType() == ConsentDocumentType.TERMS
+		));
+		verify(repository).save(org.mockito.ArgumentMatchers.argThat(event ->
+			event.getDocumentType() == ConsentDocumentType.AI_OVERSEAS_TRANSFER
+		));
+	}
+
+	@Test
+	void acceptsTermsAtSignupAndKeepsARepeatIdempotent() {
+		ConsentEventRepository repository = repositoryWith();
+		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
+			.thenAnswer(invocation -> invocation.getArgument(0));
+
+		service(repository).acceptTermsForSignup(USER_ID, termsVersion());
+
+		verify(repository).save(org.mockito.ArgumentMatchers.argThat(event ->
+			event.getDocumentType() == ConsentDocumentType.TERMS
+				&& event.getDocumentVersion().equals(termsVersion())
+				&& event.getOccurredAt().equals(NOW)
+		));
+
+		ConsentEventRepository acceptedRepository = repositoryWith(
+			accepted(ConsentDocumentType.TERMS, termsVersion())
+		);
+		service(acceptedRepository).acceptTermsForSignup(USER_ID, termsVersion());
+		verify(acceptedRepository, never()).save(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void rejectsAnOutdatedSignupTermsVersionBeforeLockingOrWriting() {
+		ConsentEventRepository repository = repositoryWith();
+		ConsentTransitionLock transitionLock = mock(ConsentTransitionLock.class);
+
+		assertThatThrownBy(() -> service(repository, transitionLock)
+			.acceptTermsForSignup(USER_ID, "outdated"))
+			.isInstanceOf(ConsentVersionMismatchException.class);
+
+		verify(transitionLock, never()).lock(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any()
+		);
+		verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
 	void recordsExactlyTheSharedRequiredDocumentsForSaju() {
 		ConsentEventRepository repository = repositoryWith();
 		when(repository.save(org.mockito.ArgumentMatchers.any(ConsentEventEntity.class)))
@@ -308,7 +368,7 @@ class ConsentServiceTests {
 	}
 
 	private String termsVersion() {
-		return "2026-08-28";
+		return "draft-2026-09-27";
 	}
 
 	private String overseasVersion() {

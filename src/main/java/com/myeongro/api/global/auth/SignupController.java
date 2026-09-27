@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -12,10 +13,13 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.myeongro.api.domain.eligibility.service.SignupCompletionService;
+import com.myeongro.api.domain.consent.service.ConsentVersionMismatchException;
 import com.myeongro.api.global.auth.oauth.OAuth2NextRequestFilter;
 import com.myeongro.api.global.auth.oauth.OAuthConnectionRevocationException;
 import com.myeongro.api.global.auth.oauth.OAuthConnectionRevoker;
@@ -99,11 +103,15 @@ public class SignupController {
 		));
 	}
 
-	@PostMapping("/adult-eligibility")
-	public ResponseEntity<Map<String, String>> confirmAdultEligibility(
+	@PostMapping
+	public ResponseEntity<Map<String, String>> completeSignup(
+		@RequestBody SignupCompletionRequest completionRequest,
 		Authentication authentication,
 		HttpServletRequest request
 	) {
+		if (completionRequest == null || !completionRequest.hasRequiredConfirmations()) {
+			throw new SignupConfirmationRequiredException();
+		}
 		HttpSession session = request.getSession(false);
 		if (session == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -143,7 +151,10 @@ public class SignupController {
 			}
 		} else {
 			try {
-				user = signupCompletionService.complete(pendingSignup);
+				user = signupCompletionService.complete(
+					pendingSignup,
+					completionRequest.getTermsVersion()
+				);
 			} catch (RuntimeException exception) {
 				try {
 					signupAttemptCoordinator.releaseCompletion(pendingSignup);
@@ -156,6 +167,31 @@ public class SignupController {
 		}
 
 		return completeSession(session, user);
+	}
+
+	@ExceptionHandler(SignupConfirmationRequiredException.class)
+	public ResponseEntity<Map<String, String>> confirmationRequired(
+		SignupConfirmationRequiredException exception
+	) {
+		return ResponseEntity.badRequest().body(Map.of(
+			"code", "SIGNUP_CONFIRMATION_REQUIRED",
+			"message", exception.getMessage()
+		));
+	}
+
+	@ExceptionHandler(ConsentVersionMismatchException.class)
+	public ResponseEntity<Map<String, String>> consentVersionMismatch(
+		ConsentVersionMismatchException exception
+	) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+			"code", "CONSENT_VERSION_MISMATCH",
+			"message", exception.getMessage()
+		));
+	}
+
+	@ExceptionHandler({HttpMessageNotReadableException.class, IllegalArgumentException.class})
+	public ResponseEntity<Map<String, String>> invalidConfirmationRequest(Exception exception) {
+		return confirmationRequired(new SignupConfirmationRequiredException());
 	}
 
 	private ResponseEntity<Map<String, String>> completeSession(

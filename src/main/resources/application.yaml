@@ -128,7 +128,7 @@ app:
 
   consent:
     versions:
-      terms: 2026-09-09
+      terms: draft-2026-09-27
       ai-overseas-transfer: draft-2026-09-25
 
 springdoc:

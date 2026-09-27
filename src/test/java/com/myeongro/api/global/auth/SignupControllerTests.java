@@ -52,6 +52,7 @@ class SignupControllerTests {
 	private static final UUID USER_ID =
 		UUID.fromString("43bc72f9-eed1-4e4b-8717-6fe969b4ea43");
 	private static final ProvisionedOAuthUser COMPLETED_USER = new ProvisionedOAuthUser(USER_ID);
+	private static final String TERMS_VERSION = "draft-2026-09-27";
 	private final SignupCompletionService signupCompletionService =
 		org.mockito.Mockito.mock(SignupCompletionService.class);
 	private final OAuthConnectionRevoker connectionRevoker =
@@ -91,9 +92,9 @@ class SignupControllerTests {
 		session.setAttribute(OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE, "/records?tab=latest");
 		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.ACQUIRED);
-		when(signupCompletionService.complete(pending)).thenReturn(COMPLETED_USER);
+		when(signupCompletionService.complete(pending, TERMS_VERSION)).thenReturn(COMPLETED_USER);
 
-		var response = controller.confirmAdultEligibility(authentication, request);
+		var response = controller.completeSignup(signupRequest(), authentication, request);
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(response.getBody()).containsEntry("next", "/records?tab=latest");
@@ -112,9 +113,11 @@ class SignupControllerTests {
 		assertThat(new String(serialize(context), StandardCharsets.ISO_8859_1))
 			.doesNotContain("source-sensitive-value");
 
-		var replay = controller.confirmAdultEligibility(context.getAuthentication(), request);
+		var replay = controller.completeSignup(
+			signupRequest(), context.getAuthentication(), request
+		);
 		assertThat(replay.getBody()).containsEntry("next", "/records?tab=latest");
-		verify(signupCompletionService, times(1)).complete(pending);
+		verify(signupCompletionService, times(1)).complete(pending, TERMS_VERSION);
 		verify(attemptCoordinator).markCompleted(pending);
 	}
 
@@ -131,13 +134,13 @@ class SignupControllerTests {
 		when(signupCompletionService.findCompleted(pending))
 			.thenReturn(Optional.of(COMPLETED_USER));
 
-		var response = controller.confirmAdultEligibility(authentication, request);
+		var response = controller.completeSignup(signupRequest(), authentication, request);
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(response.getBody()).containsEntry("next", "/account");
 		assertThat(securityContext((MockHttpSession) request.getSession(false))
 			.getAuthentication().getPrincipal()).isInstanceOf(SessionPrincipal.class);
-		verify(signupCompletionService, never()).complete(pending);
+		verify(signupCompletionService, never()).complete(pending, TERMS_VERSION);
 	}
 
 	@Test
@@ -146,11 +149,11 @@ class SignupControllerTests {
 		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
 		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.ACQUIRED);
-		when(signupCompletionService.complete(pending))
+		when(signupCompletionService.complete(pending, TERMS_VERSION))
 			.thenThrow(new IllegalStateException("database unavailable"));
 
-		assertThatThrownBy(() -> controller.confirmAdultEligibility(
-			authentication, requestWithSession()
+		assertThatThrownBy(() -> controller.completeSignup(
+			signupRequest(), authentication, requestWithSession()
 		)).isInstanceOf(IllegalStateException.class);
 
 		verify(attemptCoordinator).releaseCompletion(pending);
@@ -162,14 +165,16 @@ class SignupControllerTests {
 		PendingSignupSessionPrincipal pending = pendingPrincipal(authentication);
 		when(attemptCoordinator.claimCompletion(pending))
 			.thenReturn(CompletionClaim.ACQUIRED);
-		when(signupCompletionService.complete(pending)).thenReturn(COMPLETED_USER);
+		when(signupCompletionService.complete(pending, TERMS_VERSION)).thenReturn(COMPLETED_USER);
 		doThrow(new IllegalStateException("redis unavailable"))
 			.when(attemptCoordinator).markCompleted(pending);
 
-		var response = controller.confirmAdultEligibility(authentication, requestWithSession());
+		var response = controller.completeSignup(
+			signupRequest(), authentication, requestWithSession()
+		);
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		verify(signupCompletionService).complete(pending);
+		verify(signupCompletionService).complete(pending, TERMS_VERSION);
 	}
 
 	@Test
@@ -182,11 +187,13 @@ class SignupControllerTests {
 		when(signupCompletionService.findCompleted(pending))
 			.thenReturn(Optional.of(COMPLETED_USER));
 
-		var response = controller.confirmAdultEligibility(authentication, requestWithSession());
+		var response = controller.completeSignup(
+			signupRequest(), authentication, requestWithSession()
+		);
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(response.getBody()).containsEntry("next", "/");
-		verify(signupCompletionService, never()).complete(pending);
+		verify(signupCompletionService, never()).complete(pending, TERMS_VERSION);
 		verify(attemptCoordinator).markCompleted(pending);
 	}
 
@@ -233,8 +240,8 @@ class SignupControllerTests {
 		when(attemptCoordinator.state(pending)).thenReturn(AttemptState.MISSING);
 		when(signupCompletionService.findCompleted(pending)).thenReturn(Optional.empty());
 
-		var completion = controller.confirmAdultEligibility(
-			authentication, requestWithSession()
+		var completion = controller.completeSignup(
+			signupRequest(), authentication, requestWithSession()
 		);
 		var cancellation = controller.cancel(authentication, requestWithSession());
 
@@ -321,7 +328,10 @@ class SignupControllerTests {
 		);
 		CountDownLatch completionStarted = new CountDownLatch(1);
 		CountDownLatch releaseCompletion = new CountDownLatch(1);
-		when(signupCompletionService.complete(org.mockito.ArgumentMatchers.any()))
+		when(signupCompletionService.complete(
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.eq(TERMS_VERSION)
+		))
 			.thenAnswer(invocation -> {
 				completionStarted.countDown();
 				releaseCompletion.await(5, TimeUnit.SECONDS);
@@ -332,8 +342,10 @@ class SignupControllerTests {
 			OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE, "/records"
 		);
 		ExecutorService executor = Executors.newSingleThreadExecutor();
-		Future<?> completion = executor.submit(() -> concurrentController.confirmAdultEligibility(
-			pendingAuthentication("attempt-a", "generation-shared"), completionRequest
+		Future<?> completion = executor.submit(() -> concurrentController.completeSignup(
+			signupRequest(),
+			pendingAuthentication("attempt-a", "generation-shared"),
+			completionRequest
 		));
 		assertThat(completionStarted.await(5, TimeUnit.SECONDS)).isTrue();
 
@@ -370,14 +382,16 @@ class SignupControllerTests {
 		));
 		assertThat(cancellationStarted.await(5, TimeUnit.SECONDS)).isTrue();
 
-		var completion = concurrentController.confirmAdultEligibility(
+		var completion = concurrentController.completeSignup(
+			signupRequest(),
 			pendingAuthentication("attempt-b", "generation-shared"),
 			requestSharingSession((MockHttpSession) cancellationRequest.getSession(false))
 		);
 
 		assertThat(completion.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
 		verify(signupCompletionService, never()).complete(
-			org.mockito.ArgumentMatchers.any()
+			org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.anyString()
 		);
 		releaseCancellation.countDown();
 		cancellation.get(5, TimeUnit.SECONDS);
@@ -392,13 +406,40 @@ class SignupControllerTests {
 
 		assertThat(controller.status(authentication, new MockHttpServletRequest()).getStatusCode())
 			.isEqualTo(HttpStatus.UNAUTHORIZED);
-		assertThat(controller.confirmAdultEligibility(
-			authentication, new MockHttpServletRequest()
+		assertThat(controller.completeSignup(
+			signupRequest(), authentication, new MockHttpServletRequest()
 		).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+	}
+
+	@Test
+	void requiresBothSignupConfirmationsBeforeClaimingTheAttempt() {
+		SignupCompletionRequest request = signupRequest();
+		request.setTermsAccepted(false);
+
+		assertThatThrownBy(() -> controller.completeSignup(
+			request, pendingAuthentication(), requestWithSession()
+		)).isInstanceOf(SignupConfirmationRequiredException.class);
+		var response = controller.confirmationRequired(
+			new SignupConfirmationRequiredException()
+		);
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(response.getBody()).containsEntry("code", "SIGNUP_CONFIRMATION_REQUIRED");
+		verify(attemptCoordinator, never()).claimCompletion(
+			org.mockito.ArgumentMatchers.any()
+		);
 	}
 
 	private Authentication pendingAuthentication() {
 		return pendingAuthentication("attempt-1", "generation-1");
+	}
+
+	private SignupCompletionRequest signupRequest() {
+		SignupCompletionRequest request = new SignupCompletionRequest();
+		request.setAdultEligibilityConfirmed(true);
+		request.setTermsAccepted(true);
+		request.setTermsVersion(TERMS_VERSION);
+		return request;
 	}
 
 	private Authentication pendingAuthentication(String attemptId, String generationId) {

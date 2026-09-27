@@ -53,7 +53,7 @@ public class JpaOAuthAccountRepository implements OAuthAccountRepository {
 		ProfileEntity profile = profileRepository.save(
 			ProfileEntity.create(UUID.randomUUID())
 		);
-		OAuthAccountEntity account = accountRepository.save(
+		OAuthAccountEntity account = accountRepository.saveAndFlush(
 			OAuthAccountEntity.create(
 				profile,
 				userInfo.provider(),

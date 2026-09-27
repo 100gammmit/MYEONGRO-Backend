@@ -14,6 +14,7 @@ import com.myeongro.api.global.auth.oauth.OAuthProviderUserInfo;
 import com.myeongro.api.global.auth.oauth.OAuthUserProvisioner;
 import com.myeongro.api.global.auth.oauth.PendingSignupSessionPrincipal;
 import com.myeongro.api.global.auth.oauth.ProvisionedOAuthUser;
+import com.myeongro.api.domain.consent.service.ConsentService;
 
 class SignupCompletionServiceTests {
 
@@ -24,9 +25,12 @@ class SignupCompletionServiceTests {
 		org.mockito.Mockito.mock(OAuthUserProvisioner.class);
 	private final AdultEligibilityService adultEligibilityService =
 		org.mockito.Mockito.mock(AdultEligibilityService.class);
+	private final ConsentService consentService =
+		org.mockito.Mockito.mock(ConsentService.class);
 	private final SignupCompletionService service = new SignupCompletionService(
 		userProvisioner,
-		adultEligibilityService
+		adultEligibilityService,
+		consentService
 	);
 
 	@Test
@@ -36,11 +40,12 @@ class SignupCompletionServiceTests {
 		ProvisionedOAuthUser user = new ProvisionedOAuthUser(USER_ID);
 		when(userProvisioner.provision(userInfo)).thenReturn(user);
 
-		assertThat(service.complete(pending)).isEqualTo(user);
+		assertThat(service.complete(pending, "draft-2026-09-27")).isEqualTo(user);
 
-		InOrder order = inOrder(userProvisioner, adultEligibilityService);
+		InOrder order = inOrder(userProvisioner, adultEligibilityService, consentService);
 		order.verify(userProvisioner).provision(userInfo);
 		order.verify(adultEligibilityService).confirmSignupForUser(USER_ID, "generation-1");
+		order.verify(consentService).acceptTermsForSignup(USER_ID, "draft-2026-09-27");
 	}
 
 	@Test

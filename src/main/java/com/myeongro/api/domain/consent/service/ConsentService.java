@@ -74,6 +74,24 @@ public class ConsentService {
 	}
 
 	@Transactional
+	public void acceptTermsForSignup(UUID userId, String submittedVersion) {
+		ConsentDocumentType documentType = ConsentDocumentType.TERMS;
+		if (!versions.get(documentType).equals(submittedVersion)) {
+			throw new ConsentVersionMismatchException();
+		}
+		transitionLock.lock(userId, documentType);
+		ConsentEventEntity current = latestEvents(userId).get(documentType);
+		if (!isCurrentAcceptance(current, documentType)) {
+			repository.save(ConsentEventEntity.accepted(
+				userId,
+				documentType,
+				submittedVersion,
+				clock.instant()
+			));
+		}
+	}
+
+	@Transactional
 	public ConsentStatus completeRequiredForUser(
 		UUID userId,
 		ConsentScope scope,
@@ -86,11 +104,11 @@ public class ConsentService {
 			validateActive(documentType);
 			requested.put(documentType, entry.getValue());
 		}
-		if (requested.size() != required.size() || !requested.keySet().containsAll(required)) {
-			throw new IllegalArgumentException("Exactly the required consent documents must be submitted");
+		if (requested.isEmpty() || !required.containsAll(requested.keySet())) {
+			throw new IllegalArgumentException("Only required consent documents may be submitted");
 		}
-		for (ConsentDocumentType documentType : required) {
-			if (!versions.get(documentType).equals(requested.get(documentType))) {
+		for (Map.Entry<ConsentDocumentType, String> entry : requested.entrySet()) {
+			if (!versions.get(entry.getKey()).equals(entry.getValue())) {
 				throw new ConsentVersionMismatchException();
 			}
 		}
@@ -99,16 +117,20 @@ public class ConsentService {
 			transitionLock.lock(userId, documentType);
 		}
 		Map<ConsentDocumentType, ConsentEventEntity> latest = latestEvents(userId);
+		List<ConsentDocumentType> missing = required.stream()
+			.filter(type -> !isCurrentAcceptance(latest.get(type), type))
+			.toList();
+		if (!requested.keySet().containsAll(missing)) {
+			throw new IllegalArgumentException("All missing consent documents must be submitted");
+		}
 		Instant acceptedAt = clock.instant();
-		for (ConsentDocumentType documentType : required) {
-			if (!isCurrentAcceptance(latest.get(documentType), documentType)) {
-				repository.save(ConsentEventEntity.accepted(
-					userId,
-					documentType,
-					versions.get(documentType),
-					acceptedAt
-				));
-			}
+		for (ConsentDocumentType documentType : missing) {
+			repository.save(ConsentEventEntity.accepted(
+				userId,
+				documentType,
+				versions.get(documentType),
+				acceptedAt
+			));
 		}
 		return new ConsentStatus(required, required, true);
 	}

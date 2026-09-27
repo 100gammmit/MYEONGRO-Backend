@@ -42,7 +42,6 @@ class PendingSignupAccessFilterTests {
 	void allowsPendingSignupToUseOnlySignupStatusAndCompletionApis() throws Exception {
 		for (String path : List.of(
 			"/api/signup",
-			"/api/signup/adult-eligibility",
 			"/api/auth/me"
 		)) {
 			setPendingAuthentication();
