@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.myeongro.api.domain.reading.entity.ReadingKind;
 
 @Component
 public class ReadingInputFingerprinter {
@@ -40,11 +39,10 @@ public class ReadingInputFingerprinter {
 	) {
 		byte[] tarot = requireSecret(tarotSecret, "app.reading.tarot-idempotency-secret");
 		byte[] saju = requireSecret(sajuSecret, "app.reading.saju-idempotency-secret");
+		byte[] selection = bytes(tarotSelectionSecret);
 		if (MessageDigest.isEqual(tarot, saju)
-			|| (tarotSelectionSecret != null && (
-				MessageDigest.isEqual(tarot, bytes(tarotSelectionSecret))
-					|| MessageDigest.isEqual(saju, bytes(tarotSelectionSecret))
-			))) {
+			|| MessageDigest.isEqual(tarot, selection)
+			|| MessageDigest.isEqual(saju, selection)) {
 			throw new IllegalArgumentException(
 				"Tarot idempotency, Saju idempotency and tarot selection secrets must be distinct"
 			);

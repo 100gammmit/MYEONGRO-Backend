@@ -33,6 +33,10 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		JdbcReadingCreationRepository.class
 	);
 
+	// First schema versions whose input_hash is a keyed HMAC over the full request,
+	// including question text. Older rows fall back to the stored-payload projection.
+	private static final int SAJU_HMAC_FINGERPRINT_SINCE = 5;
+	private static final int TAROT_HMAC_FINGERPRINT_SINCE = 2;
 	private static final String SELECT_EXISTING = """
 		select
 			id,
@@ -139,8 +143,8 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		if (!metadataMatches) {
 			return false;
 		}
-		if ((kind == ReadingKind.SAJU && schemaVersion >= 5)
-			|| (kind == ReadingKind.TAROT && schemaVersion >= 2)) {
+		if ((kind == ReadingKind.SAJU && schemaVersion >= SAJU_HMAC_FINGERPRINT_SINCE)
+			|| (kind == ReadingKind.TAROT && schemaVersion >= TAROT_HMAC_FINGERPRINT_SINCE)) {
 			return Objects.equals(storedInputHash, inputHash);
 		}
 		return idempotencyInput(kind, reading.input()).equals(idempotencyInput(kind, input));

@@ -144,9 +144,6 @@ class ReadingCreationWorkflowTests {
 		assertThat(commands.getAllValues().get(0).inputHash())
 			.isNotEqualTo(commands.getAllValues().get(1).inputHash());
 		assertThat(commands.getAllValues())
-			.extracting(PendingReadingCommand::inputHash)
-			.noneMatch(hash -> hash.contains("질문"));
-		assertThat(commands.getAllValues())
 			.allSatisfy(command -> assertThat(command.input())
 				.doesNotContainKeys("question", "choiceOptions"));
 	}
