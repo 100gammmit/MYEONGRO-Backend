@@ -139,7 +139,8 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		if (!metadataMatches) {
 			return false;
 		}
-		if (kind == ReadingKind.SAJU && schemaVersion >= 5) {
+		if ((kind == ReadingKind.SAJU && schemaVersion >= 5)
+			|| (kind == ReadingKind.TAROT && schemaVersion >= 2)) {
 			return Objects.equals(storedInputHash, inputHash);
 		}
 		return idempotencyInput(kind, reading.input()).equals(idempotencyInput(kind, input));

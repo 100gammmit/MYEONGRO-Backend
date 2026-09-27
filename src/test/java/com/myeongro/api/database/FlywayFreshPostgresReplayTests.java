@@ -532,7 +532,10 @@ class FlywayFreshPostgresReplayTests {
 			repository,
 			generator,
 			new ReadingInputFingerprinter(
-				new ObjectMapper(), "test-only-saju-idempotency-secret-32-bytes"
+				new ObjectMapper(),
+				"test-only-tarot-idempotency-secret-32-bytes",
+				"test-only-saju-idempotency-secret-32-bytes",
+				"test-only-tarot-selection-secret-32-bytes"
 			),
 			metadataResolver,
 			ReadingCreditTestFixtures.properties(),

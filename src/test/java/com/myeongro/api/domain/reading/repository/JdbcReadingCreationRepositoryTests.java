@@ -117,15 +117,15 @@ class JdbcReadingCreationRepositoryTests {
 	}
 
 	@Test
-	void rejectsReusedRequestIdWithDifferentPersistentInput() {
+	void rejectsReusedTarotRequestIdWhenOnlyTheQuestionFingerprintDiffers() {
 		assertThatThrownBy(() -> repository.findExisting(
 			USER_ID,
 			REQUEST_ID,
 			ReadingKind.TAROT,
 			TarotSpreadType.MIND_THREE_CARD.value(),
 			2,
-			"input-hash",
-			Map.of("cards", List.of(Map.of("cardId", "major-00-fool")))
+			"fingerprint-for-a-different-question",
+			Map.of("question", "다른 질문", "cards", List.of())
 		))
 			.isInstanceOf(ReadingIdempotencyConflictException.class);
 	}

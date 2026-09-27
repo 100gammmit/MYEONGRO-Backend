@@ -119,7 +119,7 @@ class ReadingCreationWorkflowTests {
 	}
 
 	@Test
-	void excludesQuestionTextFromPersistedIdempotencyHash() {
+	void includesQuestionTextInIdempotencyHashWithoutPersistingIt() {
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 		when(repository.createPending(org.mockito.ArgumentMatchers.any()))
 			.thenReturn(pending());
@@ -141,9 +141,11 @@ class ReadingCreationWorkflowTests {
 		ArgumentCaptor<PendingReadingCommand> commands =
 			ArgumentCaptor.forClass(PendingReadingCommand.class);
 		verify(repository, org.mockito.Mockito.times(2)).createPending(commands.capture());
-		assertThat(commands.getAllValues()).hasSize(2)
+		assertThat(commands.getAllValues().get(0).inputHash())
+			.isNotEqualTo(commands.getAllValues().get(1).inputHash());
+		assertThat(commands.getAllValues())
 			.extracting(PendingReadingCommand::inputHash)
-			.allMatch(commands.getAllValues().getFirst().inputHash()::equals);
+			.noneMatch(hash -> hash.contains("질문"));
 		assertThat(commands.getAllValues())
 			.allSatisfy(command -> assertThat(command.input())
 				.doesNotContainKeys("question", "choiceOptions"));
@@ -385,7 +387,10 @@ class ReadingCreationWorkflowTests {
 			repository,
 			generator,
 			new ReadingInputFingerprinter(
-				new ObjectMapper(), "test-only-saju-idempotency-secret-32-bytes"
+				new ObjectMapper(),
+				"test-only-tarot-idempotency-secret-32-bytes",
+				"test-only-saju-idempotency-secret-32-bytes",
+				"test-only-tarot-selection-secret-32-bytes"
 			),
 			metadataResolver,
 			ReadingCreditTestFixtures.properties(),

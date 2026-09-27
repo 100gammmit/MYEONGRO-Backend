@@ -95,8 +95,12 @@ app:
     variant-count: 6
 
   reading:
+    # Three dedicated HMAC keys; each must be distinct and stable across deployments.
+    # Tarot slot -> card ranking only (TarotCardRanker).
     tarot-selection-secret: ${tarot.selection-secret}
-    # Raw birth data idempotency uses a dedicated HMAC key and never a plain digest.
+    # Tarot request idempotency fingerprint only; covers question and choice text.
+    tarot-idempotency-secret: ${tarot.idempotency-secret}
+    # Saju request idempotency fingerprint only; covers raw birth data and question.
     saju-idempotency-secret: ${saju.idempotency-secret}
     openai:
       model: ${openai.model:gpt-5.6-luna}

@@ -24,31 +24,57 @@ public class ReadingInputFingerprinter {
 	private static final int MINIMUM_SECRET_BYTES = 32;
 
 	private final ObjectMapper objectMapper;
+	private final byte[] tarotSecret;
 	private final byte[] sajuSecret;
 
+	/**
+	 * Each reading kind signs its idempotency fingerprint with a dedicated key.
+	 * The tarot selection key only ranks cards and is accepted here solely to
+	 * reject a configuration that reuses it for fingerprints.
+	 */
 	public ReadingInputFingerprinter(
 		ObjectMapper objectMapper,
-		@Value("${app.reading.saju-idempotency-secret}") String sajuSecret
+		@Value("${app.reading.tarot-idempotency-secret}") String tarotSecret,
+		@Value("${app.reading.saju-idempotency-secret}") String sajuSecret,
+		@Value("${app.reading.tarot-selection-secret}") String tarotSelectionSecret
 	) {
-		if (sajuSecret == null
-			|| sajuSecret.getBytes(StandardCharsets.UTF_8).length < MINIMUM_SECRET_BYTES) {
+		byte[] tarot = requireSecret(tarotSecret, "app.reading.tarot-idempotency-secret");
+		byte[] saju = requireSecret(sajuSecret, "app.reading.saju-idempotency-secret");
+		if (MessageDigest.isEqual(tarot, saju)
+			|| (tarotSelectionSecret != null && (
+				MessageDigest.isEqual(tarot, bytes(tarotSelectionSecret))
+					|| MessageDigest.isEqual(saju, bytes(tarotSelectionSecret))
+			))) {
 			throw new IllegalArgumentException(
-				"app.reading.saju-idempotency-secret must be at least 32 bytes"
+				"Tarot idempotency, Saju idempotency and tarot selection secrets must be distinct"
 			);
 		}
 		this.objectMapper = objectMapper;
-		this.sajuSecret = sajuSecret.getBytes(StandardCharsets.UTF_8).clone();
+		this.tarotSecret = tarot;
+		this.sajuSecret = saju;
 	}
 
 	public String fingerprint(ReadingRequestInput input) {
 		Map<String, Object> material = ReadingInputSupport.hashMaterial(
 			input.kind(), input.spreadType(), input.schemaVersion(), input.idempotencyPayload()
 		);
-		byte[] canonical = canonicalBytes(material);
-		byte[] digest = input.kind() == ReadingKind.SAJU
-			? hmac(canonical)
-			: sha256(canonical);
+		byte[] secret = switch (input.kind()) {
+			case TAROT -> tarotSecret;
+			case SAJU -> sajuSecret;
+		};
+		byte[] digest = hmac(secret, canonicalBytes(material));
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+	}
+
+	private static byte[] requireSecret(String secret, String propertyName) {
+		if (secret == null || bytes(secret).length < MINIMUM_SECRET_BYTES) {
+			throw new IllegalArgumentException(propertyName + " must be at least 32 bytes");
+		}
+		return bytes(secret);
+	}
+
+	private static byte[] bytes(String value) {
+		return value.getBytes(StandardCharsets.UTF_8);
 	}
 
 	private byte[] canonicalBytes(Map<String, Object> input) {
@@ -61,19 +87,11 @@ public class ReadingInputFingerprinter {
 		}
 	}
 
-	private byte[] hmac(byte[] input) {
+	private byte[] hmac(byte[] secret, byte[] input) {
 		try {
 			Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-			mac.init(new SecretKeySpec(sajuSecret, HMAC_ALGORITHM));
+			mac.init(new SecretKeySpec(secret, HMAC_ALGORITHM));
 			return mac.doFinal(input);
-		} catch (GeneralSecurityException exception) {
-			throw new IllegalStateException("Cannot fingerprint saju input", exception);
-		}
-	}
-
-	private byte[] sha256(byte[] input) {
-		try {
-			return MessageDigest.getInstance("SHA-256").digest(input);
 		} catch (GeneralSecurityException exception) {
 			throw new IllegalStateException("Cannot fingerprint reading input", exception);
 		}

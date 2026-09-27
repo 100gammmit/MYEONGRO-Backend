@@ -24,9 +24,13 @@ public record NormalizedReadingInput(
 		return Collections.unmodifiableMap(stored);
 	}
 
+	/**
+	 * Question and choice text stay out of the stored payload but are part of the
+	 * request identity; the fingerprint is an HMAC, so the digest does not expose them.
+	 */
 	@Override
 	public Map<String, Object> idempotencyPayload() {
-		return storedPayload();
+		return payload;
 	}
 
 	@Override
