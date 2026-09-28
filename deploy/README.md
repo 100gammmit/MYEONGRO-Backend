@@ -93,7 +93,10 @@ The production Redis and Caddy images are pinned by digest as well as their read
 Upgrade each by reviewing the upstream release, updating both tag and digest, and re-running the
 Compose and Caddy validation commands before deployment.
 
-The deploy script records the last healthy image and environment file. A failed readiness check restores both. Database migrations are forward-only and are not rolled back automatically.
+The deploy script records the last healthy image, environment file, immutable release bundle, AWS
+region, log group, and API domain. A failed readiness check restores the previous image and env by
+using that previous Compose/Caddy bundle and its execution settings. Database migrations are
+forward-only and are not rolled back automatically.
 
 ## Privacy and retention launch gates
 

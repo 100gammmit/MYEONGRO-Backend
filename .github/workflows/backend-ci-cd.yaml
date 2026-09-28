@@ -52,6 +52,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
+      - name: Verify deployment rollback contract
+        run: bash deploy/tests/deploy-rollback-test.sh
       - name: Verify application and integration contracts
         run: |
           chmod +x gradlew

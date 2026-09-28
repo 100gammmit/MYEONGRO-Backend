@@ -1,6 +1,8 @@
-# GitHub's OIDC token endpoint. Thumbprints are GitHub's well-known intermediate
-# and root CA fingerprints for token.actions.githubusercontent.com.
+# The GitHub token endpoint is account-global. Production owns it by default;
+# other environment states receive its ARN through github_oidc_provider_arn.
 resource "aws_iam_openid_connect_provider" "github" {
+  count = local.manage_github_oidc_provider ? 1 : 0
+
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
   thumbprint_list = [
@@ -23,13 +25,20 @@ locals {
 data "aws_iam_policy_document" "oidc_trust" {
   for_each = local.oidc_trust_subjects
 
+  lifecycle {
+    precondition {
+      condition     = local.github_oidc_provider_arn != null
+      error_message = "Non-production environments must reuse the account-level provider through github_oidc_provider_arn."
+    }
+  }
+
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [local.github_oidc_provider_arn]
     }
 
     condition {

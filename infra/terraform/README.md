@@ -51,6 +51,21 @@ Staging must use a different state key: copy `backend.staging.hcl.example` to
 SSM, IAM, and GitHub Environment names then stay separate from production. Never reuse a backend
 state key between environments.
 
+The GitHub OIDC provider URL is account-global, so the production state is its sole owner by
+default. After production apply, read the `github_oidc_provider_arn` output and pass it to staging:
+
+```sh
+terraform init -reconfigure -backend-config=backend.staging.hcl
+terraform apply \
+  -var="environment=staging" \
+  -var="github_oidc_provider_arn=<production output ARN>" \
+  -var="api_domain_name=api-staging.example.com"
+```
+
+If the AWS account already has a separately managed provider for
+`https://token.actions.githubusercontent.com`, pass its ARN to production too; Terraform then
+reuses it instead of creating another. Do not import or manage the same provider in both states.
+
 ## Usage
 
 ```sh

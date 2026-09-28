@@ -27,7 +27,7 @@ services:
       options:
         awslogs-region: ${AWS_REGION:?AWS_REGION is required}
         awslogs-group: ${CLOUDWATCH_LOG_GROUP:?CLOUDWATCH_LOG_GROUP is required}
-        awslogs-stream-prefix: api
+        tag: "{{.Name}}/{{.ID}}"
         mode: non-blocking
         max-buffer-size: 4m
 
@@ -47,7 +47,7 @@ services:
       options:
         awslogs-region: ${AWS_REGION:?AWS_REGION is required}
         awslogs-group: ${CLOUDWATCH_LOG_GROUP:?CLOUDWATCH_LOG_GROUP is required}
-        awslogs-stream-prefix: redis
+        tag: "{{.Name}}/{{.ID}}"
         mode: non-blocking
         max-buffer-size: 1m
 
@@ -71,7 +71,7 @@ services:
       options:
         awslogs-region: ${AWS_REGION:?AWS_REGION is required}
         awslogs-group: ${CLOUDWATCH_LOG_GROUP:?CLOUDWATCH_LOG_GROUP is required}
-        awslogs-stream-prefix: caddy
+        tag: "{{.Name}}/{{.ID}}"
         mode: non-blocking
         max-buffer-size: 1m
 

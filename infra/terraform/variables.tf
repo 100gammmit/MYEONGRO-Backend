@@ -39,6 +39,13 @@ variable "github_repository" {
   default     = "100gammmit/MYEONGRO-Backend"
 }
 
+variable "github_oidc_provider_arn" {
+  description = "Existing account-level GitHub Actions OIDC provider ARN; required outside the production state that owns it"
+  type        = string
+  default     = null
+  nullable    = true
+}
+
 variable "github_branch" {
   description = "GitHub branch allowed to publish backend images"
   type        = string

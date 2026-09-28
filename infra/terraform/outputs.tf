@@ -18,6 +18,11 @@ output "aws_deploy_role_arn" {
   value       = aws_iam_role.deploy.arn
 }
 
+output "github_oidc_provider_arn" {
+  description = "Account-level GitHub OIDC provider ARN; pass this into non-production states"
+  value       = local.github_oidc_provider_arn
+}
+
 output "ec2_instance_id" {
   description = "GitHub repo variable: EC2_INSTANCE_ID"
   value       = aws_instance.backend.id
