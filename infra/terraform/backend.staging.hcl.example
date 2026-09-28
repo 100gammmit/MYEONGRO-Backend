@@ -1,0 +1,4 @@
+bucket  = "myeongro-terraform-state-985950391107"
+key     = "myeongro/staging/terraform.tfstate"
+region  = "ap-northeast-2"
+profile = "myeongro"

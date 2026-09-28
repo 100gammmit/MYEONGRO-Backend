@@ -11,11 +11,13 @@ GitHub never reads production application secrets.
 - `ECR_REPOSITORY`: backend ECR repository name
 - `EC2_INSTANCE_ID`: target EC2 instance ID
 - `SSM_BACKEND_ENV_PARAMETER`: one SecureString parameter containing the production dotenv file
+- `CLOUDWATCH_LOG_GROUP`: pre-created 30-day CloudWatch log group used by Docker
+- `API_DOMAIN_NAME`: lowercase public API host, without scheme (for example `api.example.com`)
 
 The SecureString value must use Docker dotenv syntax. Required application keys are:
 
 ```dotenv
-DATABASE_URL=jdbc:postgresql://<rds-endpoint>:5432/myeongro
+DATABASE_URL=jdbc:postgresql://<rds-endpoint>:5432/myeongro?sslmode=require
 DATABASE_USERNAME=<username>
 DATABASE_PASSWORD=<password>
 REDIS_PASSWORD=
@@ -53,6 +55,9 @@ Back them up and plan a versioned-key migration before any future rotation.
 
 The EC2 instance role needs `ssm:GetParameter` for the configured SecureString and ECR pull permissions.
 The host needs SSM Agent, AWS CLI, Docker with the Compose plugin, curl, and `flock`. Port 8080 remains bound to loopback; the reverse proxy is expected to forward to `127.0.0.1:8080`.
+Terraform opens only ports 80/443 and associates an Elastic IP. The deployment bundle runs Caddy,
+redirects HTTP to HTTPS, exposes `/healthz`, blocks direct `/actuator` paths, and proxies all other
+requests to the Docker-internal API service. SSH and public port 8080 remain closed.
 
 ## GitHub OIDC and production boundary
 
@@ -80,6 +85,14 @@ this file no longer keeps its own copy that could drift from it.
 
 All third-party Actions are pinned to full commit SHAs. Dependabot checks GitHub Actions updates weekly.
 
+The ECR repository is tag-immutable. CI publishes only the 40-character Git SHA tag; if that tag
+already exists, CI reuses it instead of attempting to overwrite it. There is intentionally no
+mutable `latest` tag.
+
+The production Redis and Caddy images are pinned by digest as well as their readable version tags.
+Upgrade each by reviewing the upstream release, updating both tag and digest, and re-running the
+Compose and Caddy validation commands before deployment.
+
 The deploy script records the last healthy image and environment file. A failed readiness check restores both. Database migrations are forward-only and are not rolled back automatically.
 
 ## Privacy and retention launch gates
@@ -93,6 +106,12 @@ Production must not be enabled until all of the following are configured and ver
 - manual snapshot creation and expiry rules are fixed;
 - restore procedures re-delete accounts and readings that were deleted after the restored backup was created; and
 - the deployed database, backup, and log settings match the published privacy policy.
+
+Terraform creates the 30-day CloudWatch log groups and exports RDS engine logs. Supply
+`alarm_notification_email` when applying Terraform and confirm the resulting SNS email subscription.
+Before launch, verify that application logs contain no questions, responses, birth data, email,
+OAuth subject, raw IP, or secret values, and perform the actual expiry/deletion check required by
+policy.
 
 Redis explicitly disables both RDB snapshots (`--save ""`) and AOF (`--appendonly no`),
 and mounts `/data` as `tmpfs`. A Redis restart invalidates login and pending-signup

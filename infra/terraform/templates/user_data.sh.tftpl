@@ -17,9 +17,13 @@ systemctl enable --now docker
 usermod -aG docker ec2-user
 
 install -d -m 755 /usr/libexec/docker/cli-plugins
-curl -fSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64" \
-  -o /usr/libexec/docker/cli-plugins/docker-compose
-chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+compose_url="https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64"
+curl -fSL "$compose_url" -o /tmp/docker-compose
+curl -fSL "$compose_url.sha256" -o /tmp/docker-compose.sha256
+compose_sha256="$(awk '{print $1}' /tmp/docker-compose.sha256)"
+printf '%s  %s\n' "$compose_sha256" /tmp/docker-compose | sha256sum -c -
+install -m 755 /tmp/docker-compose /usr/libexec/docker/cli-plugins/docker-compose
+rm -f /tmp/docker-compose /tmp/docker-compose.sha256
 
 if ! command -v aws >/dev/null 2>&1; then
   curl -fSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip

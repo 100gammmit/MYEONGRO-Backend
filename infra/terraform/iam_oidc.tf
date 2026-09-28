@@ -15,8 +15,8 @@ resource "aws_iam_openid_connect_provider" "github" {
 # role's policy and forgotten on the other.
 locals {
   oidc_trust_subjects = {
-    publish = "repo:${var.github_repository}:ref:refs/heads/main"
-    deploy  = "repo:${var.github_repository}:environment:production"
+    publish = "repo:${var.github_repository}:ref:refs/heads/${var.github_branch}"
+    deploy  = "repo:${var.github_repository}:environment:${local.github_environment}"
   }
 }
 
@@ -49,7 +49,7 @@ data "aws_iam_policy_document" "oidc_trust" {
 # --- publish role: ECR push only, restricted to the main branch ref ---
 
 resource "aws_iam_role" "publish" {
-  name               = "${var.project_name}-backend-github-publish"
+  name               = "${local.resource_prefix}-backend-github-publish"
   assume_role_policy = data.aws_iam_policy_document.oidc_trust["publish"].json
 }
 
@@ -60,6 +60,7 @@ data "aws_iam_policy_document" "publish_permissions" {
     sid    = "EcrPush"
     effect = "Allow"
     actions = [
+      "ecr:DescribeImages",
       "ecr:BatchCheckLayerAvailability",
       "ecr:InitiateLayerUpload",
       "ecr:UploadLayerPart",
@@ -79,7 +80,7 @@ resource "aws_iam_role_policy" "publish" {
 # --- deploy role: SSM Run Command only, restricted to the protected production environment ---
 
 resource "aws_iam_role" "deploy" {
-  name               = "${var.project_name}-backend-github-deploy"
+  name               = "${local.resource_prefix}-backend-github-deploy"
   assume_role_policy = data.aws_iam_policy_document.oidc_trust["deploy"].json
 }
 

@@ -13,6 +13,8 @@ concurrency:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  CLOUDWATCH_LOG_GROUP: ${{ vars.CLOUDWATCH_LOG_GROUP }}
+  API_DOMAIN_NAME: ${{ vars.API_DOMAIN_NAME }}
 
 jobs:
   verify:
@@ -78,15 +80,33 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - id: ecr
         uses: aws-actions/amazon-ecr-login@b040164c4934333d597f3f9c67502ff28f814e9c # v2.1.6
+      - id: image-state
+        name: Check whether immutable image already exists
+        run: |
+          set +e
+          describe_output="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$GITHUB_SHA" 2>&1)"
+          describe_status="$?"
+          set -e
+
+          if [[ "$describe_status" -eq 0 ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif grep -q 'ImageNotFoundException' <<< "$describe_output"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s\n' "$describe_output" >&2
+            exit "$describe_status"
+          fi
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Build and push immutable image
+        if: steps.image-state.outputs.exists != 'true'
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           push: true
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - id: image
@@ -114,4 +134,6 @@ jobs:
             "${{ vars.EC2_INSTANCE_ID }}" \
             "${{ env.AWS_REGION }}" \
             "${{ needs.publish.outputs.image_uri }}" \
-            "${{ vars.SSM_BACKEND_ENV_PARAMETER }}"
+            "${{ vars.SSM_BACKEND_ENV_PARAMETER }}" \
+            "${{ env.CLOUDWATCH_LOG_GROUP }}" \
+            "${{ env.API_DOMAIN_NAME }}"

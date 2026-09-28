@@ -1,14 +1,16 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "$#" -ne 3 ]; then
-  echo "usage: deploy.sh <image-uri> <aws-region> <ssm-env-parameter>" >&2
+if [ "$#" -ne 5 ]; then
+  echo "usage: deploy.sh <image-uri> <aws-region> <ssm-env-parameter> <cloudwatch-log-group> <api-domain-name>" >&2
   exit 2
 fi
 
 target_image="$1"
 aws_region="$2"
 env_parameter="$3"
+cloudwatch_log_group="$4"
+api_domain_name="$5"
 bundle_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/paths.sh
 . "$bundle_dir/paths.sh"
@@ -19,6 +21,10 @@ env_dir="$MYEONGRO_ENV_DIR"
 # docker compose, not hardcoded -- export so every compose invocation below
 # picks it up.
 export MYEONGRO_ENV_DIR
+export MYEONGRO_BUNDLE_DIR="$bundle_dir"
+export AWS_REGION="$aws_region"
+export CLOUDWATCH_LOG_GROUP="$cloudwatch_log_group"
+export API_DOMAIN_NAME="$api_domain_name"
 env_file="$env_dir/backend.env"
 previous_env_file="$env_dir/backend.env.previous"
 current_image_file="$deploy_dir/current-image"
@@ -28,6 +34,19 @@ previous_image=""
 env_changed=0
 cutover_started=0
 deployment_committed=0
+
+if ! printf '%s' "$api_domain_name" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'; then
+  echo "api domain name must be a lowercase fully-qualified domain name" >&2
+  exit 2
+fi
+
+case "$cloudwatch_log_group" in
+  /*) ;;
+  *)
+    echo "CloudWatch log group must start with /" >&2
+    exit 2
+    ;;
+esac
 
 mkdir -p "$env_dir"
 chmod 700 "$env_dir"
@@ -64,6 +83,17 @@ wait_until_ready() {
   done
 }
 
+wait_until_public_ready() {
+  attempts=0
+  until curl --fail --silent --show-error "https://$api_domain_name/healthz" >/dev/null; do
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge 24 ]; then
+      return 1
+    fi
+    sleep 5
+  done
+}
+
 running_api_container() {
   docker ps -a \
     --filter "label=com.docker.compose.project=myeongro" \
@@ -81,6 +111,8 @@ rollback_runtime() {
     IMAGE_URI="$previous_image" docker compose -f "$compose_file" up -d redis || return 1
     IMAGE_URI="$previous_image" docker compose -f "$compose_file" up -d --no-deps api || return 1
     wait_until_ready || return 1
+    IMAGE_URI="$previous_image" docker compose -f "$compose_file" up -d --no-deps caddy || return 1
+    wait_until_public_ready || return 1
     printf '%s\n' "$previous_image" > "$current_image_file"
     chmod 600 "$current_image_file"
     echo "rollback succeeded" >&2
@@ -88,6 +120,7 @@ rollback_runtime() {
   fi
 
   failed_container="$(running_api_container)"
+  IMAGE_URI="$target_image" docker compose -f "$compose_file" stop caddy >/dev/null 2>&1 || true
   if [ -n "$failed_container" ]; then
     echo "removing failed first-deployment container: $failed_container" >&2
     docker rm -f "$failed_container" >/dev/null || return 1
@@ -155,7 +188,7 @@ printf '%s' "$ecr_password" \
   | docker login --username AWS --password-stdin "$registry"
 unset ecr_password
 
-IMAGE_URI="$target_image" docker compose -f "$compose_file" pull api
+IMAGE_URI="$target_image" docker compose -f "$compose_file" pull api redis caddy
 IMAGE_URI="$target_image" docker compose -f "$compose_file" up -d redis
 
 cutover_started=1
@@ -163,6 +196,13 @@ IMAGE_URI="$target_image" docker compose -f "$compose_file" up -d --no-deps api
 
 if ! wait_until_ready; then
   echo "deployment health check failed: $target_image" >&2
+  exit 1
+fi
+
+IMAGE_URI="$target_image" docker compose -f "$compose_file" up -d --no-deps caddy
+
+if ! wait_until_public_ready; then
+  echo "public HTTPS health check failed: https://$api_domain_name/healthz" >&2
   exit 1
 fi
 

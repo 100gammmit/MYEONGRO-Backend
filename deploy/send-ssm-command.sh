@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 4 ]]; then
-  echo "usage: send-ssm-command.sh <instance-id> <aws-region> <image-uri> <ssm-env-parameter>" >&2
+if [[ $# -ne 6 ]]; then
+  echo "usage: send-ssm-command.sh <instance-id> <aws-region> <image-uri> <ssm-env-parameter> <cloudwatch-log-group> <api-domain-name>" >&2
   exit 2
 fi
 
@@ -10,6 +10,8 @@ instance_id="$1"
 aws_region="$2"
 image_uri="$3"
 env_parameter="$4"
+cloudwatch_log_group="$5"
+api_domain_name="$6"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/paths.sh
 . "$script_dir/lib/paths.sh"
@@ -23,11 +25,14 @@ fi
 bundle_id="$image_tag-$(date +%s)-$RANDOM"
 remote_bundle="$MYEONGRO_RELEASES_DIR/$bundle_id"
 compose_base64="$(base64 -w 0 "$script_dir/compose.prod.yaml")"
+caddy_base64="$(base64 -w 0 "$script_dir/Caddyfile")"
 deploy_base64="$(base64 -w 0 "$script_dir/deploy.sh")"
 paths_base64="$(base64 -w 0 "$script_dir/lib/paths.sh")"
 quoted_image="$(printf '%q' "$image_uri")"
 quoted_region="$(printf '%q' "$aws_region")"
 quoted_parameter="$(printf '%q' "$env_parameter")"
+quoted_log_group="$(printf '%q' "$cloudwatch_log_group")"
+quoted_domain="$(printf '%q' "$api_domain_name")"
 quoted_bundle="$(printf '%q' "$remote_bundle")"
 
 parameters_file="$(mktemp)"
@@ -35,15 +40,17 @@ trap 'rm -f "$parameters_file"' EXIT
 
 jq -n \
   --arg compose "$compose_base64" \
+  --arg caddy "$caddy_base64" \
   --arg deploy "$deploy_base64" \
   --arg paths "$paths_base64" \
   --arg bundle "$remote_bundle" \
   --arg releases_dir "$MYEONGRO_RELEASES_DIR" \
-  --arg run "$quoted_bundle/deploy.sh $quoted_image $quoted_region $quoted_parameter" \
+  --arg run "$quoted_bundle/deploy.sh $quoted_image $quoted_region $quoted_parameter $quoted_log_group $quoted_domain" \
   '{commands: [
     ("install -d -m 755 " + ($releases_dir | @sh)),
     ("install -d -m 755 " + ($bundle | @sh)),
     ("printf %s " + ($compose | @sh) + " | base64 -d > " + ($bundle | @sh) + "/compose.prod.yaml"),
+    ("printf %s " + ($caddy | @sh) + " | base64 -d > " + ($bundle | @sh) + "/Caddyfile"),
     ("printf %s " + ($deploy | @sh) + " | base64 -d > " + ($bundle | @sh) + "/deploy.sh"),
     ("printf %s " + ($paths | @sh) + " | base64 -d > " + ($bundle | @sh) + "/paths.sh"),
     ("chmod 700 " + ($bundle | @sh) + "/deploy.sh"),
