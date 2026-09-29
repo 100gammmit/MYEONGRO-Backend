@@ -1,69 +1,60 @@
-# Flyway Migration Policy
+# Flyway 마이그레이션 정책
 
-This MVP intentionally rewrites the cumulative V1/V3 baseline while there is no
-production application data.
+MYEONGRO는 실제 production 데이터베이스를 만들기 전에 기존 V1~V19의 최종
+스키마를 `V1__initialize_schema.sql` 하나로 통합했다. 이 V1은 PostgreSQL 16의
+빈 데이터베이스에서 기존 전체 체인을 재생한 결과를 기준으로 작성했으며, 과거에
+생성했다가 제거한 Supabase Auth/RLS 호환 객체와 데이터 변환 단계는 포함하지 않는다.
 
-The runtime keeps:
+런타임은 다음 안전 설정을 유지한다.
 
 - `spring.flyway.validate-on-migrate=true`
 - `spring.flyway.clean-disabled=true`
 - `spring.flyway.baseline-on-migrate=false`
+- Hibernate `ddl-auto=validate`
 
-Because of that, any local or shared dev database that already recorded the old V1 or V3 checksum in `flyway_schema_history` will fail validation after this change. Do not bypass validation silently.
+## 변경 규칙
 
-For this milestone, reset affected non-production databases before starting the
-app:
+- production에 V1이 한 번이라도 적용된 뒤에는 V1을 수정하지 않는다.
+- 이후 스키마 변경은 `V2__*.sql`, `V3__*.sql`처럼 새 versioned migration으로 추가한다.
+- Flyway checksum 오류를 숨기기 위해 `repair`를 사용하지 않는다.
+- 로컬 또는 공유 개발 DB에 이전 V1~V19가 기록돼 있다면 해당 비production DB를
+  삭제하고 새 V1부터 다시 만든다.
+- migration 실행 계정은 대상 데이터베이스에 연결할 수 있고 `public` 스키마에서
+  객체를 생성할 수 있어야 한다.
 
-1. Drop and recreate the local/dev database, or recreate the Docker volume.
-2. Run the Spring backend so Flyway applies the rewritten baseline from an empty
-   schema.
+## 빈 PostgreSQL 16 재생 검증
 
-If a shared dev database must keep manually created seed data, coordinate a
-manual `flyway repair` only after confirming the schema has been rebuilt to match
-the rewritten migrations. Do not use repair as a substitute for applying the
-schema changes.
-
-After the MVP has real production data, do not edit an already-applied migration.
-Add a new versioned migration instead.
-
-## Fresh Docker Postgres replay check
-
-Use a disposable PostgreSQL container and a separate port when checking whether
-the full Flyway chain can replay on an empty PostgreSQL database. This avoids
-deleting the normal local development volume. Do not use `docker compose -p`
-for this check while `compose.yaml` keeps a fixed `container_name`; the fixed
-name collides with the normal local Postgres container.
-
-Use `POSTGRES_PORT=55432` for the replay database.
+일반 개발용 PostgreSQL과 분리된 일회용 컨테이너를 사용한다. 이 저장소의
+`compose.yaml`은 고정 `container_name`을 사용하므로 이 검증에 `docker compose -p`를
+사용하지 않는다.
 
 PowerShell:
 
 ```powershell
 docker run -d --name myeongro-flyway-check-postgres `
   -e POSTGRES_DB=myeongro `
-  -e POSTGRES_USER=<local-postgres-user> `
-  -e POSTGRES_PASSWORD=<local-postgres-password> `
-  -p 55432:5432 `
+  -e POSTGRES_USER=postgres `
+  -e POSTGRES_PASSWORD=flyway-check-only `
+  -p 15432:5432 `
   postgres:16-alpine
-```
 
-Then run the backend with a JDBC URL that points at port `55432` and keep
-`spring.flyway.validate-on-migrate=true`. For a throwaway replay database only,
-you may also set `spring.flyway.clean-disabled=false` if you intentionally run a
-manual Flyway clean before replaying migrations.
+.\gradlew.bat test `
+  --tests com.myeongro.api.database.FlywayFreshPostgresReplayTests `
+  -DfreshPostgresJdbcUrl=jdbc:postgresql://localhost:15432/myeongro `
+  -DfreshPostgresUsername=postgres `
+  -DfreshPostgresPassword=flyway-check-only
 
-After startup succeeds, check that `public.flyway_schema_history` contains the
-expected versioned migrations through the latest `V*__*.sql` file.
-
-Cleanup:
-
-```powershell
 docker rm -f myeongro-flyway-check-postgres
 ```
 
-The V1 compatibility shim creates Supabase legacy roles only when they are
-missing. Docker Postgres runs migrations as the `POSTGRES_USER` superuser, so
-that is acceptable for local replay. If a fresh managed PostgreSQL database is
-initialized with a non-`CREATEROLE` account, create the `anon`, `authenticated`,
-and `service_role` roles in provisioning first or run migrations with a role
-that can create them.
+검증은 다음 계약을 확인한다.
+
+- 빈 `public` 스키마에 V1 하나만 적용된다.
+- 최종 테이블, enum, 인덱스, 외래 키와 check constraint가 생성된다.
+- 신용 차감·생성 완료·실패·오래된 생성 정리 함수가 실제 PostgreSQL에서 동작한다.
+- SECURITY DEFINER 함수는 PUBLIC 실행 권한을 갖지 않는다.
+- 읽기 생성과 동의 전이의 advisory lock 계약이 유지된다.
+- 이전 Supabase 역할과 호환용 `auth` 스키마가 생성되지 않는다.
+
+검증용 컨테이너는 production 데이터나 평소 개발 DB를 사용하지 않는다. 테스트가
+끝나면 반드시 위 cleanup 명령으로 제거한다.
