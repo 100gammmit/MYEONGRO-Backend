@@ -8,10 +8,10 @@ set -euxo pipefail
 # frozen after creation (see aws_instance.backend's lifecycle block) and
 # user_data only runs on first boot.
 dnf update -y || true
-# util-linux (flock) and curl are required by deploy/deploy.sh -- install
-# them explicitly rather than relying on them happening to ship with
-# whichever al2023 edition data.tf's SSM parameter currently resolves to.
-dnf install -y docker unzip util-linux curl
+# util-linux (flock) is required by deploy/deploy.sh. AL2023 minimal images
+# already provide the curl binary through curl-minimal; requesting the full
+# curl package alongside it causes a package conflict and aborts bootstrap.
+dnf install -y docker unzip util-linux
 
 systemctl enable --now docker
 usermod -aG docker ec2-user
