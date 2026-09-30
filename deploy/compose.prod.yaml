@@ -22,9 +22,17 @@ services:
       start_period: 30s
     restart: unless-stopped
     stop_grace_period: 30s
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:?AWS_REGION is required}
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP:?CLOUDWATCH_LOG_GROUP is required}
+        tag: "{{.Name}}/{{.ID}}"
+        mode: non-blocking
+        max-buffer-size: 4m
 
   redis:
-    image: redis:7.2-alpine
+    image: redis:7.2-alpine@sha256:dfa18828cbc07b3ae6a95ec7343f6c214fdee2d836197b4be8e9904420762cd8
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     tmpfs:
       - /data
@@ -34,3 +42,39 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:?AWS_REGION is required}
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP:?CLOUDWATCH_LOG_GROUP is required}
+        tag: "{{.Name}}/{{.ID}}"
+        mode: non-blocking
+        max-buffer-size: 1m
+
+  caddy:
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    environment:
+      API_DOMAIN_NAME: ${API_DOMAIN_NAME:?API_DOMAIN_NAME is required}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${MYEONGRO_BUNDLE_DIR:?MYEONGRO_BUNDLE_DIR is required}/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:?AWS_REGION is required}
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP:?CLOUDWATCH_LOG_GROUP is required}
+        tag: "{{.Name}}/{{.ID}}"
+        mode: non-blocking
+        max-buffer-size: 1m
+
+volumes:
+  caddy-data:
+  caddy-config:

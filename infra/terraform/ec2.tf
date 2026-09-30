@@ -11,7 +11,7 @@ data "aws_iam_policy_document" "ec2_trust" {
 }
 
 resource "aws_iam_role" "backend_host" {
-  name               = "${var.project_name}-backend-ec2"
+  name               = "${local.resource_prefix}-backend-ec2"
   assume_role_policy = data.aws_iam_policy_document.ec2_trust.json
 }
 
@@ -48,6 +48,16 @@ data "aws_iam_policy_document" "backend_host_permissions" {
     ]
     resources = [aws_ecr_repository.backend.arn]
   }
+
+  statement {
+    sid    = "WriteBackendLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.backend.arn}:*"]
+  }
 }
 
 resource "aws_iam_role_policy" "backend_host" {
@@ -57,7 +67,7 @@ resource "aws_iam_role_policy" "backend_host" {
 }
 
 resource "aws_iam_instance_profile" "backend_host" {
-  name = "${var.project_name}-backend-ec2"
+  name = "${local.resource_prefix}-backend-ec2"
   role = aws_iam_role.backend_host.name
 }
 
@@ -72,6 +82,7 @@ resource "aws_instance" "backend" {
   user_data = templatefile("${path.module}/templates/user_data.sh.tftpl", {
     paths_sh = file("${path.module}/../../deploy/lib/paths.sh")
   })
+  user_data_replace_on_change = true
 
   associate_public_ip_address = true
 
@@ -86,7 +97,7 @@ resource "aws_instance" "backend" {
   }
 
   tags = {
-    Name = "${var.project_name}-backend"
+    Name = "${local.resource_prefix}-backend"
   }
 
   # AWS republishes a new al2023 AMI regularly; without this, a plain `terraform

@@ -15,6 +15,8 @@ concurrency:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  CLOUDWATCH_LOG_GROUP: ${{ vars.CLOUDWATCH_LOG_GROUP }}
+  API_DOMAIN_NAME: ${{ vars.API_DOMAIN_NAME }}
 
 jobs:
   rollback:
@@ -48,4 +50,6 @@ jobs:
             "${{ vars.EC2_INSTANCE_ID }}" \
             "${{ env.AWS_REGION }}" \
             "${{ steps.registry.outputs.registry }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG" \
-            "${{ vars.SSM_BACKEND_ENV_PARAMETER }}"
+            "${{ vars.SSM_BACKEND_ENV_PARAMETER }}" \
+            "${{ env.CLOUDWATCH_LOG_GROUP }}" \
+            "${{ env.API_DOMAIN_NAME }}"

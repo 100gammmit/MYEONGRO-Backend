@@ -1,0 +1,23 @@
+{
+	auto_https disable_redirects
+}
+
+http://{$API_DOMAIN_NAME} {
+	redir https://{$API_DOMAIN_NAME}{uri} permanent
+}
+
+https://{$API_DOMAIN_NAME} {
+	encode zstd gzip
+
+	@actuator path /actuator /actuator/*
+	respond @actuator 404
+
+	handle /healthz {
+		rewrite * /actuator/health
+		reverse_proxy api:8080
+	}
+
+	handle {
+		reverse_proxy api:8080
+	}
+}

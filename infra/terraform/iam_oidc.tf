@@ -1,6 +1,8 @@
-# GitHub's OIDC token endpoint. Thumbprints are GitHub's well-known intermediate
-# and root CA fingerprints for token.actions.githubusercontent.com.
+# The GitHub token endpoint is account-global. Production owns it by default;
+# other environment states receive its ARN through github_oidc_provider_arn.
 resource "aws_iam_openid_connect_provider" "github" {
+  count = local.manage_github_oidc_provider ? 1 : 0
+
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
   thumbprint_list = [
@@ -15,13 +17,20 @@ resource "aws_iam_openid_connect_provider" "github" {
 # role's policy and forgotten on the other.
 locals {
   oidc_trust_subjects = {
-    publish = "repo:${var.github_repository}:ref:refs/heads/main"
-    deploy  = "repo:${var.github_repository}:environment:production"
+    publish = "repo:${var.github_repository}:ref:refs/heads/${var.github_branch}"
+    deploy  = "repo:${var.github_repository}:environment:${local.github_environment}"
   }
 }
 
 data "aws_iam_policy_document" "oidc_trust" {
   for_each = local.oidc_trust_subjects
+
+  lifecycle {
+    precondition {
+      condition     = local.github_oidc_provider_arn != null
+      error_message = "Non-production environments must reuse the account-level provider through github_oidc_provider_arn."
+    }
+  }
 
   statement {
     effect  = "Allow"
@@ -29,7 +38,7 @@ data "aws_iam_policy_document" "oidc_trust" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [local.github_oidc_provider_arn]
     }
 
     condition {
@@ -49,7 +58,7 @@ data "aws_iam_policy_document" "oidc_trust" {
 # --- publish role: ECR push only, restricted to the main branch ref ---
 
 resource "aws_iam_role" "publish" {
-  name               = "${var.project_name}-backend-github-publish"
+  name               = "${local.resource_prefix}-backend-github-publish"
   assume_role_policy = data.aws_iam_policy_document.oidc_trust["publish"].json
 }
 
@@ -60,6 +69,7 @@ data "aws_iam_policy_document" "publish_permissions" {
     sid    = "EcrPush"
     effect = "Allow"
     actions = [
+      "ecr:DescribeImages",
       "ecr:BatchCheckLayerAvailability",
       "ecr:InitiateLayerUpload",
       "ecr:UploadLayerPart",
@@ -79,7 +89,7 @@ resource "aws_iam_role_policy" "publish" {
 # --- deploy role: SSM Run Command only, restricted to the protected production environment ---
 
 resource "aws_iam_role" "deploy" {
-  name               = "${var.project_name}-backend-github-deploy"
+  name               = "${local.resource_prefix}-backend-github-deploy"
   assume_role_policy = data.aws_iam_policy_document.oidc_trust["deploy"].json
 }
 
