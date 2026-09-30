@@ -4,10 +4,17 @@
 .idea
 .vscode
 build
+bin
 config
+deploy
 docs
+infra
 src/aiPreview
 src/test
+src/main/resources/application-dev.yaml
+src/main/resources/application-dev.yml
+src/main/resources/application-secret*.yaml
+src/main/resources/application-secret*.yml
 *.iml
 AGENTS.md
 application-secret.yaml
