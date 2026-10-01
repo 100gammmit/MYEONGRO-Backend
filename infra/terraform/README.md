@@ -172,10 +172,15 @@ shell의 임의 `AWS_PROFILE`이 아니라 `var.aws_profile`에 지정된 profil
 - RDS 저장소는 암호화하며 master password는 Secrets Manager에 자동 생성한다.
 - 자동 backup과 PITR 보유기간은 7일이다. 운영 DB에서 삭제된 정보도 backup 만료 전까지
   잔존할 수 있으므로 공개 개인정보 처리방침과 일치시킨다.
+- 개인정보가 들어 있는 production RDS는 중지하지 않는다. RDS의 backup 보유기간은
+  stopped 시간을 세지 않으므로, 중지가 발생하면 공통 복구 runbook의 7일 초과 방지
+  절차를 즉시 수행한다.
 - deletion protection은 유지하되 MVP에서는 수동 snapshot을 만들지 않고 RDS 삭제 시
-  보유기간이 정해지지 않은 final snapshot도 남기지 않는다.
+  보유기간이 정해지지 않은 final snapshot도 남기지 않는다. RDS 자체를 삭제할 때는
+  연결된 automated backup도 함께 삭제한다.
 - backup 복원본은 외부 연결을 차단한 새 DB에서만 검증한다. 삭제 상태를 확인할 수 없으면
-  복원본을 서비스에 연결하지 않는다.
+  복원본을 서비스에 연결하지 않는다. 복원 요청에는 backup retention 0을 명시하고,
+  24시간 안에 승인하거나 final·retained backup 없이 완전히 폐기한다.
 - Backend container와 RDS engine 로그는 CloudWatch에서 30일간 보관한다.
 - `alarm_notification_email`을 설정하면 SNS topic을 만들고 두 경보를 연결한 뒤 이메일
   구독을 요청한다. 운영자는 production 공개 전에 구독을 승인해야 한다.

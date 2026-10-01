@@ -68,7 +68,7 @@ resource "aws_db_instance" "postgres" {
   backup_window            = "18:00-19:00"
   maintenance_window       = "sun:19:00-sun:20:00"
   copy_tags_to_snapshot    = true
-  delete_automated_backups = false
+  delete_automated_backups = true
 
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
 

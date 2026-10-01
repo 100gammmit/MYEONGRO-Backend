@@ -165,8 +165,10 @@ Database migration은 forward-only이며 배포 script가 자동 rollback하지 
 - 30일이 지난 로그를 다시 조회할 수 없음을 실제 삭제 시험으로 확인함
 - RDS 리전·접근 경계·저장 암호화·전송 암호화가 기록됨
 - 자동 backup과 PITR이 7일 후 만료되도록 구성됨
+- 개인정보가 들어 있는 RDS를 중지하지 않으며, 중지 시 7일 초과 전에 backup을 제거하는 절차가 있음
 - MVP에서 수동 snapshot과 RDS final snapshot이 생성되지 않음
-- backup 복원본의 외부 연결을 차단하고 삭제 상태를 검증할 수 없으면 서비스에 연결하지 않는 절차가 있음
+- backup 복원본은 retention 0으로 생성하고 외부 연결을 차단하며, 24시간 안에 승인하거나 파생 backup 없이 폐기하는 절차가 있음
+- 삭제 상태를 검증할 수 없는 복원본을 서비스에 연결하지 않는 절차가 있음
 - 실제 DB·backup·로그 설정이 공개 개인정보 처리방침과 일치함
 
 Terraform은 30일 CloudWatch log group을 만들고 RDS engine 로그를 export한다. Terraform apply
