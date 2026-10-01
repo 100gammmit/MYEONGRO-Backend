@@ -132,8 +132,8 @@ app:
 
   consent:
     versions:
-      terms: draft-2026-09-27
-      ai-overseas-transfer: draft-2026-09-25
+      terms: 2026-09-27
+      ai-overseas-transfer: 2026-09-25
 
 springdoc:
   swagger-ui:
