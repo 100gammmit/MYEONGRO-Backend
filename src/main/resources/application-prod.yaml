@@ -2,14 +2,30 @@ spring:
   config:
     activate:
       on-profile: prod
+  mvc:
+    log-request-details: false
 
 server:
   forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+  tomcat:
+    accesslog:
+      enabled: false
   servlet:
     session:
       cookie:
         secure: true
         domain: ${session.cookie-domain}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.ai: "OFF"
+    org.springframework.security: INFO
+    org.springframework.web: INFO
 
 springdoc:
   api-docs:

@@ -162,7 +162,8 @@ Database migration은 forward-only이며 배포 script가 자동 rollback하지 
 다음 항목을 모두 설정하고 실제로 검증하기 전에는 production을 공개하면 안 된다.
 
 - 애플리케이션과 container 로그가 회전하며 30일 이내 자동 삭제됨
-- 30일이 지난 로그를 다시 조회할 수 없음을 실제 삭제 시험으로 확인함
+- 첫 공개 전 CloudWatch의 실제 retention 30일과 합성 민감정보 비기록 테스트를 확인함
+- 첫 production event 생성 31일 후 cutoff 이전 로그가 조회되지 않는지 확인할 후속 절차가 문서화됨
 - RDS 리전·접근 경계·저장 암호화·전송 암호화가 기록됨
 - 자동 backup과 PITR이 7일 후 만료되도록 구성됨
 - 개인정보가 들어 있는 RDS를 중지하지 않으며, 중지 시 7일 초과 전에 backup을 제거하는 절차가 있음
@@ -176,6 +177,15 @@ Terraform은 30일 CloudWatch log group을 만들고 RDS engine 로그를 export
 
 출시 전에는 애플리케이션 로그에 질문, 응답, 원본 출생정보, 이메일, OAuth subject, 원본 IP,
 비밀값이 기록되지 않는지 확인한다. 운영 정책에서 요구하는 실제 만료·삭제 시험도 수행한다.
+
+production profile은 Tomcat access log와 Spring request detail log를 끄고 Spring AI 내부 로그를
+비활성화한다. 애플리케이션은 생성 실패의 단계·모델·응답 길이 같은 비식별 진단값, stale 처리
+건수와 크레딧 불일치의 `readingId`만 남긴다. 예외 메시지와 stack trace를 직접 기록하지 않는다.
+
+첫 공개 전에는 AWS API로 세 CloudWatch log group의 `retentionInDays=30`을 확인하고, 합성
+sentinel을 사용한 로그 캡처 테스트가 질문·provider 응답·예외 메시지를 남기지 않는지 검증한다.
+실제 30일 만료는 운영 로그가 생성된 뒤 첫 31일 점검에서 cutoff 이전 event가 조회되지 않는지
+확인한다. 만료 실패가 확인되면 원인을 고치고 신규 AI 생성을 중단한다.
 
 ## Redis 비영속 운영
 

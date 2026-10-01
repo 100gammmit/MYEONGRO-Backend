@@ -85,4 +85,24 @@ class ApplicationYamlContractTests {
 		assertThat(applicationYaml).contains("enabled: true");
 		assertThat(applicationYaml).contains("show-details: never");
 	}
+
+	@Test
+	void productionLoggingDoesNotExposeRequestsOrProviderPayloads() throws Exception {
+		List<PropertySource<?>> propertySources = new YamlPropertySourceLoader().load(
+			"applicationProdYaml",
+			new FileSystemResource("src/main/resources/application-prod.yaml")
+		);
+
+		assertThat(propertySources).hasSize(1);
+		PropertySource<?> properties = propertySources.getFirst();
+		assertThat(properties.getProperty("server.tomcat.accesslog.enabled")).isEqualTo(false);
+		assertThat(properties.getProperty("spring.mvc.log-request-details")).isEqualTo(false);
+		assertThat(properties.getProperty("server.error.include-message")).isEqualTo("never");
+		assertThat(properties.getProperty("server.error.include-binding-errors")).isEqualTo("never");
+		assertThat(properties.getProperty("server.error.include-stacktrace")).isEqualTo("never");
+		assertThat(properties.getProperty("logging.level.root")).isEqualTo("INFO");
+		assertThat(properties.getProperty("logging.level.org.springframework.ai")).isEqualTo("OFF");
+		assertThat(properties.getProperty("logging.level.org.springframework.security")).isEqualTo("INFO");
+		assertThat(properties.getProperty("logging.level.org.springframework.web")).isEqualTo("INFO");
+	}
 }

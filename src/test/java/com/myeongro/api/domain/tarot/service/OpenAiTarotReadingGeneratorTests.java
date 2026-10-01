@@ -17,6 +17,10 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.core.io.ClassPathResource;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
@@ -179,6 +183,37 @@ class OpenAiTarotReadingGeneratorTests {
 	}
 
 	@Test
+	void failureLogOmitsQuestionAndProviderExceptionMessage() {
+		String questionSentinel = "private-question-sentinel@example.com";
+		String providerSentinel = "private-provider-response-sentinel";
+		ch.qos.logback.classic.Logger logger =
+			(ch.qos.logback.classic.Logger)LoggerFactory.getLogger(
+				OpenAiTarotReadingGenerator.class
+			);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			assertThatThrownBy(() -> generator(new ThrowingChatModel(providerSentinel)).generate(
+				ReadingKind.TAROT,
+				TarotSpreadType.MIND_THREE_CARD.value(),
+				questionSentinel,
+				input(TarotSpreadType.MIND_THREE_CARD)
+			)).isInstanceOf(OpenAiReadingGenerationException.class);
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+
+		assertThat(appender.list)
+			.extracting(ILoggingEvent::getFormattedMessage)
+			.anySatisfy(message -> assertThat(message)
+				.contains("stage=PROVIDER_CALL", "causeType=IllegalStateException")
+				.doesNotContain(questionSentinel, providerSentinel));
+	}
+
+	@Test
 	void returnsServerOwnedDeclineResultWithoutTarotSections() {
 		OpenAiTarotReadingGenerator generator = generator(new CapturingChatModel("""
 			{"output":{"resultType":"declined","reasonCode":"HARMFUL_OR_ILLEGAL_ACTION"}}
@@ -276,10 +311,19 @@ class OpenAiTarotReadingGeneratorTests {
 	}
 
 	private static class ThrowingChatModel implements ChatModel {
+		private final String message;
+
+		ThrowingChatModel() {
+			this("provider unavailable");
+		}
+
+		ThrowingChatModel(String message) {
+			this.message = message;
+		}
 
 		@Override
 		public ChatResponse call(Prompt prompt) {
-			throw new IllegalStateException("provider unavailable");
+			throw new IllegalStateException(message);
 		}
 	}
 }

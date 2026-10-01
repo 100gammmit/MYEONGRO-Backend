@@ -15,6 +15,10 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.core.io.ClassPathResource;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
@@ -167,6 +171,34 @@ class OpenAiSajuReadingGeneratorTests {
 	}
 
 	@Test
+	void failureLogOmitsQuestionAndProviderExceptionMessage() {
+		String questionSentinel = "private-saju-question-sentinel@example.com";
+		String providerSentinel = "private-saju-provider-response-sentinel";
+		ch.qos.logback.classic.Logger logger =
+			(ch.qos.logback.classic.Logger)LoggerFactory.getLogger(
+				OpenAiSajuReadingGenerator.class
+			);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			assertThatThrownBy(() -> generator(new ThrowingChatModel(providerSentinel)).generate(
+				ReadingKind.SAJU, null, questionSentinel, input()
+			)).isInstanceOf(OpenAiReadingGenerationException.class);
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+
+		assertThat(appender.list)
+			.extracting(ILoggingEvent::getFormattedMessage)
+			.anySatisfy(message -> assertThat(message)
+				.contains("stage=PROVIDER_CALL", "causeType=IllegalStateException")
+				.doesNotContain(questionSentinel, providerSentinel));
+	}
+
+	@Test
 	void returnsServerOwnedDeclineResultWithoutSajuSections() {
 		OpenAiSajuReadingGenerator generator = generator(new CapturingChatModel("""
 			{"output":{"resultType":"declined","reasonCode":"CRISIS_OR_IMMEDIATE_DANGER"}}
@@ -280,6 +312,19 @@ class OpenAiSajuReadingGeneratorTests {
 			return new ChatResponse(List.of(
 				new Generation(new AssistantMessage(content))
 			));
+		}
+	}
+
+	private static class ThrowingChatModel implements ChatModel {
+		private final String message;
+
+		ThrowingChatModel(String message) {
+			this.message = message;
+		}
+
+		@Override
+		public ChatResponse call(Prompt prompt) {
+			throw new IllegalStateException(message);
 		}
 	}
 }
