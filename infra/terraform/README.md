@@ -18,8 +18,8 @@ production 애플리케이션 비밀값을 보관하는 SSM 파라미터다. 관
 - Frontend 도메인과 API 도메인 이름을 정한다. 예: `www.example.com`, `api.example.com`.
 - CloudWatch 경보를 받을 운영 이메일을 정한다.
 - Google/Kakao 운영 앱을 어떤 계정에서 관리할지와 운영 redirect URI를 정리한다.
-- RDS 수동 snapshot의 생성 목적·권한·만료 기준과 복원 후 개인정보 재삭제 절차를
-  정책 문서에서 확정한다.
+- 자동 backup과 PITR은 7일간 유지하고 MVP에서는 수동·final snapshot을 만들지 않는다.
+- 복원은 공통 정책 저장소의 RDS backup·restore runbook에 따라 수행한다.
 
 도메인의 실제 DNS A 레코드는 Elastic IP가 생성된 뒤에만 연결할 수 있다. 지금은 이름과
 등록 주체까지만 결정하면 된다.
@@ -170,8 +170,12 @@ shell의 임의 `AWS_PROFILE`이 아니라 `var.aws_profile`에 지정된 profil
 
 - RDS는 private으로 두고 Backend EC2 security group에서 오는 PostgreSQL 연결만 허용한다.
 - RDS 저장소는 암호화하며 master password는 Secrets Manager에 자동 생성한다.
-- 자동 backup과 PITR 보유기간 기본값은 7일이다. 공개 정책과 일치하는지 출시 전에 확인한다.
-- deletion protection을 켜고 삭제 시 final snapshot을 기본적으로 남긴다.
+- 자동 backup과 PITR 보유기간은 7일이다. 운영 DB에서 삭제된 정보도 backup 만료 전까지
+  잔존할 수 있으므로 공개 개인정보 처리방침과 일치시킨다.
+- deletion protection은 유지하되 MVP에서는 수동 snapshot을 만들지 않고 RDS 삭제 시
+  보유기간이 정해지지 않은 final snapshot도 남기지 않는다.
+- backup 복원본은 외부 연결을 차단한 새 DB에서만 검증한다. 삭제 상태를 확인할 수 없으면
+  복원본을 서비스에 연결하지 않는다.
 - Backend container와 RDS engine 로그는 CloudWatch에서 30일간 보관한다.
 - `alarm_notification_email`을 설정하면 SNS topic을 만들고 두 경보를 연결한 뒤 이메일
   구독을 요청한다. 운영자는 production 공개 전에 구독을 승인해야 한다.

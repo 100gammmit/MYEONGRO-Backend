@@ -142,9 +142,9 @@ variable "db_deletion_protection" {
 }
 
 variable "db_skip_final_snapshot" {
-  description = "Skip the final RDS snapshot when the instance is deleted; keep false in production"
+  description = "Skip the final RDS snapshot so an unbounded manual snapshot does not outlive the 7-day backup policy"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "alarm_notification_email" {
