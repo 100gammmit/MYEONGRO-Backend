@@ -46,3 +46,8 @@ AGENTS.md
 
 ### docs ###
 /docs/
+
+### AI preview local cases ###
+/src/aiPreview/resources/ai-preview/cases/*/*
+!/src/aiPreview/resources/ai-preview/cases/tarot/sample-mind-three-card.json
+!/src/aiPreview/resources/ai-preview/cases/saju/sample.json
