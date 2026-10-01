@@ -54,6 +54,8 @@ jobs:
           cache: gradle
       - name: Verify deployment rollback contract
         run: bash deploy/tests/deploy-rollback-test.sh
+      - name: Verify Caddy runtime log redaction
+        run: bash deploy/tests/caddy-log-redaction-test.sh
       - name: Verify application and integration contracts
         run: |
           chmod +x gradlew

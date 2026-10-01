@@ -194,8 +194,11 @@ class OpenAiSajuReadingGeneratorTests {
 		assertThat(appender.list)
 			.extracting(ILoggingEvent::getFormattedMessage)
 			.anySatisfy(message -> assertThat(message)
-				.contains("stage=PROVIDER_CALL", "causeType=IllegalStateException")
-				.doesNotContain(questionSentinel, providerSentinel));
+				.contains("stage=PROVIDER_CALL", "causeType=IllegalStateException"));
+		assertThat(appender.list).allSatisfy(event -> {
+			assertThat(event.getFormattedMessage()).doesNotContain(questionSentinel, providerSentinel);
+			assertThat(event.getThrowableProxy()).isNull();
+		});
 	}
 
 	@Test
