@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.myeongro.api.domain.readingcredit.dto.ReadingCreditPricingResponse;
 import com.myeongro.api.domain.readingcredit.dto.ReadingCreditStatusResponse;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 import com.myeongro.api.global.auth.AuthenticatedUserResolver;
@@ -39,5 +40,14 @@ public class ReadingCreditController {
 		return ResponseEntity.ok()
 			.cacheControl(CacheControl.noStore())
 			.body(service.getStatus(user.id()));
+	}
+
+	// Public so guests can see what a reading costs before logging in; SecurityConfig permits it.
+	@GetMapping("/pricing")
+	@Operation(summary = "리딩 무료 지급량과 비용 조회 (비로그인 허용)")
+	public ResponseEntity<ReadingCreditPricingResponse> getPricing() {
+		return ResponseEntity.ok()
+			.cacheControl(CacheControl.noStore())
+			.body(service.getPricing());
 	}
 }

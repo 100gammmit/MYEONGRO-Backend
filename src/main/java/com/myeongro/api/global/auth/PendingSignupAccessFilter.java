@@ -20,7 +20,9 @@ public class PendingSignupAccessFilter extends OncePerRequestFilter {
 
 	private static final Set<String> ALLOWED_API_PATHS = Set.of(
 		"/api/auth/me",
-		"/api/signup"
+		"/api/signup",
+		// Public price list: a pending signup is a guest to the Front and must see prices too.
+		"/api/reading-credits/pricing"
 	);
 
 	@Override

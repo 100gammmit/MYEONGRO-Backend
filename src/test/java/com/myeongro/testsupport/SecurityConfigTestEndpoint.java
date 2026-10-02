@@ -29,6 +29,16 @@ public class SecurityConfigTestEndpoint {
 		return "me";
 	}
 
+	@GetMapping("/api/reading-credits")
+	String readingCredits() {
+		return "credits";
+	}
+
+	@GetMapping("/api/reading-credits/pricing")
+	String readingCreditPricing() {
+		return "pricing";
+	}
+
 	@GetMapping("/actuator/health/readiness")
 	String readiness() {
 		return "UP";
