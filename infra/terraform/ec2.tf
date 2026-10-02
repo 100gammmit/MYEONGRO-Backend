@@ -32,6 +32,13 @@ data "aws_iam_policy_document" "backend_host_permissions" {
   }
 
   statement {
+    sid       = "ReadCloudWatchAgentConfig"
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = [aws_ssm_parameter.cloudwatch_agent_config.arn]
+  }
+
+  statement {
     sid       = "DecryptBackendEnvParameter"
     effect    = "Allow"
     actions   = ["kms:Decrypt"]
@@ -57,6 +64,19 @@ data "aws_iam_policy_document" "backend_host_permissions" {
       "logs:PutLogEvents",
     ]
     resources = ["${aws_cloudwatch_log_group.backend.arn}:*"]
+  }
+
+  statement {
+    sid       = "PublishHostMetrics"
+    effect    = "Allow"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["CWAgent"]
+    }
   }
 }
 

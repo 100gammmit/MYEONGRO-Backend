@@ -182,8 +182,21 @@ shell의 임의 `AWS_PROFILE`이 아니라 `var.aws_profile`에 지정된 profil
   복원본을 서비스에 연결하지 않는다. 복원 요청에는 backup retention 0을 명시하고,
   24시간 안에 승인하거나 final·retained backup 없이 완전히 폐기한다.
 - Backend container와 RDS engine 로그는 CloudWatch에서 30일간 보관한다.
-- `alarm_notification_email`을 설정하면 SNS topic을 만들고 두 경보를 연결한 뒤 이메일
+- `alarm_notification_email`을 설정하면 SNS topic을 만들고 아래 경보를 연결한 뒤 이메일
   구독을 요청한다. 운영자는 production 공개 전에 구독을 승인해야 한다.
+  - Backend EC2 status check 실패
+  - Backend EC2 CPU 80% 이상이 15분 지속
+  - Backend EC2 루트 파일시스템 사용률 80% 이상이 10분 지속
+  - RDS 여유 저장 공간 5 GiB 미만이 10분 지속
+  - RDS CPU 80% 이상이 15분 지속
+  - RDS 연결 수 50개 이상이 10분 지속
+  - RDS 여유 메모리 200 MiB 미만이 10분 지속
+- EC2 파일시스템 사용률은 AWS 기본 지표가 아니므로 Terraform이 CloudWatch Agent 설정을
+  SSM Parameter에 저장하고 SSM Association으로 Agent를 설치·설정한다. 이 경로는 실행 중인
+  EC2의 `user_data`를 변경하지 않으므로 모니터링 추가만으로 instance를 교체하지 않는다.
+  Agent는 `/`의 `disk_used_percent`만 `InstanceId` 단위로 집계하고 원본 device별 지표를
+  버려 사용자 지정 지표 수와 비용을 제한한다.
+- 모든 경보는 ALARM뿐 아니라 OK 전환도 같은 SNS topic으로 전달한다.
 - `alarm_notification_email`을 생략해도 경보 자체는 생성되지만 알림 대상은 없다. dry plan에는
   사용할 수 있지만 production 공개 상태로는 적합하지 않다.
 
