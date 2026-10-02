@@ -200,7 +200,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_high_connections" {
 
 resource "aws_cloudwatch_metric_alarm" "rds_low_memory" {
   alarm_name          = "${local.resource_prefix}-postgres-low-memory"
-  alarm_description   = "RDS freeable memory remained below 200 MiB for 10 minutes"
+  alarm_description   = "RDS freeable memory remained below 100 MiB for 10 minutes"
   namespace           = "AWS/RDS"
   metric_name         = "FreeableMemory"
   dimensions          = { DBInstanceIdentifier = aws_db_instance.postgres.identifier }
@@ -208,7 +208,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_low_memory" {
   period              = 300
   evaluation_periods  = 2
   datapoints_to_alarm = 2
-  threshold           = 200 * 1024 * 1024
+  threshold           = 100 * 1024 * 1024
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "missing"
   alarm_actions       = var.alarm_notification_email == null ? [] : [aws_sns_topic.production_alarms[0].arn]
