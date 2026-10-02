@@ -3,6 +3,7 @@ package com.myeongro.api.domain.saju.service;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationExceptio
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 import com.myeongro.api.domain.reading.service.DeclinedReadingFactory;
 import com.myeongro.api.domain.reading.service.OpenAiResponseDiagnostics;
+import com.myeongro.api.domain.reading.service.OpenAiReadingDiagnostics;
 import com.myeongro.api.domain.reading.service.ReadingDeclineReason;
 import com.myeongro.api.domain.reading.service.ReadingGenerationHandler;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
@@ -44,6 +46,10 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 	private final SajuPromptCatalog promptCatalog;
 	private final SajuReadingResultValidator resultValidator;
 	private final DeclinedReadingFactory declinedReadingFactory;
+	@Value("${app.reading.openai.diagnostics-enabled:true}")
+	private boolean diagnosticsEnabled = true;
+	@Value("${spring.ai.openai.chat.base-url:${spring.ai.openai.base-url:https://api.openai.com}}")
+	private String configuredBaseUrl = "https://api.openai.com";
 
 	public OpenAiSajuReadingGenerator(
 		ChatModel chatModel,
@@ -105,6 +111,11 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 			throw failure(OpenAiReadingGenerationStage.REQUEST_BUILD, exception);
 		}
 
+		String diagnosticId = UUID.randomUUID().toString();
+		if (diagnosticsEnabled) {
+			OpenAiReadingDiagnostics.request(diagnosticId, "saju", "none", configuredBaseUrl,
+				prompt, question, objectMapper);
+		}
 		ChatResponse response;
 		try {
 			response = chatModel.call(prompt);
@@ -112,11 +123,17 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 			throw failure(OpenAiReadingGenerationStage.PROVIDER_CALL, exception);
 		}
 		OpenAiResponseDiagnostics diagnostics = OpenAiResponseDiagnostics.from(response);
+		if (diagnosticsEnabled) {
+			OpenAiReadingDiagnostics.response(diagnosticId, diagnostics);
+		}
 
 		JsonNode output;
 		try {
 			String content = response.getResult().getOutput().getText();
 			output = objectMapper.readTree(content).required("output");
+			if (diagnosticsEnabled) {
+				OpenAiReadingDiagnostics.classification(diagnosticId, output);
+			}
 		} catch (RuntimeException | JsonProcessingException exception) {
 			throw failure(
 				OpenAiReadingGenerationStage.RESPONSE_PARSE,

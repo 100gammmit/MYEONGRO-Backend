@@ -104,6 +104,8 @@ app:
     saju-idempotency-secret: ${saju.idempotency-secret}
     openai:
       model: ${openai.model:gpt-6-luna}
+      # Temporary incident diagnostics; no input/response text or credentials are logged.
+      diagnostics-enabled: ${reading.openai.diagnostics-enabled:true}
     prompts:
       safety: classpath:prompts/reading/safety/reading-safety-ko-v3.md
       tarot:

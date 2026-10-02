@@ -111,6 +111,7 @@ tasks.register('aiPreview', JavaExec) {
     systemProperty 'spring.main.banner-mode', 'off'
     systemProperty 'spring.profiles.active', 'ai-preview'
     systemProperty 'logging.level.root', 'warn'
+    systemProperty 'logging.level.com.myeongro.api.domain.reading.service.OpenAiReadingDiagnostics', 'info'
     def previewModel = providers.gradleProperty('model').orNull
     if (previewModel != null) {
         systemProperty 'app.reading.openai.model', previewModel
