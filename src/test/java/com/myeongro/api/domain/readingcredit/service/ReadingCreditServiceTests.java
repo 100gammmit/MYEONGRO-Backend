@@ -52,4 +52,27 @@ class ReadingCreditServiceTests {
 		assertThat(response.costs().saju()).isEqualTo(4);
 		verify(repository).getStatus(userId, 10);
 	}
+
+	@Test
+	void publishesTheDailyGrantAndCostsWithoutReadingAnyBalance() {
+		ReadingCreditRepository repository = org.mockito.Mockito.mock(
+			ReadingCreditRepository.class
+		);
+		ReadingCreditService service = new ReadingCreditService(
+			repository, ReadingCreditTestFixtures.properties(), Clock.systemUTC()
+		);
+
+		var pricing = service.getPricing();
+
+		assertThat(pricing.dailyFreeGrant()).isEqualTo(10);
+		assertThat(pricing.costs().tarot()).containsExactlyInAnyOrderEntriesOf(
+			java.util.Map.of(
+				"mind_three_card", 2,
+				"relationship_three_card", 2,
+				"choice_five_card", 3
+			)
+		);
+		assertThat(pricing.costs().saju()).isEqualTo(4);
+		org.mockito.Mockito.verifyNoInteractions(repository);
+	}
 }

@@ -123,6 +123,14 @@ class SecurityConfigTests {
 	}
 
 	@Test
+	void allowsReadingPricingWithoutSessionButKeepsBalanceAuthenticated() throws Exception {
+		mockMvc.perform(get("/api/reading-credits/pricing"))
+			.andExpect(status().isOk());
+		mockMvc.perform(get("/api/reading-credits"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void allowsCurrentUserEndpointWithoutSession() throws Exception {
 		mockMvc.perform(get("/api/auth/me"))
 			.andExpect(status().isOk());

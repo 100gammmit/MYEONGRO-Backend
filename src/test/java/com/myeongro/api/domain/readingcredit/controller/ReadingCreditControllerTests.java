@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 
+import com.myeongro.api.domain.readingcredit.dto.ReadingCreditPricingResponse;
 import com.myeongro.api.domain.readingcredit.dto.ReadingCreditStatusResponse;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 import com.myeongro.api.global.auth.AuthenticatedUser;
@@ -44,5 +45,25 @@ class ReadingCreditControllerTests {
 		assertThat(response.getBody()).isEqualTo(status);
 		assertThat(response.getHeaders().getCacheControl()).contains("no-store");
 		verify(service).getStatus(userId);
+	}
+
+	@Test
+	void returnsPublishedPricingWithoutResolvingAUser() {
+		ReadingCreditService service = org.mockito.Mockito.mock(ReadingCreditService.class);
+		AuthenticatedUserResolver resolver = org.mockito.Mockito.mock(
+			AuthenticatedUserResolver.class
+		);
+		var pricing = new ReadingCreditPricingResponse(
+			10,
+			new ReadingCreditStatusResponse.Costs(Map.of("mind_three_card", 2), 4)
+		);
+		when(service.getPricing()).thenReturn(pricing);
+		var controller = new ReadingCreditController(service, resolver);
+
+		var response = controller.getPricing();
+
+		assertThat(response.getBody()).isEqualTo(pricing);
+		assertThat(response.getHeaders().getCacheControl()).contains("no-store");
+		org.mockito.Mockito.verifyNoInteractions(resolver);
 	}
 }

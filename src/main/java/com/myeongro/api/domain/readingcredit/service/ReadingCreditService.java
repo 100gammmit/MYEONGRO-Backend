@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.myeongro.api.domain.readingcredit.config.ReadingCreditProperties;
+import com.myeongro.api.domain.readingcredit.dto.ReadingCreditPricingResponse;
 import com.myeongro.api.domain.readingcredit.dto.ReadingCreditStatusResponse;
 import com.myeongro.api.domain.readingcredit.repository.ReadingCreditRepository;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
@@ -52,8 +53,16 @@ public class ReadingCreditService {
 			),
 			nextResetAt(),
 			snapshot.generationInProgress(),
-			new ReadingCreditStatusResponse.Costs(tarotCosts(), properties.costs().saju())
+			costs()
 		);
+	}
+
+	public ReadingCreditPricingResponse getPricing() {
+		return new ReadingCreditPricingResponse(properties.dailyFreeGrant(), costs());
+	}
+
+	private ReadingCreditStatusResponse.Costs costs() {
+		return new ReadingCreditStatusResponse.Costs(tarotCosts(), properties.costs().saju());
 	}
 
 	private Map<String, Integer> tarotCosts() {

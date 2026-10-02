@@ -99,6 +99,8 @@ public class SecurityConfig {
 				.requestMatchers(
 					HttpMethod.POST, "/api/tarot/daily-card-selections"
 				).permitAll()
+				// Only the published price list; the balance at /api/reading-credits stays authenticated.
+				.requestMatchers(HttpMethod.GET, "/api/reading-credits/pricing").permitAll()
 				.anyRequest().authenticated()
 			)
 			.oauth2Login(oauth2 -> oauth2
