@@ -170,4 +170,21 @@ class SecurityConfigTests {
 		mockMvc.perform(post("/logout").with(authentication(pending)))
 			.andExpect(status().isUnauthorized());
 	}
+
+	@Test
+	void allowsReadingPricingButNotBalanceForAPendingSignup() throws Exception {
+		var principal = new PendingSignupSessionPrincipal(
+			"attempt-1", "generation-1", "kakao", "12345", "token"
+		);
+		var pending = UsernamePasswordAuthenticationToken.authenticated(
+			principal,
+			null,
+			java.util.List.of()
+		);
+
+		mockMvc.perform(get("/api/reading-credits/pricing").with(authentication(pending)))
+			.andExpect(status().isOk());
+		mockMvc.perform(get("/api/reading-credits").with(authentication(pending)))
+			.andExpect(status().isUnauthorized());
+	}
 }
