@@ -195,7 +195,8 @@ shell의 임의 `AWS_PROFILE`이 아니라 `var.aws_profile`에 지정된 profil
   SSM Parameter에 저장하고 SSM Association으로 Agent를 설치·설정한다. 이 경로는 실행 중인
   EC2의 `user_data`를 변경하지 않으므로 모니터링 추가만으로 instance를 교체하지 않는다.
   Agent는 `/`의 `disk_used_percent`만 `InstanceId` 단위로 집계하고 원본 device별 지표를
-  버려 사용자 지정 지표 수와 비용을 제한한다.
+  버려 사용자 지정 지표 수와 비용을 제한한다. Configure Association은 SSM Parameter의 정확한
+  version을 참조하므로 설정 내용이 바뀌면 새 version을 다시 가져와 Agent를 재시작한다.
 - 모든 경보는 ALARM뿐 아니라 OK 전환도 같은 SNS topic으로 전달한다.
 - `alarm_notification_email`을 생략해도 경보 자체는 생성되지만 알림 대상은 없다. dry plan에는
   사용할 수 있지만 production 공개 상태로는 적합하지 않다.

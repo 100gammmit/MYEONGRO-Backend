@@ -78,10 +78,13 @@ resource "aws_ssm_association" "cloudwatch_agent_configure" {
   wait_for_success_timeout_seconds = 600
 
   parameters = {
-    action                        = "configure"
-    mode                          = "ec2"
-    optionalConfigurationSource   = "ssm"
-    optionalConfigurationLocation = aws_ssm_parameter.cloudwatch_agent_config.name
+    action                      = "configure"
+    mode                        = "ec2"
+    optionalConfigurationSource = "ssm"
+    # Binding the exact parameter version makes a config-only value update
+    # change the association itself, which forces State Manager to fetch the
+    # new config and restart the running agent.
+    optionalConfigurationLocation = "${aws_ssm_parameter.cloudwatch_agent_config.name}:${aws_ssm_parameter.cloudwatch_agent_config.version}"
     optionalRestart               = "yes"
   }
 
