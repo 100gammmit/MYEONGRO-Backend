@@ -91,7 +91,7 @@ app:
     adult-policy-version: 2026-09-09
 
   daily-card:
-    content-version: daily-one-card-static-v1
+    content-version: daily-one-card-static-v2
     variant-count: 6
 
   reading:
