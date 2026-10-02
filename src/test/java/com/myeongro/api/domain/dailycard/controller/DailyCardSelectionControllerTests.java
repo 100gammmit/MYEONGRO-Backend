@@ -35,10 +35,10 @@ class DailyCardSelectionControllerTests {
 
 	@Test
 	void returnsSelectionWithoutAuthenticationContract() throws Exception {
-		when(service.select(DRAW_ID, 3, "daily-one-card-static-v1"))
+		when(service.select(DRAW_ID, 3, "daily-one-card-static-v2"))
 			.thenReturn(new DailyCardSelectionResponse(new DailyCardSelectionResponse.Selection(
 				LocalDate.of(2026, 8, 25), "major-17-star", 3,
-				"daily-one-card-static-v1"
+				"daily-one-card-static-v2"
 			)));
 
 		mockMvc.perform(post("/api/tarot/daily-card-selections")
@@ -68,7 +68,7 @@ class DailyCardSelectionControllerTests {
 
 	@Test
 	void reportsContentVersionMismatchAsConflict() throws Exception {
-		when(service.select(DRAW_ID, 3, "daily-one-card-static-v1"))
+		when(service.select(DRAW_ID, 3, "daily-one-card-static-v2"))
 			.thenThrow(new DailyCardContentVersionMismatchException());
 
 		mockMvc.perform(post("/api/tarot/daily-card-selections")
@@ -83,7 +83,7 @@ class DailyCardSelectionControllerTests {
 			{
 			  "drawId":"82ed11d5-2269-438c-9815-42e6f13735f4",
 			  "selectedSlot":3,
-			  "contentVersion":"daily-one-card-static-v1"
+			  "contentVersion":"daily-one-card-static-v2"
 			}
 			""";
 	}

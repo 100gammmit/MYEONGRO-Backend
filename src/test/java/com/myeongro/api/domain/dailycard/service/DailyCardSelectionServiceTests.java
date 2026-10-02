@@ -18,7 +18,7 @@ import com.myeongro.api.domain.tarot.selection.TarotCardRanker;
 
 class DailyCardSelectionServiceTests {
 
-	private static final String VERSION = "daily-one-card-static-v1";
+	private static final String VERSION = "daily-one-card-static-v2";
 	private static final UUID DRAW_ID = UUID.fromString(
 		"82ed11d5-2269-438c-9815-42e6f13735f4"
 	);
@@ -50,7 +50,7 @@ class DailyCardSelectionServiceTests {
 	@Test
 	void rejectsUnsupportedContentVersion() {
 		assertThatThrownBy(() -> service("2026-08-25T04:00:00Z")
-			.select(DRAW_ID, 1, "daily-one-card-static-v2"))
+			.select(DRAW_ID, 1, "unsupported-content-version"))
 			.isInstanceOf(DailyCardContentVersionMismatchException.class);
 	}
 
