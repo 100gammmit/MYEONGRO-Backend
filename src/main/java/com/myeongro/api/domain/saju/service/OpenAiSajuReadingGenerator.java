@@ -1,5 +1,8 @@
 package com.myeongro.api.domain.saju.service;
 
+import static com.myeongro.api.domain.reading.service.ReadingResponseSchema.orderedMap;
+import static java.util.Map.entry;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -238,67 +241,68 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 		int targetYear,
 		List<String> evidenceKeys
 	) {
-		Map<String, Object> evidence = Map.of(
-			"type", "array",
-			"minItems", 1,
-			"items", Map.of("type", "string", "enum", evidenceKeys)
+		Map<String, Object> evidence = orderedMap(
+			entry("items", orderedMap(entry("enum", evidenceKeys), entry("type", "string"))),
+			entry("minItems", 1),
+			entry("type", "array")
 		);
-		Map<String, Object> section = Map.of(
-			"type", "object",
-			"additionalProperties", false,
-			"required", List.of("id", "heading", "body", "evidenceKeys"),
-			"properties", Map.of(
-				"id", Map.of("type", "string", "enum", SajuReadingResultValidator.SECTION_IDS),
-				"heading", textSchema(),
-				"body", textSchema(),
-				"evidenceKeys", evidence
-			)
+		Map<String, Object> section = orderedMap(
+			entry("additionalProperties", false),
+			entry("properties", orderedMap(
+				entry("id", orderedMap(entry("enum", SajuReadingResultValidator.SECTION_IDS), entry("type", "string"))),
+				entry("heading", textSchema()),
+				entry("body", textSchema()),
+				entry("evidenceKeys", evidence)
+			)),
+			entry("required", List.of("id", "heading", "body", "evidenceKeys")),
+			entry("type", "object")
 		);
-		return Map.of(
-			"type", "object",
-			"additionalProperties", false,
-			"required", List.of(
+		return orderedMap(
+			entry("additionalProperties", false),
+			entry("properties", orderedMap(
+				entry("title", textSchema()),
+				entry("natalSections", orderedMap(
+					entry("items", section), entry("maxItems", 4), entry("minItems", 4), entry("type", "array")
+				)),
+				entry("annualReading", orderedMap(
+					entry("additionalProperties", false),
+					entry("properties", orderedMap(
+						entry("year", orderedMap(entry("enum", List.of(targetYear)), entry("type", "integer"))),
+						entry("heading", textSchema()), entry("body", textSchema()), entry("evidenceKeys", evidence)
+					)),
+					entry("required", List.of("year", "heading", "body", "evidenceKeys")),
+					entry("type", "object")
+				)),
+				entry("questionReading", orderedMap(
+					entry("additionalProperties", false),
+					entry("properties", orderedMap(
+						entry("heading", textSchema()), entry("body", textSchema()), entry("evidenceKeys", evidence)
+					)),
+					entry("required", List.of("heading", "body", "evidenceKeys")),
+					entry("type", "object")
+				)),
+				entry("readingMode", orderedMap(
+					entry("enum", java.util.Arrays.stream(com.myeongro.api.domain.reading.service.ReadingMode.values())
+						.map(com.myeongro.api.domain.reading.service.ReadingMode::value).toList()),
+					entry("type", "string")
+				)),
+				entry("summary", textSchema()),
+				entry("guidance", orderedMap(
+					entry("items", textSchema()), entry("maxItems", 1), entry("minItems", 1), entry("type", "array")
+				)),
+				entry("disclaimer", textSchema()),
+				entry("questionRedirected", orderedMap(entry("type", "boolean")))
+			)),
+			entry("required", List.of(
 				"readingMode", "questionRedirected", "title", "summary", "natalSections", "annualReading",
 				"questionReading", "guidance", "disclaimer"
-			),
-			"properties", Map.of(
-				"readingMode", Map.of(
-					"type", "string",
-					"enum", java.util.Arrays.stream(com.myeongro.api.domain.reading.service.ReadingMode.values())
-						.map(com.myeongro.api.domain.reading.service.ReadingMode::value)
-						.toList()
-				),
-				"questionRedirected", Map.of("type", "boolean"),
-				"title", textSchema(),
-				"summary", textSchema(),
-				"natalSections", Map.of(
-					"type", "array", "minItems", 4, "maxItems", 4, "items", section
-				),
-				"annualReading", Map.of(
-					"type", "object", "additionalProperties", false,
-					"required", List.of("year", "heading", "body", "evidenceKeys"),
-					"properties", Map.of(
-						"year", Map.of("type", "integer", "enum", List.of(targetYear)),
-						"heading", textSchema(), "body", textSchema(), "evidenceKeys", evidence
-					)
-				),
-				"questionReading", Map.of(
-					"type", "object", "additionalProperties", false,
-					"required", List.of("heading", "body", "evidenceKeys"),
-					"properties", Map.of(
-						"heading", textSchema(), "body", textSchema(), "evidenceKeys", evidence
-					)
-				),
-				"guidance", Map.of(
-					"type", "array", "minItems", 1, "maxItems", 1, "items", textSchema()
-				),
-				"disclaimer", textSchema()
-			)
+			)),
+			entry("type", "object")
 		);
 	}
 
 	private Map<String, Object> textSchema() {
-		return Map.of("type", "string", "minLength", 1);
+		return orderedMap(entry("minLength", 1), entry("type", "string"));
 	}
 
 	@SuppressWarnings("unchecked")

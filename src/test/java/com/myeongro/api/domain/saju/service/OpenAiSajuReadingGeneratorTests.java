@@ -132,10 +132,25 @@ class OpenAiSajuReadingGeneratorTests {
 		Map<String, Object> readingProperties = (Map<String, Object>)generator.readingResultSchema(
 			2026, List.of("dayMaster")
 		).get("properties");
+		assertThat(readingProperties.keySet()).containsExactly(
+			"title", "natalSections", "annualReading", "questionReading", "readingMode", "summary",
+			"guidance", "disclaimer", "questionRedirected"
+		);
+		assertThat(new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(readingProperties))
+			.properties().stream().map(Map.Entry::getKey).toList())
+			.containsExactlyElementsOf(readingProperties.keySet());
+		Map<?, ?> natalItems = (Map<?, ?>)((Map<?, ?>)readingProperties.get("natalSections")).get("items");
+		assertThat(((Map<?, ?>)natalItems.get("properties")).keySet().stream().map(String.class::cast).toList())
+			.containsExactly("id", "heading", "body", "evidenceKeys");
+		Map<?, ?> annual = (Map<?, ?>)readingProperties.get("annualReading");
+		assertThat(((Map<?, ?>)annual.get("properties")).keySet().stream().map(String.class::cast).toList())
+			.containsExactly("year", "heading", "body", "evidenceKeys");
 		assertThat(readingProperties.get("questionRedirected"))
 			.isEqualTo(Map.of("type", "boolean"));
 		@SuppressWarnings("unchecked")
 		Map<String, Object> questionSchema = (Map<String, Object>)readingProperties.get("questionReading");
+		assertThat(((Map<?, ?>)questionSchema.get("properties")).keySet().stream().map(String.class::cast).toList())
+			.containsExactly("heading", "body", "evidenceKeys");
 		assertThat(questionSchema.toString()).doesNotContain("focusArea");
 		assertThat(readingProperties.get("guidance")).isEqualTo(Map.of(
 			"type", "array",

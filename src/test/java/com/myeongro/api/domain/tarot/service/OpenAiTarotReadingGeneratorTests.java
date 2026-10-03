@@ -69,6 +69,9 @@ class OpenAiTarotReadingGeneratorTests {
 		Map<String, Object> schema = readingSchema(options);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
+		assertThat(properties.keySet()).containsExactly(
+			"title", "sections", "readingMode", "summary", "guidance", "disclaimer", "questionRedirected"
+		);
 		assertThat(((Map<?, ?>)properties.get("readingMode")).get("enum"))
 			.isEqualTo(List.of(
 				"standard", "health_fortune", "money_fortune",
@@ -91,6 +94,12 @@ class OpenAiTarotReadingGeneratorTests {
 		@SuppressWarnings("unchecked")
 		Map<String, Object> sectionProperties =
 			(Map<String, Object>) sectionItems.get("properties");
+		assertThat(sectionProperties.keySet()).containsExactly("position", "heading", "body");
+		assertThat(sectionItems.keySet()).containsExactly("additionalProperties", "properties", "required", "type");
+		assertThat(sections.keySet()).containsExactly("items", "maxItems", "minItems", "type");
+		assertThat(guidance.keySet()).containsExactly("items", "maxItems", "minItems", "type");
+		assertThat(new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(properties))
+			.properties().stream().map(Map.Entry::getKey).toList()).containsExactlyElementsOf(properties.keySet());
 		@SuppressWarnings("unchecked")
 		Map<String, Object> position = (Map<String, Object>) sectionProperties.get("position");
 		assertThat(position.get("enum")).isEqualTo(spread.positions().stream()

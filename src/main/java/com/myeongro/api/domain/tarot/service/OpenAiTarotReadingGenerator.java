@@ -1,5 +1,8 @@
 package com.myeongro.api.domain.tarot.service;
 
+import static com.myeongro.api.domain.reading.service.ReadingResponseSchema.orderedMap;
+import static java.util.Map.entry;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -256,51 +259,52 @@ public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
 		List<String> positionIds = spreadType.positions().stream()
 			.map(position -> position.id())
 			.toList();
-		return Map.of(
-			"type", "object",
-			"additionalProperties", false,
-			"required", List.of(
+		// Preserve the property order verified in the controlled false-decline experiment.
+		return orderedMap(
+			entry("additionalProperties", false),
+			entry("properties", orderedMap(
+				entry("title", textSchema()),
+				entry("sections", orderedMap(
+					entry("items", orderedMap(
+						entry("additionalProperties", false),
+						entry("properties", orderedMap(
+							entry("position", orderedMap(entry("enum", positionIds), entry("type", "string"))),
+							entry("heading", textSchema()),
+							entry("body", textSchema())
+						)),
+						entry("required", List.of("position", "heading", "body")),
+						entry("type", "object")
+					)),
+					entry("maxItems", spreadType.cardCount()),
+					entry("minItems", spreadType.cardCount()),
+					entry("type", "array")
+				)),
+				entry("readingMode", readingModeSchema()),
+				entry("summary", textSchema()),
+				entry("guidance", orderedMap(
+					entry("items", textSchema()),
+					entry("maxItems", spreadType.maxGuidanceItems()),
+					entry("minItems", spreadType.minGuidanceItems()),
+					entry("type", "array")
+				)),
+				entry("disclaimer", textSchema()),
+				entry("questionRedirected", orderedMap(entry("type", "boolean")))
+			)),
+			entry("required", List.of(
 				"readingMode", "questionRedirected", "title", "summary", "sections", "guidance", "disclaimer"
-			),
-			"properties", Map.of(
-				"readingMode", readingModeSchema(),
-				"questionRedirected", Map.of("type", "boolean"),
-				"title", textSchema(),
-				"summary", textSchema(),
-				"sections", Map.of(
-					"type", "array",
-					"minItems", spreadType.cardCount(),
-					"maxItems", spreadType.cardCount(),
-					"items", Map.of(
-						"type", "object",
-						"additionalProperties", false,
-						"required", List.of("position", "heading", "body"),
-						"properties", Map.of(
-							"position", Map.of("type", "string", "enum", positionIds),
-							"heading", textSchema(),
-							"body", textSchema()
-						)
-					)
-				),
-				"guidance", Map.of(
-					"type", "array",
-					"minItems", spreadType.minGuidanceItems(),
-					"maxItems", spreadType.maxGuidanceItems(),
-					"items", textSchema()
-				),
-				"disclaimer", textSchema()
-			)
+			)),
+			entry("type", "object")
 		);
 	}
 
 	private Map<String, Object> textSchema() {
-		return Map.of("type", "string", "minLength", 1);
+		return orderedMap(entry("minLength", 1), entry("type", "string"));
 	}
 
 	private Map<String, Object> readingModeSchema() {
-		return Map.of(
-			"type", "string",
-			"enum", java.util.Arrays.stream(ReadingMode.values()).map(ReadingMode::value).toList()
+		return orderedMap(
+			entry("enum", java.util.Arrays.stream(ReadingMode.values()).map(ReadingMode::value).toList()),
+			entry("type", "string")
 		);
 	}
 }
