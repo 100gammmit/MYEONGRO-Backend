@@ -107,11 +107,11 @@ app:
     prompts:
       safety: classpath:prompts/reading/safety/reading-safety-ko-v3.md
       tarot:
-        common: classpath:prompts/tarot/common-ko-v22.md
+        common: classpath:prompts/tarot/common-ko-v23.md
         cards: classpath:prompts/tarot/arcana/major/major-arcana-ko-v4.md
         spreads:
-          mind-three-card: classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v10.md
-          relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v10.md
+          mind-three-card: classpath:prompts/tarot/spreads/mind-three-card/mind-three-card-ko-v11.md
+          relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v11.md
           choice-five-card: classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v9.md
       saju:
         common: classpath:prompts/saju/common-ko-v9.md
