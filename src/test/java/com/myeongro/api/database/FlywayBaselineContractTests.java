@@ -76,17 +76,17 @@ class FlywayBaselineContractTests {
 	}
 
 	@Test
-	void baselinePersistsOnlyMinimalOAuthIdentifiers() throws IOException {
+	void baselinePersistsNoProviderNameOrEmailForAccounts() throws IOException {
 		String sql = baselineSql();
-		String oauthTable = sql.substring(
-			sql.indexOf("create table public.oauth_accounts"),
-			sql.indexOf("create table public.profiles")
-		);
+		String oauthTable = tableDefinition(sql, "oauth_accounts");
+		String profilesTable = tableDefinition(sql, "profiles");
 
-		assertThat(oauthTable)
-			.contains("provider_user_id text not null")
+		assertThat(oauthTable).contains("provider_user_id text not null");
+		assertThat(profilesTable).contains("id uuid not null");
+		assertThat(oauthTable + profilesTable)
 			.doesNotContain("email")
-			.doesNotContain("display_name");
+			.doesNotContain("display_name")
+			.doesNotContain("nickname");
 	}
 
 	@Test
@@ -113,6 +113,11 @@ class FlywayBaselineContractTests {
 			.contains("baseline-on-migrate: false")
 			.contains("validate-on-migrate: true")
 			.contains("clean-disabled: true");
+	}
+
+	private String tableDefinition(String sql, String table) {
+		int start = sql.indexOf("create table public." + table + " (");
+		return sql.substring(start, sql.indexOf(");", start));
 	}
 
 	private String baselineSql() throws IOException {
