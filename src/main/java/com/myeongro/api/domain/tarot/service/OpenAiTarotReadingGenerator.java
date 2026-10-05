@@ -6,7 +6,6 @@ import static java.util.Map.entry;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,10 +49,6 @@ public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
 	private final TarotPromptCatalog promptCatalog;
 	private final TarotReadingResultValidator resultValidator;
 	private final DeclinedReadingFactory declinedReadingFactory;
-	@Value("${app.reading.openai.diagnostics-enabled:true}")
-	private boolean diagnosticsEnabled = true;
-	@Value("${spring.ai.openai.chat.base-url:${spring.ai.openai.base-url:https://api.openai.com}}")
-	private String configuredBaseUrl = "https://api.openai.com";
 
 	public OpenAiTarotReadingGenerator(
 		ChatModel chatModel,
@@ -107,11 +102,6 @@ public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
 			throw failure(OpenAiReadingGenerationStage.REQUEST_BUILD, spreadType, exception);
 		}
 
-		String diagnosticId = UUID.randomUUID().toString();
-		if (diagnosticsEnabled) {
-			OpenAiReadingDiagnostics.request(diagnosticId, "tarot", spreadType.value(),
-				configuredBaseUrl, prompt, question, objectMapper);
-		}
 		ChatResponse response;
 		try {
 			response = chatModel.call(prompt);
@@ -119,17 +109,13 @@ public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
 			throw failure(OpenAiReadingGenerationStage.PROVIDER_CALL, spreadType, exception);
 		}
 		OpenAiResponseDiagnostics diagnostics = OpenAiResponseDiagnostics.from(response);
-		if (diagnosticsEnabled) {
-			OpenAiReadingDiagnostics.response(diagnosticId, diagnostics);
-		}
 
 		JsonNode output;
 		try {
 			String content = response.getResult().getOutput().getText();
 			output = objectMapper.readTree(content).required("output");
-			if (diagnosticsEnabled) {
-				OpenAiReadingDiagnostics.classification(diagnosticId, output);
-			}
+			OpenAiReadingDiagnostics.classification("tarot", spreadType.value(),
+				(OpenAiChatOptions)prompt.getOptions(), output, objectMapper);
 		} catch (RuntimeException | JsonProcessingException exception) {
 			throw failure(
 				OpenAiReadingGenerationStage.RESPONSE_PARSE,

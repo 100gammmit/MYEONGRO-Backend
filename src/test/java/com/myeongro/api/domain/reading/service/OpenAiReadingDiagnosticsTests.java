@@ -1,16 +1,13 @@
 package com.myeongro.api.domain.reading.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.ResponseFormat;
 
@@ -25,34 +22,26 @@ class OpenAiReadingDiagnosticsTests {
 	private final ObjectMapper mapper = new ObjectMapper();
 
 	@Test
-	void recordsOnlySafeMetadataAndCorrelatesClassification() throws Exception {
+	void recordsOneCompactEventWithoutResponseText() throws Exception {
 		Logger logger = (Logger)LoggerFactory.getLogger(OpenAiReadingDiagnostics.class);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();
 		appender.start();
 		logger.addAppender(appender);
 		try {
-			OpenAiChatOptions options = OpenAiChatOptions.builder().model("synthetic-model")
-				.maxCompletionTokens(1800).temperature(1d)
-				.responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_SCHEMA)
-					.jsonSchema(ResponseFormat.JsonSchema.builder().name("synthetic").strict(true)
-						.schema(ReadingResponseSchema.wrap(Map.of("type", "object"))).build()).build())
-				.build();
-			Prompt prompt = new Prompt(List.of(new SystemMessage("synthetic-system-secret"),
-				new UserMessage("birth-data-and-user-input-secret")), options);
-			OpenAiReadingDiagnostics.request("synthetic-id", "tarot", "mind_three_card",
-				"https://credential-secret@api.openai.com/path?key=query-secret", prompt,
-				"question-secret", mapper);
-			OpenAiReadingDiagnostics.classification("synthetic-id", mapper.readTree(
-				"{\"resultType\":\"declined\",\"reasonCode\":\"CRISIS_OR_IMMEDIATE_DANGER\"}"));
-			OpenAiReadingDiagnostics.classification("synthetic-id", mapper.readTree(
-				"{\"resultType\":\"untrusted-secret\",\"reasonCode\":\"response-secret\"}"));
-			String messages = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
-				.reduce("", (left, right) -> left + "\n" + right);
-			assertThat(messages).contains("diagnosticId=synthetic-id", "questionLength=15",
-				"configuredBaseUrl=https://api.openai.com", "schemaPropertyOrder=",
-				"reasonCode=CRISIS_OR_IMMEDIATE_DANGER", "resultType=invalid");
-			assertThat(messages).doesNotContain("synthetic-system-secret", "birth-data-and-user-input-secret",
-				"question-secret", "credential-secret", "query-secret", "untrusted-secret", "response-secret");
+			OpenAiReadingDiagnostics.classification("tarot", "mind_three_card", options(Map.of("type", "object")),
+				mapper.readTree("{\"resultType\":\"declined\",\"reasonCode\":\"CRISIS_OR_IMMEDIATE_DANGER\","
+					+ "\"body\":\"response-secret\"}"), mapper);
+			assertThat(appender.list).hasSize(1);
+			assertThat(appender.list.getFirst().getFormattedMessage()).contains(
+				"kind=tarot", "spread=mind_three_card", "model=synthetic-model", "schemaSha256=",
+				"resultType=declined", "reasonCode=CRISIS_OR_IMMEDIATE_DANGER")
+				.doesNotContain("response-secret", "diagnosticId=", "questionLength=", "schemaPropertyOrder=");
+			assertThat(appender.list.getFirst().getThrowableProxy()).isNull();
+			OpenAiReadingDiagnostics.classification("saju", "none", options(Map.of("type", "object")),
+				mapper.readTree("{\"resultType\":\"untrusted-secret\",\"reasonCode\":\"response-secret\"}"), mapper);
+			assertThat(appender.list.getLast().getFormattedMessage()).contains(
+				"resultType=invalid", "reasonCode=none-or-invalid")
+				.doesNotContain("untrusted-secret", "response-secret");
 		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
@@ -60,25 +49,41 @@ class OpenAiReadingDiagnosticsTests {
 	}
 
 	@Test
-	void canonicalHashIgnoresMapOrderButRetainsArrayOrder() throws Exception {
-		Map<String, Object> first = new LinkedHashMap<>();
-		first.put("b", List.of("reading", "declined"));
-		first.put("a", Map.of("type", "object"));
-		Map<String, Object> second = new LinkedHashMap<>();
-		second.put("a", Map.of("type", "object"));
-		second.put("b", List.of("reading", "declined"));
-		assertThat(mapper.writeValueAsString(OpenAiReadingDiagnostics.canonical(first)))
-			.isEqualTo(mapper.writeValueAsString(OpenAiReadingDiagnostics.canonical(second)));
-		second.put("b", List.of("declined", "reading"));
-		assertThat(mapper.writeValueAsString(OpenAiReadingDiagnostics.canonical(first)))
-			.isNotEqualTo(mapper.writeValueAsString(OpenAiReadingDiagnostics.canonical(second)));
+	void schemaFingerprintPreservesOrder() throws Exception {
+		Logger logger = (Logger)LoggerFactory.getLogger(OpenAiReadingDiagnostics.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			Map<String, Object> first = new LinkedHashMap<>();
+			first.put("a", "object");
+			first.put("b", true);
+			Map<String, Object> second = new LinkedHashMap<>();
+			second.put("b", true);
+			second.put("a", "object");
+			var output = mapper.readTree("{\"resultType\":\"reading\"}");
+			OpenAiReadingDiagnostics.classification("tarot", "mind_three_card", options(first), output, mapper);
+			OpenAiReadingDiagnostics.classification("tarot", "mind_three_card", options(first), output, mapper);
+			OpenAiReadingDiagnostics.classification("tarot", "mind_three_card", options(second), output, mapper);
+			assertThat(appender.list.get(0).getFormattedMessage())
+				.isEqualTo(appender.list.get(1).getFormattedMessage())
+				.isNotEqualTo(appender.list.get(2).getFormattedMessage());
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
 	}
 
 	@Test
-	void malformedDiagnosticInputDoesNotInterruptGeneration() {
-		OpenAiReadingDiagnostics.request("synthetic-id", "tarot", "none", "invalid", null, null, mapper);
-		assertThat(OpenAiReadingDiagnostics.safeOrigin("https://user:password@host.test:8443/path?token=secret"))
-			.isEqualTo("https://host.test:8443");
-		assertThat(OpenAiReadingDiagnostics.safeOrigin("invalid")).isEqualTo("invalid");
+	void malformedDiagnosticsDoNotInterruptGeneration() {
+		assertThatCode(() -> OpenAiReadingDiagnostics.classification("tarot", "none", null, null, mapper))
+			.doesNotThrowAnyException();
+	}
+
+	private OpenAiChatOptions options(Map<String, Object> schema) {
+		return OpenAiChatOptions.builder().model("synthetic-model")
+			.responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_SCHEMA)
+				.jsonSchema(ResponseFormat.JsonSchema.builder().name("synthetic").strict(true).schema(schema).build())
+				.build()).build();
 	}
 }
