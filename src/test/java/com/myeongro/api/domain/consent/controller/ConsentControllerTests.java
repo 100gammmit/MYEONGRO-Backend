@@ -163,19 +163,19 @@ class ConsentControllerTests {
 	}
 
 	@Test
-	void rejectsTheRetiredSajuInputDocumentInASajuRequest() throws Exception {
+	void mapsAnUnknownDocumentTypeToBadRequest() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
 		Map<String, String> versions = Map.of(
 			"terms", "2026-08-28",
 			"ai-overseas-transfer", "draft-2026-09-25",
-			"saju-input", "retired-version"
+			"unknown-document", "any-version"
 		);
 		when(consentService.completeRequiredForUser(
 			USER_ID,
 			ConsentScope.SAJU,
 			versions
-		)).thenThrow(new IllegalArgumentException("Unknown consent document type: saju-input"));
+		)).thenThrow(new IllegalArgumentException("Unknown consent document type: unknown-document"));
 
 		mockMvc.perform(post("/api/consents")
 				.principal(authentication)
@@ -186,12 +186,12 @@ class ConsentControllerTests {
 					  "documentVersions":{
 					    "terms":"2026-08-28",
 					    "ai-overseas-transfer":"draft-2026-09-25",
-					    "saju-input":"retired-version"
+					    "unknown-document":"any-version"
 					  }
 					}
 					"""))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.error").value("Unknown consent document type: saju-input"));
+			.andExpect(jsonPath("$.error").value("Unknown consent document type: unknown-document"));
 	}
 
 	@Test

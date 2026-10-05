@@ -115,9 +115,7 @@ class OpenAiTarotReadingGeneratorTests {
 			chatModel.prompt.getUserMessage().getText(),
 			Map.class
 		);
-		assertThat(userMessage)
-			.containsKey("untrustedUserInput")
-			.doesNotContainKey("tier");
+		assertThat(userMessage).containsKey("untrustedUserInput");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> untrustedInput =
 			(Map<String, Object>) userMessage.get("untrustedUserInput");

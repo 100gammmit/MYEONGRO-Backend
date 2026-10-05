@@ -151,7 +151,6 @@ class OpenAiSajuReadingGeneratorTests {
 		Map<String, Object> questionSchema = (Map<String, Object>)readingProperties.get("questionReading");
 		assertThat(((Map<?, ?>)questionSchema.get("properties")).keySet().stream().map(String.class::cast).toList())
 			.containsExactly("heading", "body", "evidenceKeys");
-		assertThat(questionSchema.toString()).doesNotContain("focusArea");
 		assertThat(readingProperties.get("guidance")).isEqualTo(Map.of(
 			"type", "array",
 			"minItems", 1,

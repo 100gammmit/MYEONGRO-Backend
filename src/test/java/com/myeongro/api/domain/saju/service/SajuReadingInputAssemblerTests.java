@@ -41,11 +41,9 @@ class SajuReadingInputAssemblerTests {
 
 		assertThat(assembled.schemaVersion()).isEqualTo(5);
 		assertThat(assembled.aiPayload())
-			.containsOnlyKeys("focusArea", "targetYear", "calculation")
-			.doesNotContainKeys("birthProfile", "calculationSnapshot");
+			.containsOnlyKeys("focusArea", "targetYear", "calculation");
 		assertThat(assembled.storedPayload())
-			.containsOnlyKeys("targetYear", "calculationSnapshot")
-			.doesNotContainKeys("question", "focusArea", "birthProfile");
+			.containsOnlyKeys("targetYear", "calculationSnapshot");
 
 		Map<?, ?> aiCalculation = (Map<?, ?>)assembled.aiPayload().get("calculation");
 		@SuppressWarnings("unchecked")
@@ -80,7 +78,6 @@ class SajuReadingInputAssemblerTests {
 			"birthTime", "12:00",
 			"birthTimePrecision", "approximate",
 			"provinceCode", "36",
-			"cityCode", "36110",
 			"luckDirectionBasis", "male"
 		);
 	}

@@ -326,13 +326,6 @@ class ConsentServiceTests {
 		)).isInstanceOf(IllegalArgumentException.class);
 	}
 
-	@Test
-	void rejectsTheRetiredSajuInputDocumentType() {
-		assertThatThrownBy(() -> ConsentDocumentType.fromValue("saju-input"))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("Unknown consent document type");
-	}
-
 	private ConsentEventRepository repositoryWith(ConsentEventEntity... events) {
 		ConsentEventRepository repository =
 			org.mockito.Mockito.mock(ConsentEventRepository.class);

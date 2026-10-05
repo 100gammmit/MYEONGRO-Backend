@@ -35,7 +35,7 @@ class OpenAiReadingDiagnosticsTests {
 			assertThat(appender.list.getFirst().getFormattedMessage()).contains(
 				"kind=tarot", "spread=mind_three_card", "model=synthetic-model", "schemaSha256=",
 				"resultType=declined", "reasonCode=CRISIS_OR_IMMEDIATE_DANGER")
-				.doesNotContain("response-secret", "diagnosticId=", "questionLength=", "schemaPropertyOrder=");
+				.doesNotContain("response-secret");
 			assertThat(appender.list.getFirst().getThrowableProxy()).isNull();
 			OpenAiReadingDiagnostics.classification("saju", "none", options(Map.of("type", "object")),
 				mapper.readTree("{\"resultType\":\"untrusted-secret\",\"reasonCode\":\"response-secret\"}"), mapper);

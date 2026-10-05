@@ -114,8 +114,7 @@ class ReadingCreationWorkflowTests {
 		assertThat(command.getValue().schemaVersion()).isEqualTo(ReadingSchemaVersions.TAROT);
 		assertThat(command.getValue().creditCost()).isEqualTo(2);
 		assertThat(command.getValue().input())
-			.containsOnlyKeys("cards")
-			.doesNotContainKeys("question", "choiceOptions");
+			.containsOnlyKeys("cards");
 	}
 
 	@Test
@@ -209,8 +208,7 @@ class ReadingCreationWorkflowTests {
 		assertThat(command.getValue().schemaVersion()).isEqualTo(ReadingSchemaVersions.SAJU);
 		assertThat(command.getValue().creditCost()).isEqualTo(4);
 		assertThat(command.getValue().input())
-			.containsOnlyKeys("targetYear", "calculationSnapshot")
-			.doesNotContainKeys("question", "focusArea", "birthProfile");
+			.containsOnlyKeys("targetYear", "calculationSnapshot");
 		assertThat(command.getValue().input()).containsEntry("targetYear", 2026);
 		verify(consentService).hasAccepted(USER_ID, ConsentScope.SAJU);
 	}

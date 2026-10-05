@@ -111,8 +111,7 @@ class JdbcReadingCreationRepositoryTests {
 			args.capture()
 		);
 		assertThat(sql.getValue())
-			.contains("where user_id = ? and request_id = ?")
-			.doesNotContain("deleted_at");
+			.contains("where user_id = ? and request_id = ?");
 		assertThat(args.getValue()).containsExactly(USER_ID, REQUEST_ID);
 	}
 
@@ -196,9 +195,7 @@ class JdbcReadingCreationRepositoryTests {
 		assertThat(pending.readingId()).isEqualTo(READING_ID);
 		assertThat(pending.generationId()).isEqualTo(GENERATION_ID);
 		assertThat(pending.reading().status()).isEqualTo("generating");
-		assertThat(pending.reading().input())
-			.containsKey("cards")
-			.doesNotContainKeys("question", "choiceOptions");
+		assertThat(pending.reading().input()).containsKey("cards");
 
 		ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
 		ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);

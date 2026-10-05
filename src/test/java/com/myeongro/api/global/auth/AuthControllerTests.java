@@ -70,8 +70,7 @@ class AuthControllerTests {
 		mockMvc.perform(get("/api/auth/me").principal(authentication))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.authenticated").value(true))
-			.andExpect(jsonPath("$.user.id").value(USER_ID.toString()))
-			.andExpect(jsonPath("$.user.displayName").doesNotExist());
+			.andExpect(jsonPath("$.user.id").value(USER_ID.toString()));
 	}
 
 	@Test

@@ -75,8 +75,7 @@ class ReadingInputNormalizationContractTests {
 		Map<String, Object> profile = normalized.birthProfile();
 		assertThat(profile).containsEntry("birthTime", "14:30")
 			.containsEntry("birthTimePrecision", "exact")
-			.containsEntry("provinceCode", "11")
-			.doesNotContainKeys("cityCode", "latitude", "longitude", "pillars");
+			.containsEntry("provinceCode", "11");
 		assertThat(normalized.schemaVersion()).isEqualTo(5);
 		assertThat(normalized.idempotencyPayload())
 			.containsOnlyKeys("question", "focusArea", "birthProfile");
@@ -93,7 +92,7 @@ class ReadingInputNormalizationContractTests {
 
 		@SuppressWarnings("unchecked")
 		Map<String, Object> profile = normalized.birthProfile();
-		assertThat(profile).doesNotContainKeys("birthTime", "provinceCode", "cityCode")
+		assertThat(profile).doesNotContainKeys("birthTime", "provinceCode")
 			.containsEntry("birthTimePrecision", "unknown");
 	}
 
@@ -122,8 +121,7 @@ class ReadingInputNormalizationContractTests {
 		@SuppressWarnings("unchecked")
 		Map<String, Object> profile = normalized.birthProfile();
 		assertThat(profile).containsEntry("birthTime", "14:00")
-			.containsEntry("birthTimePrecision", "approximate")
-			.doesNotContainKeys("birthTimeWindow", "uncertaintyMinutes");
+			.containsEntry("birthTimePrecision", "approximate");
 	}
 
 	@ParameterizedTest
@@ -196,15 +194,15 @@ class ReadingInputNormalizationContractTests {
 
 	static java.util.stream.Stream<Arguments> invalidSajuRequests() {
 		return java.util.stream.Stream.of(
-			Arguments.of(profile("lunar", "1992-08-17", "14:30", "exact", "11", "11680", "female"), "career", "UNSUPPORTED_CALENDAR_TYPE", "birthProfile.calendarType"),
-			Arguments.of(profile("solar", "1899-12-31", "14:30", "exact", "11", "11680", "female"), "career", "UNSUPPORTED_BIRTH_YEAR", "birthProfile.birthDate"),
-			Arguments.of(profile("solar", "1992-02-30", "14:30", "exact", "11", "11680", "female"), "career", "INVALID_BIRTH_DATE", "birthProfile.birthDate"),
-			Arguments.of(profile("solar", "1992-08-17", null, "exact", "11", "11680", "female"), "career", "INVALID_BIRTH_TIME", "birthProfile.birthTime"),
-			Arguments.of(profile("solar", "1992-08-17", "14:30", "unknown", "11", "11680", "female"), "career", "INVALID_BIRTH_TIME", "birthProfile.birthTime"),
-			Arguments.of(profile("solar", "1992-08-17", "14:30", "rough", "11", "11680", "female"), "career", "INVALID_BIRTH_TIME_PRECISION", "birthProfile.birthTimePrecision"),
-			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "99", null, "female"), "career", "INVALID_BIRTH_PLACE", "birthProfile.provinceCode"),
-			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "11", "11680", "other"), "career", "INVALID_LUCK_DIRECTION_BASIS", "birthProfile.luckDirectionBasis"),
-			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "11", "11680", "female"), "health", "INVALID_FOCUS_AREA", "focusArea")
+			Arguments.of(profile("lunar", "1992-08-17", "14:30", "exact", "11", "female"), "career", "UNSUPPORTED_CALENDAR_TYPE", "birthProfile.calendarType"),
+			Arguments.of(profile("solar", "1899-12-31", "14:30", "exact", "11", "female"), "career", "UNSUPPORTED_BIRTH_YEAR", "birthProfile.birthDate"),
+			Arguments.of(profile("solar", "1992-02-30", "14:30", "exact", "11", "female"), "career", "INVALID_BIRTH_DATE", "birthProfile.birthDate"),
+			Arguments.of(profile("solar", "1992-08-17", null, "exact", "11", "female"), "career", "INVALID_BIRTH_TIME", "birthProfile.birthTime"),
+			Arguments.of(profile("solar", "1992-08-17", "14:30", "unknown", "11", "female"), "career", "INVALID_BIRTH_TIME", "birthProfile.birthTime"),
+			Arguments.of(profile("solar", "1992-08-17", "14:30", "rough", "11", "female"), "career", "INVALID_BIRTH_TIME_PRECISION", "birthProfile.birthTimePrecision"),
+			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "99", "female"), "career", "INVALID_BIRTH_PLACE", "birthProfile.provinceCode"),
+			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "11", "other"), "career", "INVALID_LUCK_DIRECTION_BASIS", "birthProfile.luckDirectionBasis"),
+			Arguments.of(profile("solar", "1992-08-17", "14:30", "exact", "11", "female"), "health", "INVALID_FOCUS_AREA", "focusArea")
 		);
 	}
 
@@ -224,17 +222,12 @@ class ReadingInputNormalizationContractTests {
 		);
 	}
 
-	private static SajuBirthProfileRequest validProfile() {
-		return profile("solar", "1992-08-17", "14:30", "exact", "11", "11680", "female");
-	}
-
 	private static SajuBirthProfileRequest profile(
 		String calendarType,
 		String birthDate,
 		String birthTime,
 		String precision,
 		String provinceCode,
-		String cityCode,
 		String basis
 	) {
 		return new SajuBirthProfileRequest(

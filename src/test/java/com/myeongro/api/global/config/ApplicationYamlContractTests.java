@@ -16,12 +16,13 @@ import org.springframework.core.io.FileSystemResource;
 class ApplicationYamlContractTests {
 
 	@Test
-	void tarotOpenAiConfigurationKeepsModelAndApiKeyExternalized() throws Exception {
+	void openAiConfigurationPinsGlobalEndpointAndExternalizesModelAndApiKey() throws Exception {
 		String applicationYaml = Files.readString(
 			Path.of("src/main/resources/application.yaml"),
 			StandardCharsets.UTF_8
 		);
 
+		assertThat(applicationYaml).contains("base-url: https://api.openai.com");
 		assertThat(applicationYaml).contains("api-key: ${openai.api-key:}");
 		assertThat(applicationYaml).contains("model: ${openai.model:");
 	}

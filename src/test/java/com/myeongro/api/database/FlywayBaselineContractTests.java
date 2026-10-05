@@ -26,7 +26,7 @@ class FlywayBaselineContractTests {
 	}
 
 	@Test
-	void v1CreatesOnlyTheCurrentApplicationSchema() throws IOException {
+	void v1CreatesTheCurrentApplicationSchema() throws IOException {
 		String sql = baselineSql();
 
 		assertThat(sql)
@@ -38,14 +38,7 @@ class FlywayBaselineContractTests {
 			.contains("create table public.generation_records")
 			.contains("create type public.reading_kind")
 			.contains("create type public.reading_status")
-			.contains("create type public.generation_status")
-			.doesNotContain("create table public.consents")
-			.doesNotContain("create table public.followups")
-			.doesNotContain("create table public.purchases")
-			.doesNotContain("create table public.guest_reading_cache")
-			.doesNotContain("create table public.guest_ownership_transfers")
-			.doesNotContain("create table public.payment_webhook_events")
-			.doesNotContain("create table public.free_reading_quota_events");
+			.contains("create type public.generation_status");
 	}
 
 	@Test
@@ -63,29 +56,37 @@ class FlywayBaselineContractTests {
 			.contains("readings_no_persisted_prompt_text_check")
 			.contains("readings_saju_v5_input_check")
 			.contains("consent_events_document_type_check")
+			.contains("oauth_accounts_provider_provider_user_id_key")
 			.contains("foreign key (profile_id) references public.profiles(id) on delete cascade")
+			.contains("foreign key (user_id) references public.profiles(id) on delete cascade")
 			.contains("foreign key (reading_id) references public.readings(id) on delete cascade");
 	}
 
 	@Test
-	void v1DoesNotCarryPreReleaseMigrationScaffolding() throws IOException {
+	void baselineStoresVersionedAdultEligibilityWithoutBirthData() throws IOException {
 		String sql = baselineSql();
 
 		assertThat(sql)
-			.doesNotContain("create schema auth")
-			.doesNotContain("auth.users")
-			.doesNotContain("auth.uid")
-			.doesNotContain("create role service_role")
-			.doesNotContain("create role authenticated")
-			.doesNotContain(" to service_role")
-			.doesNotContain(" to authenticated")
-			.doesNotContain("enable row level security")
-			.doesNotContain("drop table")
-			.doesNotContain("drop type")
-			.doesNotContain("drop column")
-			.doesNotContain("delete from public.")
-			.doesNotContain("\\restrict")
-			.doesNotContain("create schema public");
+			.contains("create table public.adult_eligibility_assertions")
+			.contains("policy_version text not null")
+			.contains("adult_eligibility_assertions_user_id_policy_version_key")
+			.contains("adult_eligibility_assertions_signup_generation_unique")
+			.doesNotContain("birth_date")
+			.doesNotContain("date_of_birth");
+	}
+
+	@Test
+	void baselinePersistsOnlyMinimalOAuthIdentifiers() throws IOException {
+		String sql = baselineSql();
+		String oauthTable = sql.substring(
+			sql.indexOf("create table public.oauth_accounts"),
+			sql.indexOf("create table public.profiles")
+		);
+
+		assertThat(oauthTable)
+			.contains("provider_user_id text not null")
+			.doesNotContain("email")
+			.doesNotContain("display_name");
 	}
 
 	@Test

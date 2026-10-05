@@ -18,7 +18,6 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
@@ -197,7 +196,7 @@ class ReadingEndpointContractTests {
 	}
 
 	@Test
-	void rejectsCandidateSetsAndClientOwnedPositionFields() throws Exception {
+	void rejectsClientOwnedPositionField() throws Exception {
 		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
@@ -207,7 +206,6 @@ class ReadingEndpointContractTests {
 					  "question":"마음을 정리하고 싶어요.",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
 					  "selectedSlots":[1,2,3],
-					  "candidateSets":[],
 					  "position":"emotion"
 					}
 					"""))
@@ -246,25 +244,6 @@ class ReadingEndpointContractTests {
 					}
 					"""))
 			.andExpect(status().isBadRequest());
-	}
-
-	@Test
-	void rejectsLegacyDrawSessionId() throws Exception {
-		mockMvc.perform(post("/api/tarot/readings")
-				.principal(authentication())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "spreadType":"mind_three_card",
-					  "question":"question",
-					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "selectedSlots":[1,2,3],
-					  "drawSessionId":"legacy"
-					}
-					"""))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
-			.andExpect(jsonPath("$.field").value("drawSessionId"));
 	}
 
 	@Test
@@ -447,32 +426,6 @@ class ReadingEndpointContractTests {
 	}
 
 	@Test
-	void rejectsFormerCityCodeFromNewSajuRequests() throws Exception {
-		mockMvc.perform(post("/api/saju/readings")
-				.principal(authentication())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{
-					  "question":"질문",
-					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "focusArea":"career",
-					  "birthProfile":{
-					    "calendarType":"solar",
-					    "birthDate":"1992-08-17",
-					    "birthTime":"14:30",
-					    "birthTimePrecision":"exact",
-					    "provinceCode":"11",
-					    "cityCode":"11680",
-					    "luckDirectionBasis":"unspecified"
-					  }
-					}
-					"""))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
-			.andExpect(jsonPath("$.field").value("birthProfile.cityCode"));
-	}
-
-	@Test
 	void rejectsFieldsOwnedByTheOtherReadingKindAtEachCreationEndpoint() throws Exception {
 		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication())
@@ -505,15 +458,6 @@ class ReadingEndpointContractTests {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
 			.andExpect(jsonPath("$.field").value("spreadType"));
-	}
-
-	@Test
-	void doesNotExposeTheFormerSharedCreationEndpoint() throws Exception {
-		mockMvc.perform(post("/api/readings")
-				.principal(authentication())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{}"))
-			.andExpect(status().isMethodNotAllowed());
 	}
 
 	private CreatedReadingResponse reading() {

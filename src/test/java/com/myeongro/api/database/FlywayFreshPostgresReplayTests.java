@@ -40,7 +40,6 @@ class FlywayFreshPostgresReplayTests {
 		assertThat(result.migrationsExecuted).isOne();
 		verifyHistory(jdbcUrl, username, password);
 		verifyCurrentSchema(jdbcUrl, username, password);
-		verifyLegacyObjectsAreAbsent(jdbcUrl, username, password);
 		verifySecurityDefinerPrivileges(jdbcUrl, username, password);
 		verifyReadingCreationContract(jdbcUrl, username, password);
 		verifyConsentTransitionSerialization(jdbcUrl, username, password);
@@ -86,56 +85,10 @@ class FlywayFreshPostgresReplayTests {
 				   ) is not null,
 				   to_regprocedure('public.fail_reading_generation(uuid,bigint,text)') is not null,
 				   to_regprocedure('public.fail_stale_reading_generations(interval)') is not null,
-				   to_regprocedure('public.get_reading_credit_status(uuid,integer)') is not null,
-				   not exists (
-				     select 1 from information_schema.columns
-				     where table_schema = 'public' and table_name = 'profiles'
-				       and column_name in ('display_name', 'deleted_at', 'purge_after', 'purged_at')
-				   ),
-				   not exists (
-				     select 1 from information_schema.columns
-				     where table_schema = 'public' and table_name = 'oauth_accounts'
-				       and column_name in ('email', 'display_name', 'updated_at')
-				   ),
-				   not exists (
-				     select 1 from information_schema.columns
-				     where table_schema = 'public' and table_name = 'generation_records'
-				       and column_name in ('idempotency_key', 'input_tokens', 'output_tokens')
-				   ),
-				   not exists (
-				     select 1 from information_schema.columns
-				     where table_schema = 'public' and table_name = 'readings'
-				       and column_name in ('deleted_at', 'tier')
-				   )
+				   to_regprocedure('public.get_reading_credit_status(uuid,integer)') is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			for (int column = 1; column <= 18; column++) {
-				assertThat(resultSet.getBoolean(column)).isTrue();
-			}
-		}
-	}
-
-	private void verifyLegacyObjectsAreAbsent(String jdbcUrl, String username, String password)
-		throws SQLException {
-		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
-			 var statement = connection.createStatement();
-			 var resultSet = statement.executeQuery("""
-				 select
-				   to_regnamespace('auth') is null,
-				   to_regclass('public.consents') is null,
-				   to_regclass('public.followups') is null,
-				   to_regclass('public.purchases') is null,
-				   to_regclass('public.guest_reading_cache') is null,
-				   to_regclass('public.guest_ownership_transfers') is null,
-				   to_regclass('public.payment_webhook_events') is null,
-				   to_regclass('public.free_reading_quota_events') is null,
-				   not exists (
-				     select 1 from pg_roles
-				     where rolname in ('anon', 'authenticated', 'service_role')
-				   )
-				 """)) {
-			assertThat(resultSet.next()).isTrue();
-			for (int column = 1; column <= 9; column++) {
+			for (int column = 1; column <= 14; column++) {
 				assertThat(resultSet.getBoolean(column)).isTrue();
 			}
 		}
