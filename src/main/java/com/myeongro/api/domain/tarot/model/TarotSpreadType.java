@@ -11,9 +11,9 @@ public enum TarotSpreadType {
 	MIND_THREE_CARD(
 		"mind_three_card",
 		List.of(
-			new TarotPosition("emotion", "지금의 감정"),
-			new TarotPosition("underlying_need", "감정 뒤의 욕구"),
-			new TarotPosition("self_action", "나를 위한 행동")
+			new TarotPosition("emotion", "지금의 상황"),
+			new TarotPosition("underlying_need", "영향을 주는 요인"),
+			new TarotPosition("self_action", "앞으로의 전개")
 		),
 		1,
 		1,
@@ -22,9 +22,9 @@ public enum TarotSpreadType {
 	RELATIONSHIP_THREE_CARD(
 		"relationship_three_card",
 		List.of(
-			new TarotPosition("my_heart", "내가 가져온 마음"),
-			new TarotPosition("relationship_flow", "관계에서 드러난 흐름"),
-			new TarotPosition("check_point", "내가 확인할 것")
+			new TarotPosition("my_heart", "내가 바라는 관계"),
+			new TarotPosition("relationship_flow", "현재의 관계 흐름"),
+			new TarotPosition("check_point", "앞으로의 관계")
 		),
 		1,
 		1,
