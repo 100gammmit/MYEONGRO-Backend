@@ -17,7 +17,7 @@ public enum TarotSpreadType {
 		),
 		1,
 		1,
-		1800
+		3000
 	),
 	RELATIONSHIP_THREE_CARD(
 		"relationship_three_card",
@@ -28,7 +28,7 @@ public enum TarotSpreadType {
 		),
 		1,
 		1,
-		1800
+		2400
 	),
 	CHOICE_FIVE_CARD(
 		"choice_five_card",
@@ -41,7 +41,7 @@ public enum TarotSpreadType {
 		),
 		1,
 		1,
-		2700
+		3000
 	);
 
 	private final String value;
