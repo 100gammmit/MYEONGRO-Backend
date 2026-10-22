@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.IntStream;
 
@@ -116,12 +117,18 @@ class OpenAiTarotReadingGeneratorTests {
 			Map.class
 		);
 		assertThat(userMessage).containsKey("untrustedUserInput");
+		assertThat(userMessage.keySet())
+			.containsExactly("kind", "locale", "spreadType", "untrustedUserInput");
+		assertThat(chatModel.prompt.getInstructions().stream()
+			.map(message -> message.getMessageType().name()).toList())
+			.containsExactly("SYSTEM", "USER");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> untrustedInput =
 			(Map<String, Object>) userMessage.get("untrustedUserInput");
 		assertThat(untrustedInput)
 			.containsEntry("question", "질문")
 			.containsKey("readingInput");
+		assertThat(untrustedInput.keySet()).containsExactly("question", "readingInput");
 		assertThat(chatModel.prompt.getUserMessage().getText())
 			.doesNotContain("userId", "oauth", "email", "safety_identifier");
 		assertThat(untrustedInput.get("readingInput")).isInstanceOf(Map.class);
@@ -131,6 +138,37 @@ class OpenAiTarotReadingGeneratorTests {
 		assertThat(readingInput)
 			.containsKey("cards")
 			.doesNotContainKey("question");
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> cards = (List<Map<String, Object>>)readingInput.get("cards");
+		assertThat(cards).allSatisfy(card ->
+			assertThat(card.keySet()).containsExactly("cardId", "position", "reversed"));
+		assertThat(cards.stream().map(card -> card.get("position")).toList())
+			.containsExactlyElementsOf(spread.positions().stream().map(item -> item.id()).toList());
+	}
+
+	@Test
+	void ordersChoiceOptionsWithoutChangingInputOrSelectedCards() throws Exception {
+		TarotSpreadType spread = TarotSpreadType.CHOICE_FIVE_CARD;
+		Map<String, Object> options = new LinkedHashMap<>();
+		options.put("b", "두 번째 선택");
+		options.put("a", "첫 번째 선택");
+		Map<String, Object> source = new LinkedHashMap<>(input(spread));
+		source.put("choiceOptions", options);
+		ObjectMapper mapper = new ObjectMapper();
+		String before = mapper.writeValueAsString(source);
+		CapturingChatModel chatModel = new CapturingChatModel(response(spread));
+
+		generator(chatModel).generate(ReadingKind.TAROT, spread.value(), "질문", source);
+
+		var message = mapper.readTree(chatModel.prompt.getUserMessage().getText());
+		var sent = message.path("untrustedUserInput").path("readingInput");
+		assertThat(sent.properties().stream().map(Map.Entry::getKey).toList())
+			.containsExactly("cards", "choiceOptions");
+		assertThat(sent.path("choiceOptions").properties().stream().map(Map.Entry::getKey).toList())
+			.containsExactly("a", "b");
+		assertThat(sent.path("cards")).isEqualTo(mapper.valueToTree(source.get("cards")));
+		assertThat(sent.path("choiceOptions")).isEqualTo(mapper.valueToTree(options));
+		assertThat(mapper.writeValueAsString(source)).isEqualTo(before);
 	}
 
 	@Test
