@@ -34,6 +34,7 @@ import com.myeongro.api.domain.reading.service.ReadingDeclineReason;
 import com.myeongro.api.domain.reading.service.ReadingGenerationHandler;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 import com.myeongro.api.domain.reading.service.ReadingResponseSchema;
+import com.myeongro.api.domain.reading.service.ReadingRequestJson;
 import com.myeongro.api.domain.saju.result.SajuReadingResult;
 
 @Component
@@ -197,7 +198,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 		Map<String, Object> message = new LinkedHashMap<>();
 		message.put("trustedCalculation", trustedCalculation);
 		message.put("untrustedUserInput", untrustedUserInput);
-		return objectMapper.writeValueAsString(message);
+		return ReadingRequestJson.write(objectMapper, message);
 	}
 
 	private OpenAiChatOptions options(

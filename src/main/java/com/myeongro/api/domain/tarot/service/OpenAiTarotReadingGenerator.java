@@ -37,6 +37,7 @@ import com.myeongro.api.domain.reading.service.ReadingGenerationHandler;
 import com.myeongro.api.domain.reading.service.ReadingGenerationMetadata;
 import com.myeongro.api.domain.reading.service.ReadingMode;
 import com.myeongro.api.domain.reading.service.ReadingResponseSchema;
+import com.myeongro.api.domain.reading.service.ReadingRequestJson;
 
 @Component
 public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
@@ -193,7 +194,7 @@ public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
 	) throws JsonProcessingException {
 		Map<String, Object> readingInput = new LinkedHashMap<>(input);
 		readingInput.remove("question");
-		return objectMapper.writeValueAsString(Map.of(
+		return ReadingRequestJson.write(objectMapper, Map.of(
 			"kind", kind.value(),
 			"spreadType", spreadType.value(),
 			"locale", "ko-KR",

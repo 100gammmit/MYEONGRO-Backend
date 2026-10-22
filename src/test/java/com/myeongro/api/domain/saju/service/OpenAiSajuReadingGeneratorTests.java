@@ -72,8 +72,16 @@ class OpenAiSajuReadingGeneratorTests {
 			chatModel.prompt.getUserMessage().getText(), Map.class
 		);
 		assertThat(message).containsOnlyKeys("trustedCalculation", "untrustedUserInput");
+		assertThat(message.keySet()).containsExactly("trustedCalculation", "untrustedUserInput");
+		assertThat(chatModel.prompt.getInstructions().stream()
+			.map(item -> item.getMessageType().name()).toList())
+			.containsExactly("SYSTEM", "USER");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> trusted = (Map<String, Object>)message.get("trustedCalculation");
+		assertThat(trusted.keySet()).containsExactly(
+			"annualFlow", "dayMaster", "elementBalance", "interactions", "limitations",
+			"pillars", "tenGods", "uncertainty"
+		);
 		assertThat(trusted)
 			.containsKeys(
 				"pillars", "dayMaster", "elementBalance",
@@ -87,8 +95,10 @@ class OpenAiSajuReadingGeneratorTests {
 		@SuppressWarnings("unchecked")
 		Map<String, Object> pillars = (Map<String, Object>)trusted.get("pillars");
 		assertThat(pillars).doesNotContainKey("time");
+		assertThat(pillars.keySet()).containsExactly("day", "month", "year");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> dayPillar = (Map<String, Object>)pillars.get("day");
+		assertThat(dayPillar.keySet()).containsExactly("branch", "ganZhi", "stem");
 		assertThat(dayPillar)
 			.containsEntry("ganZhi", "을축")
 			.containsEntry("stem", "을목")
@@ -104,6 +114,7 @@ class OpenAiSajuReadingGeneratorTests {
 		assertThat(untrusted)
 			.containsEntry("focusArea", "career")
 			.containsEntry("question", ATTACK);
+		assertThat(untrusted.keySet()).containsExactly("focusArea", "question");
 		assertThat(chatModel.prompt.getUserMessage().getText())
 			.doesNotContain(
 				"1992-08-17", "14:30", "세종특별자치시", "36110", "female", "乙",
