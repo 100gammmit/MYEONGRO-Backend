@@ -46,13 +46,6 @@ public class TarotReadingResultValidator {
 			}
 		}
 
-		List<String> guidance = result.guidance();
-		if (guidance == null
-			|| guidance.size() < spreadType.minGuidanceItems()
-			|| guidance.size() > spreadType.maxGuidanceItems()) {
-			throw new IllegalArgumentException("Tarot guidance count does not match spread");
-		}
-		guidance.forEach(item -> requireText(item, "Tarot guidance text is required"));
 	}
 
 	private void requireText(String value, String message) {

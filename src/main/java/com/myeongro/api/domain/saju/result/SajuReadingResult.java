@@ -12,12 +12,10 @@ public record SajuReadingResult(
 	List<SajuReadingSection> natalSections,
 	AnnualReading annualReading,
 	QuestionReading questionReading,
-	List<String> guidance,
 	String disclaimer
 ) {
 	public SajuReadingResult {
 		natalSections = natalSections == null ? null : List.copyOf(natalSections);
-		guidance = guidance == null ? null : List.copyOf(guidance);
 	}
 
 	public SajuReadingResult(
@@ -26,12 +24,11 @@ public record SajuReadingResult(
 		List<SajuReadingSection> natalSections,
 		AnnualReading annualReading,
 		QuestionReading questionReading,
-		List<String> guidance,
 		String disclaimer
 	) {
 		this(
 			ReadingMode.STANDARD, false, title, summary, natalSections,
-			annualReading, questionReading, guidance, disclaimer
+			annualReading, questionReading, disclaimer
 		);
 	}
 

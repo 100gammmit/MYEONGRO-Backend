@@ -43,10 +43,13 @@ class ReadingRecordsServiceTests {
 		ReadingRecordsService service = new ReadingRecordsService(repository);
 		CreatedReadingResponse completed = reading("completed");
 		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.of(completed));
+		when(repository.listByUser(USER_ID)).thenReturn(List.of(completed));
 
 		assertThat(service.getByUserAndId(USER_ID, READING_ID).input())
 			.containsKey("cards")
 			.doesNotContainKeys("question", "choiceOptions");
+		assertThat(service.getByUserAndId(USER_ID, READING_ID).result()).isSameAs(completed.result());
+		assertThat(service.listByUser(USER_ID).getFirst().result()).isSameAs(completed.result());
 	}
 
 	private CreatedReadingResponse reading(String status) {
@@ -62,7 +65,7 @@ class ReadingRecordsServiceTests {
 				"choiceOptions", Map.of("a", "선택 A", "b", "선택 B"),
 				"cards", List.of(card("major-00-fool", "my_heart"))
 			),
-			null,
+			Map.of("summary", "원래 요약", "guidance", List.of("과거 제안")),
 			"FAILED",
 			Instant.parse("2026-06-16T00:00:00Z"),
 			Instant.parse("2026-06-16T00:00:01Z")

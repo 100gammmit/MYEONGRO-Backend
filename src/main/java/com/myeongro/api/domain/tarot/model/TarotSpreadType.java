@@ -15,8 +15,6 @@ public enum TarotSpreadType {
 			new TarotPosition("underlying_need", "영향을 주는 요인"),
 			new TarotPosition("self_action", "앞으로의 전개")
 		),
-		1,
-		1,
 		3000
 	),
 	RELATIONSHIP_THREE_CARD(
@@ -26,8 +24,6 @@ public enum TarotSpreadType {
 			new TarotPosition("relationship_flow", "현재의 관계 흐름"),
 			new TarotPosition("check_point", "앞으로의 관계")
 		),
-		1,
-		1,
 		2400
 	),
 	CHOICE_FIVE_CARD(
@@ -39,28 +35,20 @@ public enum TarotSpreadType {
 			new TarotPosition("option_a", "선택 A"),
 			new TarotPosition("option_b", "선택 B")
 		),
-		1,
-		1,
 		3000
 	);
 
 	private final String value;
 	private final List<TarotPosition> positions;
-	private final int minGuidanceItems;
-	private final int maxGuidanceItems;
 	private final int maxOutputTokens;
 
 	TarotSpreadType(
 		String value,
 		List<TarotPosition> positions,
-		int minGuidanceItems,
-		int maxGuidanceItems,
 		int maxOutputTokens
 	) {
 		this.value = value;
 		this.positions = List.copyOf(positions);
-		this.minGuidanceItems = minGuidanceItems;
-		this.maxGuidanceItems = maxGuidanceItems;
 		this.maxOutputTokens = maxOutputTokens;
 	}
 
@@ -75,14 +63,6 @@ public enum TarotSpreadType {
 
 	public int cardCount() {
 		return positions.size();
-	}
-
-	public int minGuidanceItems() {
-		return minGuidanceItems;
-	}
-
-	public int maxGuidanceItems() {
-		return maxGuidanceItems;
 	}
 
 	public int maxOutputTokens() {

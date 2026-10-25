@@ -268,17 +268,11 @@ public class OpenAiTarotReadingGenerator implements ReadingGenerationHandler {
 				)),
 				entry("readingMode", readingModeSchema()),
 				entry("summary", textSchema()),
-				entry("guidance", orderedMap(
-					entry("items", textSchema()),
-					entry("maxItems", spreadType.maxGuidanceItems()),
-					entry("minItems", spreadType.minGuidanceItems()),
-					entry("type", "array")
-				)),
 				entry("disclaimer", textSchema()),
 				entry("questionRedirected", orderedMap(entry("type", "boolean")))
 			)),
 			entry("required", List.of(
-				"readingMode", "questionRedirected", "title", "summary", "sections", "guidance", "disclaimer"
+				"readingMode", "questionRedirected", "title", "summary", "sections", "disclaimer"
 			)),
 			entry("type", "object")
 		);

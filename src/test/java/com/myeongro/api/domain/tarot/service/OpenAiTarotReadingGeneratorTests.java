@@ -56,7 +56,7 @@ class OpenAiTarotReadingGeneratorTests {
 			ReadingKind.TAROT, spread.value(), "질문", input(spread)
 		);
 		assertThat(generated.payload()).containsOnlyKeys(
-			"readingMode", "questionRedirected", "title", "summary", "sections", "guidance", "disclaimer"
+			"readingMode", "questionRedirected", "title", "summary", "sections", "disclaimer"
 		);
 
 		OpenAiChatOptions options = (OpenAiChatOptions) chatModel.prompt.getOptions();
@@ -71,7 +71,7 @@ class OpenAiTarotReadingGeneratorTests {
 		@SuppressWarnings("unchecked")
 		Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
 		assertThat(properties.keySet()).containsExactly(
-			"title", "sections", "readingMode", "summary", "guidance", "disclaimer", "questionRedirected"
+			"title", "sections", "readingMode", "summary", "disclaimer", "questionRedirected"
 		);
 		assertThat(((Map<?, ?>)properties.get("readingMode")).get("enum"))
 			.isEqualTo(List.of(
@@ -85,11 +85,8 @@ class OpenAiTarotReadingGeneratorTests {
 		assertThat(sections)
 			.containsEntry("minItems", spread.cardCount())
 			.containsEntry("maxItems", spread.cardCount());
-		@SuppressWarnings("unchecked")
-		Map<String, Object> guidance = (Map<String, Object>) properties.get("guidance");
-		assertThat(guidance)
-			.containsEntry("minItems", 1)
-			.containsEntry("maxItems", 1);
+		assertThat(properties).doesNotContainKey("guidance");
+		assertThat(((List<?>) schema.get("required")).contains("guidance")).isFalse();
 		@SuppressWarnings("unchecked")
 		Map<String, Object> sectionItems = (Map<String, Object>) sections.get("items");
 		@SuppressWarnings("unchecked")
@@ -98,7 +95,6 @@ class OpenAiTarotReadingGeneratorTests {
 		assertThat(sectionProperties.keySet()).containsExactly("position", "heading", "body");
 		assertThat(sectionItems.keySet()).containsExactly("additionalProperties", "properties", "required", "type");
 		assertThat(sections.keySet()).containsExactly("items", "maxItems", "minItems", "type");
-		assertThat(guidance.keySet()).containsExactly("items", "maxItems", "minItems", "type");
 		assertThat(new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(properties))
 			.properties().stream().map(Map.Entry::getKey).toList()).containsExactlyElementsOf(properties.keySet());
 		@SuppressWarnings("unchecked")
@@ -178,7 +174,7 @@ class OpenAiTarotReadingGeneratorTests {
 			{"position":"underlying_need","heading":"욕구","body":"본문"},
 			{"position":"emotion","heading":"감정","body":"본문"},
 			{"position":"self_action","heading":"행동","body":"본문"}],
-			"guidance":["하나"],"disclaimer":"안내"}}}
+			"disclaimer":"안내"}}}
 			""";
 		assertThatThrownBy(() -> generator(new CapturingChatModel(invalid)).generate(
 			ReadingKind.TAROT,
@@ -336,7 +332,7 @@ class OpenAiTarotReadingGeneratorTests {
 			.collect(java.util.stream.Collectors.joining(","));
 		return """
 			{"output":{"resultType":"reading","reading":{"readingMode":"standard","questionRedirected":false,"title":"제목","summary":"요약","sections":[%s],
-			"guidance":["작은 행동"],"disclaimer":"오락과 자기 성찰을 위한 참고입니다."}}}
+			"disclaimer":"오락과 자기 성찰을 위한 참고입니다."}}}
 			""".formatted(sections);
 	}
 

@@ -50,7 +50,7 @@ class SajuReadingResultValidatorTests {
 				valid.natalSections().get(2),
 				valid.natalSections().get(3)
 			),
-			valid.annualReading(), valid.questionReading(), valid.guidance(), valid.disclaimer()
+			valid.annualReading(), valid.questionReading(), valid.disclaimer()
 		);
 
 		assertThatThrownBy(() -> validator.validate(
@@ -68,7 +68,7 @@ class SajuReadingResultValidatorTests {
 				valid.natalSections().get(1), valid.natalSections().get(0),
 				valid.natalSections().get(2), valid.natalSections().get(3)
 			),
-			valid.annualReading(), valid.questionReading(), valid.guidance(), valid.disclaimer()
+			valid.annualReading(), valid.questionReading(), valid.disclaimer()
 		);
 		assertThatThrownBy(() -> validator.validate(wrongOrder, 2026, trusted("exact")))
 			.isInstanceOf(IllegalArgumentException.class);
@@ -76,27 +76,13 @@ class SajuReadingResultValidatorTests {
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
-	@Test
-	void rejectsMoreThanOneGuidanceItem() {
-		SajuReadingResult valid = result("차분히 가능성을 살펴보세요", "annualFlow");
-		SajuReadingResult duplicateGuidance = new SajuReadingResult(
-			valid.readingMode(), valid.questionRedirected(), valid.title(), valid.summary(), valid.natalSections(),
-			valid.annualReading(), valid.questionReading(),
-			List.of("첫 번째 제안입니다", "두 번째 제안입니다"), valid.disclaimer()
-		);
-
-		assertThatThrownBy(() -> validator.validate(
-			duplicateGuidance, 2026, trusted("exact")
-		)).isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("guidance");
-	}
 
 	@Test
 	void rejectsRedirectedQuestionInStandardMode() {
 		SajuReadingResult valid = result("차분히 가능성을 살펴보세요", "annualFlow");
 		SajuReadingResult invalid = new SajuReadingResult(
 			ReadingMode.STANDARD, true, valid.title(), valid.summary(), valid.natalSections(),
-			valid.annualReading(), valid.questionReading(), valid.guidance(), valid.disclaimer()
+			valid.annualReading(), valid.questionReading(), valid.disclaimer()
 		);
 
 		assertThatThrownBy(() -> validator.validate(invalid, 2026, trusted("exact")))
@@ -142,7 +128,6 @@ class SajuReadingResultValidatorTests {
 			new SajuReadingResult.QuestionReading(
 				"지금의 질문", "선택지를 점검해 보세요", List.of("dayMaster")
 			),
-			List.of("작은 실험부터 해보세요"),
 			"이 리딩은 오락과 자기성찰을 위한 참고입니다."
 		);
 	}

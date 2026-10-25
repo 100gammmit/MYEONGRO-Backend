@@ -33,9 +33,9 @@ final class AiPreviewMarkdownRenderer {
 		StringBuilder markdown = new StringBuilder();
 		appendHeading(markdown, 1, text(result.get("title"), "AI 리딩 결과"));
 		boolean declined = "declined".equals(result.get("resultType"));
-		appendParagraph(markdown, text(
-			result.get(declined ? "message" : "summary"), null
-		));
+		if (declined) {
+			appendParagraph(markdown, text(result.get("message"), null));
+		}
 
 		if ("tarot".equals(report.kind())) {
 			appendSections(markdown, result.get("sections"));
@@ -45,7 +45,12 @@ final class AiPreviewMarkdownRenderer {
 			appendSection(markdown, result.get("questionReading"));
 		}
 
-		appendGuidance(markdown, result.get("guidance"));
+		if (declined) {
+			appendGuidance(markdown, result.get("guidance"));
+		} else {
+			appendHeading(markdown, 2, "리딩 요약");
+			appendParagraph(markdown, text(result.get("summary"), null));
+		}
 		appendDisclaimer(markdown, text(result.get("disclaimer"), null));
 		appendExecutionMetadata(markdown, report);
 		return markdown.toString();

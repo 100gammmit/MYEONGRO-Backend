@@ -10,16 +10,14 @@ public record TarotReadingResult(
 	String title,
 	String summary,
 	List<TarotReadingSection> sections,
-	List<String> guidance,
 	String disclaimer
 ) {
 	public TarotReadingResult(
 		String title,
 		String summary,
 		List<TarotReadingSection> sections,
-		List<String> guidance,
 		String disclaimer
 	) {
-		this(ReadingMode.STANDARD, false, title, summary, sections, guidance, disclaimer);
+		this(ReadingMode.STANDARD, false, title, summary, sections, disclaimer);
 	}
 }

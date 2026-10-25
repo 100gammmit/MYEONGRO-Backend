@@ -32,7 +32,6 @@ class TarotReadingResultValidatorTests {
 			valid.title(),
 			valid.summary(),
 			List.of(valid.sections().get(1), valid.sections().get(0), valid.sections().get(2)),
-			valid.guidance(),
 			valid.disclaimer()
 		);
 
@@ -40,23 +39,13 @@ class TarotReadingResultValidatorTests {
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
-	@ParameterizedTest
-	@EnumSource(TarotSpreadType.class)
-	void rejectsTwoGuidanceItems(TarotSpreadType spread) {
-		TarotReadingResult valid = result(spread);
-		TarotReadingResult invalid = new TarotReadingResult(
-			valid.title(), valid.summary(), valid.sections(), List.of("하나", "둘"), valid.disclaimer()
-		);
-		assertThatThrownBy(() -> validator.validate(spread, invalid))
-			.isInstanceOf(IllegalArgumentException.class);
-	}
 
 	@Test
 	void rejectsRedirectedQuestionInStandardMode() {
 		TarotReadingResult valid = result(TarotSpreadType.MIND_THREE_CARD);
 		TarotReadingResult invalid = new TarotReadingResult(
 			ReadingMode.STANDARD, true, valid.title(), valid.summary(), valid.sections(),
-			valid.guidance(), valid.disclaimer()
+			valid.disclaimer()
 		);
 
 		assertThatThrownBy(() -> validator.validate(TarotSpreadType.MIND_THREE_CARD, invalid))
@@ -71,7 +60,6 @@ class TarotReadingResultValidatorTests {
 			spread.positions().stream()
 				.map(position -> new TarotReadingSection(position.id(), position.displayName(), "본문"))
 				.toList(),
-			List.of("작은 행동"),
 			"오락과 자기 성찰을 위한 참고입니다."
 		);
 	}

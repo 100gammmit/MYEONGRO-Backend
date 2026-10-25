@@ -57,7 +57,7 @@ class OpenAiSajuReadingGeneratorTests {
 		assertThat(generated.title()).isEqualTo("변화를 준비하며 기준을 세우는 해");
 		assertThat(generated.payload()).containsOnlyKeys(
 			"readingMode", "questionRedirected", "title", "summary", "natalSections", "annualReading",
-			"questionReading", "guidance", "disclaimer"
+			"questionReading", "disclaimer"
 		);
 
 		String systemMessage = chatModel.prompt.getSystemMessage().getText();
@@ -145,7 +145,7 @@ class OpenAiSajuReadingGeneratorTests {
 		).get("properties");
 		assertThat(readingProperties.keySet()).containsExactly(
 			"title", "natalSections", "annualReading", "questionReading", "readingMode", "summary",
-			"guidance", "disclaimer", "questionRedirected"
+			"disclaimer", "questionRedirected"
 		);
 		assertThat(new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(readingProperties))
 			.properties().stream().map(Map.Entry::getKey).toList())
@@ -162,12 +162,9 @@ class OpenAiSajuReadingGeneratorTests {
 		Map<String, Object> questionSchema = (Map<String, Object>)readingProperties.get("questionReading");
 		assertThat(((Map<?, ?>)questionSchema.get("properties")).keySet().stream().map(String.class::cast).toList())
 			.containsExactly("heading", "body", "evidenceKeys");
-		assertThat(readingProperties.get("guidance")).isEqualTo(Map.of(
-			"type", "array",
-			"minItems", 1,
-			"maxItems", 1,
-			"items", Map.of("type", "string", "minLength", 1)
-		));
+		assertThat(readingProperties).doesNotContainKey("guidance");
+		assertThat(((List<?>)generator.readingResultSchema(2026, List.of("dayMaster")).get("required"))
+			.contains("guidance")).isFalse();
 	}
 
 	@Test
@@ -321,7 +318,6 @@ class OpenAiSajuReadingGeneratorTests {
 			{"id":"work","heading":"일하고 선택하는 방식","body":"선택 방식을 살펴봅니다.","evidenceKeys":["tenGods"]}],
 			"annualReading":{"year":2026,"heading":"2026년의 흐름","body":"연간 흐름을 참고해 보세요.","evidenceKeys":["annualFlow"]},
 			"questionReading":{"heading":"지금의 질문에 비춰보면","body":"작은 선택부터 점검해 보세요.","evidenceKeys":["dayMaster"]},
-			"guidance":["오늘 맡은 일 하나를 먼저 마무리해 보는 건 어때요?"],
 			"disclaimer":"이 리딩은 오락과 자기성찰을 위한 참고이며 전문 조언을 대신하지 않습니다."}}}
 			""";
 	}

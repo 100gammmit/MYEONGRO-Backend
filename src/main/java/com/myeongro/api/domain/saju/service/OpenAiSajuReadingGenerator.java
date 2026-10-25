@@ -274,15 +274,12 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 					entry("type", "string")
 				)),
 				entry("summary", textSchema()),
-				entry("guidance", orderedMap(
-					entry("items", textSchema()), entry("maxItems", 1), entry("minItems", 1), entry("type", "array")
-				)),
 				entry("disclaimer", textSchema()),
 				entry("questionRedirected", orderedMap(entry("type", "boolean")))
 			)),
 			entry("required", List.of(
 				"readingMode", "questionRedirected", "title", "summary", "natalSections", "annualReading",
-				"questionReading", "guidance", "disclaimer"
+				"questionReading", "disclaimer"
 			)),
 			entry("type", "object")
 		);

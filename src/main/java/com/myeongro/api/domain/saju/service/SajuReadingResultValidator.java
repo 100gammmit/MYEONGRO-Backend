@@ -80,18 +80,10 @@ public class SajuReadingResultValidator {
 		requireText(question.body(), "Saju question body is required");
 		validateEvidence(question.evidenceKeys(), availableEvidence);
 
-		if (result.guidance() == null || result.guidance().size() != 1) {
-			throw new IllegalArgumentException("Saju guidance count is invalid");
-		}
-		result.guidance().forEach(item -> requireText(item, "Saju guidance is required"));
-
 		if (isTimeUncertain(trustedCalculation)) {
 			Stream<String> prose = Stream.concat(
 				Stream.of(result.summary(), annual.body(), question.body()),
-				Stream.concat(
-					sections.stream().map(SajuReadingSection::body),
-					result.guidance().stream()
-				)
+				sections.stream().map(SajuReadingSection::body)
 			);
 			if (prose.anyMatch(this::containsCertaintyMarker)) {
 				throw new IllegalArgumentException("Uncertain saju result uses definitive language");

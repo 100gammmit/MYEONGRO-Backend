@@ -12,6 +12,32 @@ import org.junit.jupiter.api.Test;
 class AiPreviewMarkdownRendererTests {
 
 	@Test
+	void rendersNormalSummaryAfterBodyAndNeverRendersObsoleteGuidance() {
+		String markdown = render(Map.of(
+			"title", "정상 결과", "summary", "핵심 답과 제안",
+			"sections", List.of(Map.of("heading", "해석", "body", "카드 본문")),
+			"guidance", List.of("예전 실천 과제")
+		));
+		assertThat(markdown).contains("## 리딩 요약", "핵심 답과 제안")
+			.doesNotContain("예전 실천 과제", "실천 가이드");
+		assertThat(markdown.indexOf("카드 본문")).isLessThan(markdown.indexOf("핵심 답과 제안"));
+	}
+
+	@Test
+	void retainsDeclinedMessageAndGuidance() {
+		assertThat(render(Map.of(
+			"resultType", "declined", "message", "거절 안내",
+			"guidance", List.of("안전 안내")
+		))).contains("거절 안내", "안전 안내").doesNotContain("리딩 요약");
+	}
+
+	private String render(Map<String, Object> result) {
+		return new AiPreviewMarkdownRenderer(ZoneId.of("Asia/Seoul")).render(new AiPreviewReport(
+			"test", "synthetic", "tarot", null, "test", "test", "test", Instant.EPOCH, 1L, result
+		));
+	}
+
+	@Test
 	void rendersSajuEvidenceKeysAsKoreanLabels() {
 		List<String> evidenceKeys = List.of(
 			"pillars",
