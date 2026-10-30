@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 
 import com.myeongro.api.global.auth.ActiveAccountSessionFilter;
@@ -20,8 +21,10 @@ import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OAuth2LoginSuccessHandler;
 import com.myeongro.api.global.auth.oauth.OAuth2NextRequestFilter;
+import com.myeongro.api.global.auth.oauth.OAuth2RateLimitFilter;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
+import com.myeongro.api.global.ratelimit.IpRateLimiter;
 
 /**
  * SecurityConfig
@@ -39,6 +42,7 @@ public class SecurityConfig {
 	private final PendingSignupAccessFilter pendingSignupAccessFilter;
 	private final AdultEligibilityService adultEligibilityService;
 	private final SignupAttemptCoordinator signupAttemptCoordinator;
+	private final IpRateLimiter ipRateLimiter;
 
 	public SecurityConfig(
 		@Value("${app.frontend-origin:http://localhost:3000}") String frontendOrigin,
@@ -48,7 +52,8 @@ public class SecurityConfig {
 		AdultEligibilitySessionFilter adultEligibilitySessionFilter,
 		PendingSignupAccessFilter pendingSignupAccessFilter,
 		AdultEligibilityService adultEligibilityService,
-		SignupAttemptCoordinator signupAttemptCoordinator
+		SignupAttemptCoordinator signupAttemptCoordinator,
+		IpRateLimiter ipRateLimiter
 	) {
 		this.frontendOrigin = frontendOrigin;
 		this.oauth2SessionUserService = oauth2SessionUserService;
@@ -58,6 +63,7 @@ public class SecurityConfig {
 		this.pendingSignupAccessFilter = pendingSignupAccessFilter;
 		this.adultEligibilityService = adultEligibilityService;
 		this.signupAttemptCoordinator = signupAttemptCoordinator;
+		this.ipRateLimiter = ipRateLimiter;
 	}
 
 	@Bean
@@ -67,9 +73,15 @@ public class SecurityConfig {
 			.sessionManagement(session -> session
 				.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
 			)
+			// No saved requests: an anonymous request to a protected URL must not create a session.
+			.requestCache(cache -> cache.requestCache(new NullRequestCache()))
 			.addFilterBefore(
 				new OAuth2NextRequestFilter(),
 				OAuth2AuthorizationRequestRedirectFilter.class
+			)
+			.addFilterBefore(
+				new OAuth2RateLimitFilter(frontendOrigin, ipRateLimiter),
+				OAuth2NextRequestFilter.class
 			)
 			.addFilterAfter(
 				activeAccountSessionFilter,
@@ -111,7 +123,8 @@ public class SecurityConfig {
 				.successHandler(new OAuth2LoginSuccessHandler(
 					frontendOrigin,
 					adultEligibilityService,
-					signupAttemptCoordinator
+					signupAttemptCoordinator,
+					ipRateLimiter
 				))
 			)
 			.logout(logout -> logout.disable())

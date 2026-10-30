@@ -99,6 +99,13 @@ management:
 app:
   frontend-origin: ${frontend.origin:http://localhost:3000}
 
+  rate-limit:
+    # Dedicated HMAC key for client network hashes; must differ from the reading keys.
+    ip-secret: ${ratelimit.ip-secret}
+    oauth-start-per-minute: ${ratelimit.oauth-start-per-minute:20}
+    oauth-callback-per-minute: ${ratelimit.oauth-callback-per-minute:20}
+    signup-per-day: ${ratelimit.signup-per-day:5}
+
   eligibility:
     adult-policy-version: 2026-09-09
 

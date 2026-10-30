@@ -60,6 +60,7 @@ SESSION_COOKIE_DOMAIN=example.com
 TAROT_SELECTION_SECRET=<at-least-32-random-bytes>
 TAROT_IDEMPOTENCY_SECRET=<at-least-32-random-bytes>
 SAJU_IDEMPOTENCY_SECRET=<at-least-32-random-bytes>
+RATELIMIT_IP_SECRET=<at-least-32-random-bytes>
 ```
 
 `SPRING_PROFILES_ACTIVE`, `REDIS_HOST`, `REDIS_PORT`는 넣지 않는다. production Compose가 이
@@ -69,7 +70,7 @@ SAJU_IDEMPOTENCY_SECRET=<at-least-32-random-bytes>
 상위 도메인을 사용한다. 예를 들어 Frontend가 `www.example.com`, API가
 `api.example.com`이면 값은 `example.com`이다.
 
-HMAC key 세 개는 각각 용도가 하나뿐이다. key마다 32바이트 이상의 서로 다른 난수를
+HMAC key 네 개는 각각 용도가 하나뿐이다. key마다 32바이트 이상의 서로 다른 난수를
 생성하고 OAuth/API 비밀값과 분리해서 보관한다. 배포가 바뀌어도 같은 값을 유지해야 하며,
 둘 이상의 key가 같으면 애플리케이션이 기동을 거부한다.
 
@@ -78,8 +79,10 @@ HMAC key 세 개는 각각 용도가 하나뿐이다. key마다 32바이트 이�
 | `TAROT_SELECTION_SECRET` | 선택 슬롯에서 타로 카드 순위 결정 | 기존 타로 request ID 재시도에서 다른 카드를 뽑아 멱등성 충돌이 발생할 수 있음 |
 | `TAROT_IDEMPOTENCY_SECRET` | 질문·선택지·카드를 포함한 타로 요청 지문 | 기존 타로 request ID 재시도가 멱등성 충돌로 실패함 |
 | `SAJU_IDEMPOTENCY_SECRET` | 원본 출생정보·질문을 포함한 사주 요청 지문 | 기존 사주 request ID 재시도가 멱등성 충돌로 실패함 |
+| `RATELIMIT_IP_SECRET` | OAuth 구간 접근 제한의 IP 해시 | 진행 중인 제한 횟수만 초기화됨 |
 
-세 key를 백업하고, 향후 회전이 필요하면 먼저 versioned-key migration을 설계한다.
+앞의 세 key를 백업하고, 향후 회전이 필요하면 먼저 versioned-key migration을 설계한다.
+`RATELIMIT_IP_SECRET`은 별도 migration 없이 교체할 수 있다.
 
 ## EC2 instance role과 호스트
 

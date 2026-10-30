@@ -25,8 +25,13 @@ https://{$API_DOMAIN_NAME} {
 			reverse_proxy api:8080
 		}
 
+		# Spring prefers Forwarded over the X-Forwarded-For that Caddy sets, so a client
+		# could pick its own IP. Rate limits depend on that value.
 		handle {
-			reverse_proxy api:8080
+			reverse_proxy api:8080 {
+				header_up -Forwarded
+				header_up -X-Real-IP
+			}
 		}
 	}
 }

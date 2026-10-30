@@ -56,6 +56,8 @@ jobs:
         run: bash deploy/tests/deploy-rollback-test.sh
       - name: Verify Caddy runtime log redaction
         run: bash deploy/tests/caddy-log-redaction-test.sh
+      - name: Verify Caddy client IP headers
+        run: bash deploy/tests/caddy-client-ip-test.sh
       - name: Verify application and integration contracts
         run: |
           chmod +x gradlew

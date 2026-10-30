@@ -36,6 +36,7 @@ import com.myeongro.api.global.auth.PendingSignupAccessFilter;
 import com.myeongro.api.global.auth.oauth.OAuth2SessionUserService;
 import com.myeongro.api.global.auth.oauth.OidcSessionUserService;
 import com.myeongro.api.global.auth.oauth.SignupAttemptCoordinator;
+import com.myeongro.api.global.ratelimit.IpRateLimiter;
 
 @WebMvcTest(controllers = {
 	ConsentController.class,
@@ -68,6 +69,9 @@ class AuthenticatedReadingSecurityTests {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@MockitoBean
+	private IpRateLimiter ipRateLimiter;
 
 	@MockitoBean
 	private ConsentService consentService;

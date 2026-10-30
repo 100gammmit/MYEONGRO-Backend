@@ -1,12 +1,17 @@
 package com.myeongro.api.global.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -26,6 +31,7 @@ import com.myeongro.api.global.auth.PendingSignupAccessFilter;
 import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.domain.profile.repository.ProfileJpaRepository;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
+import com.myeongro.api.global.ratelimit.IpRateLimiter;
 import com.myeongro.testsupport.SecurityConfigTestEndpoint;
 
 @WebMvcTest(controllers = SecurityConfigTestEndpoint.class)
@@ -71,6 +77,33 @@ class SecurityConfigTests {
 
 	@MockitoBean
 	private SignupAttemptCoordinator signupAttemptCoordinator;
+
+	@MockitoBean
+	private IpRateLimiter ipRateLimiter;
+
+	@BeforeEach
+	void allowRequestsByDefault() {
+		when(ipRateLimiter.tryAcquire(any(), any())).thenReturn(true);
+	}
+
+	@Test
+	void rejectsAnOverLimitOauthStartBeforeASessionExists() throws Exception {
+		when(ipRateLimiter.tryAcquire(any(), any())).thenReturn(false);
+
+		mockMvc.perform(get("/oauth2/authorization/kakao"))
+			.andExpect(redirectedUrl("http://localhost:3000/login?reason=rate-limited&next=%2F"))
+			.andExpect(result -> assertThat(result.getRequest().getSession(false)).isNull());
+	}
+
+	@Test
+	void doesNotCreateASessionForAnAnonymousRequestToAProtectedUrl() throws Exception {
+		mockMvc.perform(get("/api/readings"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(result -> assertThat(result.getRequest().getSession(false)).isNull());
+		mockMvc.perform(get("/internal/security-test"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(result -> assertThat(result.getRequest().getSession(false)).isNull());
+	}
 
 	@Test
 	void requiresAuthenticationForReadingCreationEndpoint() throws Exception {
