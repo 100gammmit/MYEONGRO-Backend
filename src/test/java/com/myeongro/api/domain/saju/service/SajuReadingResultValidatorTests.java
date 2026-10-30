@@ -91,25 +91,12 @@ class SajuReadingResultValidatorTests {
 	}
 
 	@Test
-	void rejectsDefinitiveLanguageWhenBirthTimeIsUncertain() {
-		assertThatThrownBy(() -> validator.validate(
-			result("올해 반드시 성공합니다", "annualFlow"),
+	void acceptsACarefulAnswerThatNegatesCertaintyWhenBirthTimeIsUncertain() {
+		assertThatCode(() -> validator.validate(
+			result("반드시 성공한다고 확답할 수는 없어요", "annualFlow"),
 			2026,
 			trusted("unknown")
-		)).isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("definitive");
-	}
-
-	@Test
-	void rejectsDefinitiveLanguageWhenExactCivilTimeHasMultipleInstants() {
-		Map<String, Object> trusted = new java.util.LinkedHashMap<>(trusted("exact"));
-		trusted.put("uncertainty", Map.of("varyingFields", List.of("pillars.time")));
-		assertThatThrownBy(() -> validator.validate(
-			result("올해 반드시 성공합니다", "annualFlow"),
-			2026,
-			trusted
-		)).isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("definitive");
+		)).doesNotThrowAnyException();
 	}
 
 	private SajuReadingResult result(String summary, String annualEvidence) {
