@@ -73,7 +73,7 @@ public class ReadingCreditService {
 		return Map.copyOf(costs);
 	}
 
-	private Instant nextResetAt() {
+	public Instant nextResetAt() {
 		ZonedDateTime now = ZonedDateTime.ofInstant(clock.instant(), CREDIT_ZONE);
 		return now.toLocalDate().plusDays(1).atStartOfDay(CREDIT_ZONE).toInstant();
 	}

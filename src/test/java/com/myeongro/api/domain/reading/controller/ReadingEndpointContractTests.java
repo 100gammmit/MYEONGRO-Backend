@@ -108,6 +108,7 @@ class ReadingEndpointContractTests {
 			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
 			org.mockito.ArgumentMatchers.any(TarotReadingCreateRequest.class)
 		)).thenThrow(new ReadingDailyCapacityReachedException());
+		when(creditService.nextResetAt()).thenReturn(Instant.now().plusSeconds(3600));
 
 		mockMvc.perform(post("/api/tarot/readings")
 				.principal(authentication)
@@ -115,7 +116,7 @@ class ReadingEndpointContractTests {
 				.content(validTarotRequest()))
 			.andExpect(status().isTooManyRequests())
 			.andExpect(jsonPath("$.code").value("READING_DAILY_CAPACITY_REACHED"))
-			.andExpect(header().exists("Retry-After"));
+			.andExpect(header().string("Retry-After", org.hamcrest.Matchers.matchesPattern("3[56]\\d\\d")));
 	}
 
 	@Test

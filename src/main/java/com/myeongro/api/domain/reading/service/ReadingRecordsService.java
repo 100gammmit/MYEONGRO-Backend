@@ -40,7 +40,10 @@ public class ReadingRecordsService {
 		if ("generating".equals(findStoredReading(userId, readingId).status())) {
 			throw new ReadingGenerationInProgressException();
 		}
-		throw new ReadingRecordNotFoundException();
+		// Generation finished between the two statements, so the row is deletable now.
+		if (!repository.deleteByUserAndId(userId, readingId)) {
+			throw new ReadingRecordNotFoundException();
+		}
 	}
 
 	private CreatedReadingResponse findStoredReading(UUID userId, UUID readingId) {

@@ -2,6 +2,8 @@ package com.myeongro.api.domain.reading.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -65,6 +67,19 @@ class ReadingRecordsServiceTests {
 
 		assertThatThrownBy(() -> service.deleteByUserAndId(USER_ID, READING_ID))
 			.isInstanceOf(ReadingGenerationInProgressException.class);
+	}
+
+	@Test
+	void deletesAReadingThatFinishedGeneratingDuringTheFirstAttempt() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingRecordsService service = new ReadingRecordsService(repository);
+		when(repository.deleteByUserAndId(USER_ID, READING_ID)).thenReturn(false, true);
+		when(repository.findByUserAndId(USER_ID, READING_ID))
+			.thenReturn(Optional.of(reading("completed")));
+
+		service.deleteByUserAndId(USER_ID, READING_ID);
+
+		verify(repository, times(2)).deleteByUserAndId(USER_ID, READING_ID);
 	}
 
 	@Test

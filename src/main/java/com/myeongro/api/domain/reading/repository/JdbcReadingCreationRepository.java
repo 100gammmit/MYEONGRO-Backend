@@ -227,7 +227,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 			}
 			return findCreatedReading(pending.readingId());
 		} catch (DataAccessException exception) {
-			throw mapDatabaseException(exception, null, 0);
+			throw mapPendingFailure(exception, pending.readingId());
 		}
 	}
 
@@ -242,7 +242,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 				errorCode
 			);
 		} catch (DataAccessException exception) {
-			throw mapDatabaseException(exception);
+			throw mapPendingFailure(exception, pending.readingId());
 		}
 	}
 
@@ -298,8 +298,12 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		return json == null ? null : fromJson(json);
 	}
 
-	private RuntimeException mapDatabaseException(DataAccessException exception) {
-		return mapDatabaseException(exception, null, 0);
+	private RuntimeException mapPendingFailure(DataAccessException exception, UUID readingId) {
+		RuntimeException mapped = mapDatabaseException(exception, null, 0);
+		if (mapped instanceof ReadingGenerationExpiredException) {
+			log.warn("READING_GENERATION_EXPIRED readingId={}", readingId);
+		}
+		return mapped;
 	}
 
 	private RuntimeException mapDatabaseException(
@@ -321,7 +325,6 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 			return new ReadingDailyCapacityReachedException();
 		}
 		if ("RL108".equals(sqlState)) {
-			log.warn("READING_GENERATION_EXPIRED before completion");
 			return new ReadingGenerationExpiredException();
 		}
 		return exception;

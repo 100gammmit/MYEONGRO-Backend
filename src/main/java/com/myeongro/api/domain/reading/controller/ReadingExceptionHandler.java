@@ -1,8 +1,7 @@
 package com.myeongro.api.domain.reading.controller;
 
 import java.time.Duration;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -26,8 +25,6 @@ import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 
 @RestControllerAdvice(annotations = ReadingApiController.class)
 public class ReadingExceptionHandler {
-
-	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 
 	private final ReadingCreditService creditService;
 
@@ -65,10 +62,7 @@ public class ReadingExceptionHandler {
 		InsufficientReadingCreditsException exception
 	) {
 		var status = creditService.getStatus(exception.getUserId());
-		long retryAfter = Math.max(
-			1,
-			Duration.between(java.time.Instant.now(), status.nextResetAt()).toSeconds()
-		);
+		long retryAfter = secondsUntil(status.nextResetAt());
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("code", "INSUFFICIENT_READING_CREDITS");
 		body.put("message", exception.getMessage());
@@ -84,17 +78,16 @@ public class ReadingExceptionHandler {
 	public ResponseEntity<Map<String, String>> dailyCapacityReached(
 		ReadingDailyCapacityReachedException exception
 	) {
-		ZonedDateTime now = ZonedDateTime.now(KOREA);
-		long retryAfter = Math.max(
-			1,
-			Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(KOREA)).toSeconds()
-		);
 		return ResponseEntity.status(429)
-			.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfter))
+			.header(HttpHeaders.RETRY_AFTER, Long.toString(secondsUntil(creditService.nextResetAt())))
 			.body(Map.of(
 				"code", "READING_DAILY_CAPACITY_REACHED",
 				"message", exception.getMessage()
 			));
+	}
+
+	private long secondsUntil(Instant instant) {
+		return Math.max(1, Duration.between(Instant.now(), instant).toSeconds());
 	}
 
 	@ExceptionHandler(ReadingGenerationExpiredException.class)
