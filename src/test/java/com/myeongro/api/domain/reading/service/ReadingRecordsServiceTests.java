@@ -83,6 +83,18 @@ class ReadingRecordsServiceTests {
 	}
 
 	@Test
+	void reportsAMissingReadingWhenItVanishesBeforeTheRetry() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingRecordsService service = new ReadingRecordsService(repository);
+		when(repository.deleteByUserAndId(USER_ID, READING_ID)).thenReturn(false, false);
+		when(repository.findByUserAndId(USER_ID, READING_ID))
+			.thenReturn(Optional.of(reading("completed")));
+
+		assertThatThrownBy(() -> service.deleteByUserAndId(USER_ID, READING_ID))
+			.isInstanceOf(ReadingRecordNotFoundException.class);
+	}
+
+	@Test
 	void reportsAMissingReadingWhenNothingWasDeleted() {
 		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
 		ReadingRecordsService service = new ReadingRecordsService(repository);

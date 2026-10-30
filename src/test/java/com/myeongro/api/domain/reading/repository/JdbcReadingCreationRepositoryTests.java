@@ -345,6 +345,20 @@ class JdbcReadingCreationRepositoryTests {
 	}
 
 	@Test
+	void mapsACompletionThatLostItsGeneratingRowToAnExpiredGeneration() {
+		when(jdbcTemplate.queryForObject(
+			anyString(),
+			eq(Boolean.class),
+			any(Object[].class)
+		)).thenThrow(sqlException("RL108"));
+
+		assertThatThrownBy(() -> repository.completePending(
+			new PendingReadingCreation(READING_ID, GENERATION_ID, null),
+			new GeneratedReading("제목", Map.of())
+		)).isInstanceOf(ReadingGenerationExpiredException.class);
+	}
+
+	@Test
 	void mapsExistingIncompleteReadingToActiveGenerationConflict() {
 		when(jdbcTemplate.queryForObject(
 			anyString(),
