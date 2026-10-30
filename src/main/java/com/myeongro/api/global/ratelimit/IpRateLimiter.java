@@ -98,7 +98,7 @@ public class IpRateLimiter {
 				Long.toString(scope.window.toMillis())
 			);
 		} catch (RuntimeException exception) {
-			log.warn("IP_RATE_LIMIT_UNAVAILABLE scope={}", scope);
+			log.warn("IP_RATE_LIMIT_UNAVAILABLE scope={} cause={}", scope, exception.getClass().getSimpleName());
 			return true;
 		}
 		if (count == null) {
