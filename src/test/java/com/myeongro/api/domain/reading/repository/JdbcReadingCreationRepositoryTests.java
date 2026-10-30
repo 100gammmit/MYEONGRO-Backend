@@ -31,6 +31,8 @@ import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
 import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
+import com.myeongro.api.domain.reading.exception.ReadingDailyCapacityReachedException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationExpiredException;
 import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
@@ -222,7 +224,8 @@ class JdbcReadingCreationRepositoryTests {
 			"gpt-test",
 			"prompt-v1",
 			1,
-			10
+			10,
+			1000
 		);
 		assertThat(sql.getAllValues().get(1))
 			.contains("from public.readings")
@@ -314,6 +317,31 @@ class JdbcReadingCreationRepositoryTests {
 
 		assertThatThrownBy(() -> repository.createPending(command()))
 			.isInstanceOf(ReadingIdempotencyConflictException.class);
+	}
+
+	@Test
+	void mapsDailyCapacitySqlStateToDomainException() {
+		when(jdbcTemplate.queryForObject(
+			anyString(),
+			org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+			any(Object[].class)
+		)).thenThrow(sqlException("RL113"));
+
+		assertThatThrownBy(() -> repository.createPending(command()))
+			.isInstanceOf(ReadingDailyCapacityReachedException.class);
+	}
+
+	@Test
+	void mapsAReadingThatLeftGeneratingToAnExpiredGeneration() {
+		when(jdbcTemplate.queryForObject(
+			anyString(),
+			eq(Object.class),
+			any(Object[].class)
+		)).thenThrow(sqlException("RL108"));
+
+		assertThatThrownBy(() -> repository.failPending(
+			new PendingReadingCreation(READING_ID, GENERATION_ID, null), "READING_GENERATION_FAILED"
+		)).isInstanceOf(ReadingGenerationExpiredException.class);
 	}
 
 	@Test

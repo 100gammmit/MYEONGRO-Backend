@@ -21,7 +21,8 @@ public record ReadingCreditProperties(
 	@Min(0) int dailyFreeGrant,
 	@Valid @NotNull Costs costs,
 	@NotNull Duration staleAfter,
-	@NotBlank String cleanupCron
+	@NotBlank String cleanupCron,
+	@Min(0) int globalDailyAttemptLimit
 ) {
 
 	public ReadingCreditProperties {

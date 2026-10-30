@@ -17,7 +17,8 @@ public final class ReadingCreditTestFixtures {
 				4
 			),
 			Duration.ofMinutes(5),
-			"0 */5 * * * *"
+			"0 */5 * * * *",
+			1000
 		);
 	}
 }

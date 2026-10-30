@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 
@@ -32,9 +33,14 @@ public class ReadingRecordsService {
 	}
 
 	public void deleteByUserAndId(UUID userId, UUID readingId) {
-		if (!repository.deleteByUserAndId(userId, readingId)) {
-			throw new ReadingRecordNotFoundException();
+		if (repository.deleteByUserAndId(userId, readingId)) {
+			return;
 		}
+		// Deleting a generating row would free the one-in-flight slot while OpenAI keeps running.
+		if ("generating".equals(findStoredReading(userId, readingId).status())) {
+			throw new ReadingGenerationInProgressException();
+		}
+		throw new ReadingRecordNotFoundException();
 	}
 
 	private CreatedReadingResponse findStoredReading(UUID userId, UUID readingId) {

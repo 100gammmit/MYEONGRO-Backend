@@ -66,6 +66,14 @@ class JpaReadingRecordsRepositoryTests {
 	}
 
 	@Test
+	void keepsAReadingThatIsStillGenerating() {
+		insertReading(READING_ID, USER_ID, "generating");
+
+		assertThat(repository.deleteByUserAndId(USER_ID, READING_ID)).isFalse();
+		assertThat(repository.findByUserAndId(USER_ID, READING_ID)).isPresent();
+	}
+
+	@Test
 	void permanentlyDeletesOnlyReadingOwnedByUserAndCascadesGenerationRecords() {
 		insertReading(READING_ID, USER_ID, "completed");
 		insertGeneration(READING_ID, null, "2026-06-16T00:00:00Z");

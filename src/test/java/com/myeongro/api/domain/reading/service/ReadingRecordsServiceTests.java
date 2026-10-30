@@ -1,6 +1,7 @@
 package com.myeongro.api.domain.reading.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -13,6 +14,8 @@ import org.junit.jupiter.api.Test;
 
 import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
+import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
 import com.myeongro.api.domain.reading.repository.ReadingRecordsRepository;
 import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 
@@ -50,6 +53,29 @@ class ReadingRecordsServiceTests {
 			.doesNotContainKeys("question", "choiceOptions");
 		assertThat(service.getByUserAndId(USER_ID, READING_ID).result()).isSameAs(completed.result());
 		assertThat(service.listByUser(USER_ID).getFirst().result()).isSameAs(completed.result());
+	}
+
+	@Test
+	void refusesToDeleteAReadingThatIsStillGenerating() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingRecordsService service = new ReadingRecordsService(repository);
+		when(repository.deleteByUserAndId(USER_ID, READING_ID)).thenReturn(false);
+		when(repository.findByUserAndId(USER_ID, READING_ID))
+			.thenReturn(Optional.of(reading("generating")));
+
+		assertThatThrownBy(() -> service.deleteByUserAndId(USER_ID, READING_ID))
+			.isInstanceOf(ReadingGenerationInProgressException.class);
+	}
+
+	@Test
+	void reportsAMissingReadingWhenNothingWasDeleted() {
+		ReadingRecordsRepository repository = org.mockito.Mockito.mock(ReadingRecordsRepository.class);
+		ReadingRecordsService service = new ReadingRecordsService(repository);
+		when(repository.deleteByUserAndId(USER_ID, READING_ID)).thenReturn(false);
+		when(repository.findByUserAndId(USER_ID, READING_ID)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.deleteByUserAndId(USER_ID, READING_ID))
+			.isInstanceOf(ReadingRecordNotFoundException.class);
 	}
 
 	private CreatedReadingResponse reading(String status) {

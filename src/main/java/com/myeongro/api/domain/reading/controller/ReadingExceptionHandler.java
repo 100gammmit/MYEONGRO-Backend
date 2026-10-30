@@ -1,6 +1,8 @@
 package com.myeongro.api.domain.reading.controller;
 
 import java.time.Duration;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.ReadingDailyCapacityReachedException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationExpiredException;
 import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 import com.myeongro.api.domain.reading.exception.ReadingRecordNotFoundException;
@@ -22,6 +26,8 @@ import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 
 @RestControllerAdvice(annotations = ReadingApiController.class)
 public class ReadingExceptionHandler {
+
+	private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 
 	private final ReadingCreditService creditService;
 
@@ -72,6 +78,33 @@ public class ReadingExceptionHandler {
 		return ResponseEntity.status(429)
 			.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfter))
 			.body(body);
+	}
+
+	@ExceptionHandler(ReadingDailyCapacityReachedException.class)
+	public ResponseEntity<Map<String, String>> dailyCapacityReached(
+		ReadingDailyCapacityReachedException exception
+	) {
+		ZonedDateTime now = ZonedDateTime.now(KOREA);
+		long retryAfter = Math.max(
+			1,
+			Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(KOREA)).toSeconds()
+		);
+		return ResponseEntity.status(429)
+			.header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfter))
+			.body(Map.of(
+				"code", "READING_DAILY_CAPACITY_REACHED",
+				"message", exception.getMessage()
+			));
+	}
+
+	@ExceptionHandler(ReadingGenerationExpiredException.class)
+	public ResponseEntity<Map<String, String>> generationExpired(
+		ReadingGenerationExpiredException exception
+	) {
+		return ResponseEntity.status(409).body(Map.of(
+			"code", "READING_GENERATION_EXPIRED",
+			"message", exception.getMessage()
+		));
 	}
 
 	@ExceptionHandler(OpenAiReadingGenerationException.class)

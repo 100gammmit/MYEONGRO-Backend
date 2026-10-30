@@ -91,6 +91,7 @@ public class JpaReadingRecordsRepository implements ReadingRecordsRepository {
 			delete from public.readings
 			where user_id = :userId
 			  and id = :readingId
+			  and status <> 'generating'
 			""")
 			.setParameter("userId", userId)
 			.setParameter("readingId", readingId)

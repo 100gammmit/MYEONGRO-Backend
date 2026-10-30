@@ -123,7 +123,7 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 			String content = response.getResult().getOutput().getText();
 			output = objectMapper.readTree(content).required("output");
 			OpenAiReadingDiagnostics.classification("saju", "none",
-				(OpenAiChatOptions)prompt.getOptions(), output, objectMapper);
+				(OpenAiChatOptions)prompt.getOptions(), output, objectMapper, response);
 		} catch (RuntimeException | JsonProcessingException exception) {
 			throw failure(
 				OpenAiReadingGenerationStage.RESPONSE_PARSE,

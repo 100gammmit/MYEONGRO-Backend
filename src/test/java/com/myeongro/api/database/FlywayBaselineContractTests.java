@@ -16,16 +16,6 @@ class FlywayBaselineContractTests {
 		MIGRATION_DIRECTORY.resolve("V1__initialize_schema.sql");
 
 	@Test
-	void keepsExactlyOnePreProductionBaseline() throws IOException {
-		try (var migrations = Files.list(MIGRATION_DIRECTORY)) {
-			assertThat(migrations
-				.filter(path -> path.getFileName().toString().matches("V\\d+__.*\\.sql"))
-				.map(path -> path.getFileName().toString()))
-				.containsExactly("V1__initialize_schema.sql");
-		}
-	}
-
-	@Test
 	void v1CreatesTheCurrentApplicationSchema() throws IOException {
 		String sql = baselineSql();
 
@@ -118,6 +108,18 @@ class FlywayBaselineContractTests {
 	private String tableDefinition(String sql, String table) {
 		int start = sql.indexOf("create table public." + table + " (");
 		return sql.substring(start, sql.indexOf(");", start));
+	}
+
+	@Test
+	void dailyCapacityMigrationKeepsTheCounterOutsideDeletableRowsAndStaysPrivate() throws IOException {
+		String sql = Files.readString(
+			MIGRATION_DIRECTORY.resolve("V2__reading_daily_capacity.sql")
+		).replace("\r\n", "\n").toLowerCase(Locale.ROOT);
+
+		assertThat(sql)
+			.contains("create table public.reading_daily_capacity")
+			.contains("errcode = 'rl113'")
+			.contains("integer\n) from public");
 	}
 
 	private String baselineSql() throws IOException {

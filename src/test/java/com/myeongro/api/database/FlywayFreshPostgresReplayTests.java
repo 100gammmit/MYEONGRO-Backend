@@ -37,7 +37,7 @@ class FlywayFreshPostgresReplayTests {
 		var result = flyway.migrate();
 
 		assertThat(result.success).isTrue();
-		assertThat(result.migrationsExecuted).isOne();
+		assertThat(result.migrationsExecuted).isEqualTo(2);
 		verifyHistory(jdbcUrl, username, password);
 		verifyCurrentSchema(jdbcUrl, username, password);
 		verifySecurityDefinerPrivileges(jdbcUrl, username, password);
@@ -53,10 +53,14 @@ class FlywayFreshPostgresReplayTests {
 				 select version, description, success
 				 from public.flyway_schema_history
 				 where version is not null
+				 order by installed_rank
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
 			assertThat(resultSet.getString("version")).isEqualTo("1");
 			assertThat(resultSet.getString("description")).isEqualTo("initialize schema");
+			assertThat(resultSet.getBoolean("success")).isTrue();
+			assertThat(resultSet.next()).isTrue();
+			assertThat(resultSet.getString("version")).isEqualTo("2");
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isFalse();
 		}
@@ -78,6 +82,9 @@ class FlywayFreshPostgresReplayTests {
 				   to_regtype('public.reading_status') is not null,
 				   to_regtype('public.generation_status') is not null,
 				   to_regprocedure(
+				     'public.create_pending_reading(uuid,uuid,text,public.reading_kind,text,integer,jsonb,text,text,text,integer,integer,integer)'
+				   ) is not null,
+				   to_regprocedure(
 				     'public.create_pending_reading(uuid,uuid,text,public.reading_kind,text,integer,jsonb,text,text,text,integer,integer)'
 				   ) is not null,
 				   to_regprocedure(
@@ -88,7 +95,7 @@ class FlywayFreshPostgresReplayTests {
 				   to_regprocedure('public.get_reading_credit_status(uuid,integer)') is not null
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
-			for (int column = 1; column <= 14; column++) {
+			for (int column = 1; column <= 15; column++) {
 				assertThat(resultSet.getBoolean(column)).isTrue();
 			}
 		}
@@ -172,6 +179,50 @@ class FlywayFreshPostgresReplayTests {
 
 		verifyConcurrentReservation(jdbcUrl, username, password);
 		verifyStaleCleanup(jdbcUrl, username, password);
+		verifyDailyCapacity(jdbcUrl, username, password);
+	}
+
+	private void verifyDailyCapacity(String jdbcUrl, String username, String password)
+		throws Exception {
+		UUID capacityUser = createProfile(jdbcUrl, username, password);
+		int usedToday = capacityUsedToday(jdbcUrl, username, password);
+		assertThat(usedToday).isPositive();
+		assertSqlState("RL113", () -> createPending(
+			jdbcUrl, username, password, capacityUser, UUID.randomUUID(),
+			"hash-capacity-full", 1, usedToday));
+		assertSqlState("RL113", () -> createPending(
+			jdbcUrl, username, password, capacityUser, UUID.randomUUID(),
+			"hash-capacity-stopped", 1, 0));
+		assertThat(capacityUsedToday(jdbcUrl, username, password)).isEqualTo(usedToday);
+
+		PendingReading allowed = createPending(
+			jdbcUrl, username, password, capacityUser, UUID.randomUUID(),
+			"hash-capacity-open", 1, usedToday + 1);
+		assertThat(allowed.created()).isTrue();
+		assertThat(capacityUsedToday(jdbcUrl, username, password)).isEqualTo(usedToday + 1);
+		fail(jdbcUrl, username, password, allowed);
+
+		// Deleting a reading must not hand capacity back.
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var statement = connection.prepareStatement(
+				 "delete from public.readings where user_id = ?")) {
+			statement.setObject(1, capacityUser);
+			assertThat(statement.executeUpdate()).isEqualTo(1);
+		}
+		assertThat(capacityUsedToday(jdbcUrl, username, password)).isEqualTo(usedToday + 1);
+	}
+
+	private int capacityUsedToday(String jdbcUrl, String username, String password)
+		throws SQLException {
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			 var statement = connection.createStatement();
+			 var resultSet = statement.executeQuery("""
+				 select attempt_count from public.reading_daily_capacity
+				 where usage_date = (current_timestamp at time zone 'Asia/Seoul')::date
+				 """)) {
+			assertThat(resultSet.next()).isTrue();
+			return resultSet.getInt(1);
+		}
 	}
 
 	private UUID createProfile(String jdbcUrl, String username, String password)
@@ -450,12 +501,27 @@ class FlywayFreshPostgresReplayTests {
 		String inputHash,
 		int creditCost
 	) throws SQLException {
+		return createPending(
+			jdbcUrl, username, password, userId, requestId, inputHash, creditCost, 100_000
+		);
+	}
+
+	private PendingReading createPending(
+		String jdbcUrl,
+		String username,
+		String password,
+		UUID userId,
+		UUID requestId,
+		String inputHash,
+		int creditCost,
+		int globalDailyAttemptLimit
+	) throws SQLException {
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
 			 var statement = connection.prepareStatement("""
 				 select reading_id, generation_id, created
 				 from public.create_pending_reading(
 				   ?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb),
-				   ?, ?, ?, ?, ?
+				   ?, ?, ?, ?, ?, ?
 				 )
 				 """)) {
 			statement.setObject(1, userId);
@@ -470,6 +536,7 @@ class FlywayFreshPostgresReplayTests {
 			statement.setString(10, "test-prompt");
 			statement.setInt(11, creditCost);
 			statement.setInt(12, 10);
+			statement.setInt(13, globalDailyAttemptLimit);
 			try (var resultSet = statement.executeQuery()) {
 				assertThat(resultSet.next()).isTrue();
 				return new PendingReading(

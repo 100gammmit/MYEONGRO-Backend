@@ -23,6 +23,8 @@ import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
+import com.myeongro.api.domain.reading.exception.ReadingDailyCapacityReachedException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationExpiredException;
 import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.ReadingIdempotencyConflictException;
 import com.myeongro.api.domain.readingcredit.config.ReadingCreditProperties;
@@ -57,7 +59,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	private static final String CREATE_PENDING = """
 		select reading_id, generation_id, created
 		from public.create_pending_reading(
-			?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?, ?, ?
+			?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?, ?, ?, ?
 		)
 		""";
 	private static final String SELECT_READING = """
@@ -184,7 +186,8 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 				command.model(),
 				command.promptVersion(),
 				command.creditCost(),
-				creditProperties.dailyFreeGrant()
+				creditProperties.dailyFreeGrant(),
+				creditProperties.globalDailyAttemptLimit()
 			);
 			if (pendingIds == null || pendingIds.readingId() == null) {
 				throw new IllegalStateException("Pending reading was not created");
@@ -313,6 +316,13 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 		}
 		if ("RL112".equals(sqlState)) {
 			return new InsufficientReadingCreditsException(userId, requiredCredits);
+		}
+		if ("RL113".equals(sqlState)) {
+			return new ReadingDailyCapacityReachedException();
+		}
+		if ("RL108".equals(sqlState)) {
+			log.warn("READING_GENERATION_EXPIRED before completion");
+			return new ReadingGenerationExpiredException();
 		}
 		return exception;
 	}

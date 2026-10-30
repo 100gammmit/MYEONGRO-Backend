@@ -34,9 +34,21 @@ spring:
     clean-disabled: true
 
   ai:
+    retry:
+      # Two attempts at the read timeout below must finish before reading-credits.stale-after.
+      max-attempts: 2
+      backoff:
+        initial-interval: 1s
+        multiplier: 2
+        max-interval: 5s
     openai:
       api-key: ${openai.api-key:}
       base-url: https://api.openai.com
+
+  http:
+    client:
+      connect-timeout: 10s
+      read-timeout: 120s
 
   security:
     oauth2:
@@ -129,6 +141,8 @@ app:
       saju: ${reading.credits.costs.saju:4}
     stale-after: ${reading.credits.stale-after:5m}
     cleanup-cron: "${reading.credits.cleanup-cron:0 */5 * * * *}"
+    # Whole-service daily ceiling; 0 stops every new generation immediately.
+    global-daily-attempt-limit: ${reading.credits.global-daily-attempt-limit:1000}
 
   consent:
     versions:

@@ -3,6 +3,7 @@ package com.myeongro.api.domain.reading.controller;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -35,6 +36,8 @@ import com.myeongro.api.domain.saju.controller.SajuReadingExceptionHandler;
 import com.myeongro.api.domain.readingcredit.service.ReadingCreditService;
 import com.myeongro.api.domain.readingcredit.dto.ReadingCreditStatusResponse;
 import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
+import com.myeongro.api.domain.reading.exception.ReadingDailyCapacityReachedException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationExpiredException;
 import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
 import com.myeongro.api.domain.tarot.controller.TarotReadingController;
@@ -94,6 +97,43 @@ class ReadingEndpointContractTests {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("READING_GENERATION_IN_PROGRESS"))
 			.andExpect(jsonPath("$.message").value("이미 생성 중인 리딩이 있습니다."));
+	}
+
+	@Test
+	void returnsRetryAfterUntilKoreaMidnightWhenDailyCapacityIsReached() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(tarotCreationService.create(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(TarotReadingCreateRequest.class)
+		)).thenThrow(new ReadingDailyCapacityReachedException());
+
+		mockMvc.perform(post("/api/tarot/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validTarotRequest()))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(jsonPath("$.code").value("READING_DAILY_CAPACITY_REACHED"))
+			.andExpect(header().exists("Retry-After"));
+	}
+
+	@Test
+	void reportsAnExpiredGenerationWithAStableCode() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(tarotCreationService.create(
+			org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(TarotReadingCreateRequest.class)
+		)).thenThrow(new ReadingGenerationExpiredException());
+
+		mockMvc.perform(post("/api/tarot/readings")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validTarotRequest()))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("READING_GENERATION_EXPIRED"));
 	}
 
 	@Test
