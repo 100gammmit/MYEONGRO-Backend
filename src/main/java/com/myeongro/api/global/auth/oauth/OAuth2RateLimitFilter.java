@@ -3,6 +3,7 @@ package com.myeongro.api.global.auth.oauth;
 import java.io.IOException;
 
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import com.myeongro.api.global.ratelimit.IpRateLimiter;
 
@@ -31,7 +32,8 @@ public class OAuth2RateLimitFilter extends OncePerRequestFilter {
 		HttpServletResponse response,
 		FilterChain filterChain
 	) throws ServletException, IOException {
-		IpRateLimiter.Scope scope = scope(request.getRequestURI());
+		// Decoded like Spring's OAuth filters match it, so an encoded path cannot skip the limit.
+		IpRateLimiter.Scope scope = scope(UrlPathHelper.defaultInstance.getPathWithinApplication(request));
 		if (scope == null || ipRateLimiter.tryAcquire(scope, request.getRemoteAddr())) {
 			filterChain.doFilter(request, response);
 			return;

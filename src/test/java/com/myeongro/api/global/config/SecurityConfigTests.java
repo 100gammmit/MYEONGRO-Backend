@@ -96,6 +96,15 @@ class SecurityConfigTests {
 	}
 
 	@Test
+	void rejectsAPercentEncodedOauthStartLikeThePlainPath() throws Exception {
+		when(ipRateLimiter.tryAcquire(any(), any())).thenReturn(false);
+
+		mockMvc.perform(get(java.net.URI.create("/%6fauth2/authorization/kakao")))
+			.andExpect(redirectedUrl("http://localhost:3000/login?reason=rate-limited&next=%2F"))
+			.andExpect(result -> assertThat(result.getRequest().getSession(false)).isNull());
+	}
+
+	@Test
 	void doesNotCreateASessionForAnAnonymousRequestToAProtectedUrl() throws Exception {
 		mockMvc.perform(get("/api/readings"))
 			.andExpect(status().isUnauthorized())

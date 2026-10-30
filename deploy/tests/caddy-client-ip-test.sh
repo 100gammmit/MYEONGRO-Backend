@@ -52,7 +52,7 @@ docker run --detach \
 spoofed_ip="203.0.113.77"
 response=""
 for _ in $(seq 1 30); do
-  host_port="$(docker port "$proxy_name" 443/tcp 2>/dev/null | awk -F: 'END { print $NF }')"
+  host_port="$(docker port "$proxy_name" 443/tcp 2>/dev/null | awk -F: 'END { print $NF }' || true)"
   if [[ -n "$host_port" ]]; then
     response="$(curl --silent --insecure \
       --resolve "localhost:${host_port}:127.0.0.1" \

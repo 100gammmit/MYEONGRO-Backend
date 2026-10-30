@@ -18,7 +18,6 @@ import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
@@ -98,7 +97,7 @@ public class IpRateLimiter {
 				List.of(KEY_PREFIX + scope.keyName + ":" + hash(network(remoteAddress))),
 				Long.toString(scope.window.toMillis())
 			);
-		} catch (DataAccessException exception) {
+		} catch (RuntimeException exception) {
 			log.warn("IP_RATE_LIMIT_UNAVAILABLE scope={}", scope);
 			return true;
 		}
