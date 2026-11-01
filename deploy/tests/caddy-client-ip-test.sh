@@ -31,7 +31,7 @@ docker network create "$network_name" >/dev/null
 
 # Stands in for the API and echoes the headers the production proxy forwarded.
 upstream_config=':8080 {
-	respond "forwarded=[{header.Forwarded}] real-ip=[{header.X-Real-IP}] xff=[{header.X-Forwarded-For}]"
+	respond "forwarded=[{header.Forwarded}] real-ip=[{header.X-Real-IP}] prefix=[{header.X-Forwarded-Prefix}] port=[{header.X-Forwarded-Port}] ssl=[{header.X-Forwarded-Ssl}] xff=[{header.X-Forwarded-For}]"
 }'
 docker run --detach \
   --name "$upstream_name" \
@@ -59,6 +59,9 @@ for _ in $(seq 1 30); do
       --header "Forwarded: for=${spoofed_ip}" \
       --header "X-Real-IP: ${spoofed_ip}" \
       --header "X-Forwarded-For: ${spoofed_ip}" \
+      --header "X-Forwarded-Prefix: /oauth2/authorization" \
+      --header "X-Forwarded-Port: 8443" \
+      --header "X-Forwarded-Ssl: off" \
       "https://localhost:${host_port}/oauth2/authorization/kakao" || true)"
     [[ "$response" == forwarded=* ]] && break
   fi
@@ -73,6 +76,11 @@ fi
 
 if grep -Fq "$spoofed_ip" <<<"$response"; then
   echo "Caddy forwarded a client-supplied IP header: $response" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'prefix=[] port=[] ssl=[]' <<<"$response"; then
+  echo "Caddy forwarded a client-supplied path or URL header: $response" >&2
   exit 1
 fi
 

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 
 class OAuth2NextRequestFilterTests {
 
@@ -38,6 +39,23 @@ class OAuth2NextRequestFilterTests {
 		assertThat(request.getSession().getAttribute(
 			OAuth2NextRequestFilter.NEXT_SESSION_ATTRIBUTE
 		)).isEqualTo("/");
+	}
+
+	@Test
+	void doesNotCreateASessionWhenAForwardedPrefixFakesTheOAuthPath() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/auth/me");
+		request.addHeader("X-Forwarded-Prefix", "/oauth2/authorization");
+		var chain = new MockFilterChain(
+			new jakarta.servlet.http.HttpServlet() {
+			},
+			new ForwardedHeaderFilter(),
+			filter
+		);
+
+		chain.doFilter(request, new MockHttpServletResponse());
+
+		assertThat(chain.getRequest()).isNotNull();
+		assertThat(request.getSession(false)).isNull();
 	}
 
 	@Test

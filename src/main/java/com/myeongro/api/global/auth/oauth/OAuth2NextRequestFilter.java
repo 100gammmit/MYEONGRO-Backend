@@ -29,6 +29,6 @@ public class OAuth2NextRequestFilter extends OncePerRequestFilter {
 
 	private boolean isOAuthAuthorizationRequest(HttpServletRequest request) {
 		return "GET".equalsIgnoreCase(request.getMethod())
-			&& request.getRequestURI().startsWith("/oauth2/authorization/");
+			&& OAuth2RedirectPath.applicationPath(request).startsWith("/oauth2/authorization/");
 	}
 }

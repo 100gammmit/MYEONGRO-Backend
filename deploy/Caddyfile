@@ -26,11 +26,15 @@ https://{$API_DOMAIN_NAME} {
 		}
 
 		# Spring prefers Forwarded over the X-Forwarded-For that Caddy sets, so a client
-		# could pick its own IP. Rate limits depend on that value.
+		# could pick its own IP. Rate limits depend on that value. The other forwarded
+		# headers would let a client rewrite the request path and URL Spring sees.
 		handle {
 			reverse_proxy api:8080 {
 				header_up -Forwarded
 				header_up -X-Real-IP
+				header_up -X-Forwarded-Prefix
+				header_up -X-Forwarded-Port
+				header_up -X-Forwarded-Ssl
 			}
 		}
 	}
