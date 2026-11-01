@@ -26,7 +26,8 @@ public class ReadingDailyUsageAlertService {
 		this.properties = properties;
 	}
 
-	@Scheduled(cron = "${app.reading-credits.cleanup-cron}")
+	// Matches the five-minute period of the CloudWatch alarm on this log line.
+	@Scheduled(cron = "0 */5 * * * *")
 	public void reportHighUsage() {
 		int limit = properties.globalDailyAttemptLimit();
 		// A limit of 0 is the operator's own emergency stop, so there is nothing to warn about.

@@ -210,6 +210,15 @@ class FlywayFreshPostgresReplayTests {
 			assertThat(statement.executeUpdate()).isEqualTo(1);
 		}
 		assertThat(capacityUsedToday(jdbcUrl, username, password)).isEqualTo(usedToday + 1);
+
+		var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+			jdbcUrl, username, password
+		);
+		var creditRepository =
+			new com.myeongro.api.domain.readingcredit.repository.JdbcReadingCreditRepository(
+				new org.springframework.jdbc.core.JdbcTemplate(dataSource)
+			);
+		assertThat(creditRepository.todayAttemptCount()).isEqualTo(usedToday + 1);
 	}
 
 	private int capacityUsedToday(String jdbcUrl, String username, String password)

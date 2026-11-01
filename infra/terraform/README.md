@@ -191,6 +191,7 @@ shell의 임의 `AWS_PROFILE`이 아니라 `var.aws_profile`에 지정된 profil
   - RDS CPU 80% 이상이 15분 지속
   - RDS 연결 수 50개 이상이 10분 지속
   - RDS 여유 메모리 100 MiB 미만이 10분 지속
+  - 하루 리딩 생성 시도가 전역 상한의 50% 이상 (`READING_DAILY_USAGE_HIGH` 로그)
 - EC2 파일시스템 사용률은 AWS 기본 지표가 아니므로 Terraform이 CloudWatch Agent 설정을
   SSM Parameter에 저장하고 SSM Association으로 Agent를 설치·설정한다. 이 경로는 실행 중인
   EC2의 `user_data`를 변경하지 않으므로 모니터링 추가만으로 instance를 교체하지 않는다.

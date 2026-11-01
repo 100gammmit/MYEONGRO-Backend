@@ -21,8 +21,6 @@ import jakarta.servlet.http.HttpSession;
 
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
-	private static final String ELIGIBILITY_MISSING_REASON = "signup-eligibility-missing";
-
 	private final String frontendOrigin;
 	private final AdultEligibilityService adultEligibilityService;
 	private final SignupAttemptCoordinator signupAttemptCoordinator;
@@ -46,7 +44,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 		HttpSession session = request.getSession(false);
 		String next = readNext(session);
 		if (session == null) {
-			denyLogin(response, session, ELIGIBILITY_MISSING_REASON, next);
+			denyLogin(response, session, next);
 			return;
 		}
 
@@ -62,7 +60,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
 		if (!(authentication.getPrincipal() instanceof SessionPrincipal principal)
 			|| !adultEligibilityService.hasConfirmationForUser(principal.userId())) {
-			denyLogin(response, session, ELIGIBILITY_MISSING_REASON, next);
+			denyLogin(response, session, next);
 			return;
 		}
 
@@ -122,12 +120,11 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 	private void denyLogin(
 		HttpServletResponse response,
 		HttpSession session,
-		String reason,
 		String next
 	) throws IOException {
 		if (session != null) {
 			session.invalidate();
 		}
-		response.sendRedirect(OAuth2RedirectPath.login(frontendOrigin, reason, next));
+		response.sendRedirect(OAuth2RedirectPath.login(frontendOrigin, "signup-eligibility-missing", next));
 	}
 }
