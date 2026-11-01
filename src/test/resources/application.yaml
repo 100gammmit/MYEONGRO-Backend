@@ -74,6 +74,7 @@ app:
     stale-after: 5m
     cleanup-cron: "0 */5 * * * *"
     global-daily-attempt-limit: 1000
+    usage-alert-percent: 50
   consent:
     versions:
       terms: draft-2026-09-27

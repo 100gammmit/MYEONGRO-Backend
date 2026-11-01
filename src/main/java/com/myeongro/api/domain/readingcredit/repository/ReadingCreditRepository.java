@@ -8,4 +8,6 @@ public interface ReadingCreditRepository {
 	ReadingCreditSnapshot getStatus(UUID userId, int dailyFreeGrant);
 
 	int failStaleGenerations(Duration staleAfter);
+
+	int todayAttemptCount();
 }

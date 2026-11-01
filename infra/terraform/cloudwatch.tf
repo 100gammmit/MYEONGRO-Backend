@@ -198,6 +198,35 @@ resource "aws_cloudwatch_metric_alarm" "rds_high_connections" {
   ok_actions          = var.alarm_notification_email == null ? [] : [aws_sns_topic.production_alarms[0].arn]
 }
 
+# The app logs this every five minutes while the day's generation attempts are
+# past the alert line, so one datapoint is enough and quiet periods are healthy.
+resource "aws_cloudwatch_log_metric_filter" "reading_daily_usage_high" {
+  name           = "${local.resource_prefix}-reading-daily-usage-high"
+  log_group_name = aws_cloudwatch_log_group.backend.name
+  pattern        = "\"READING_DAILY_USAGE_HIGH\""
+
+  metric_transformation {
+    name      = "ReadingDailyUsageHigh"
+    namespace = "${var.project_name}/${var.environment}"
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "reading_daily_usage_high" {
+  alarm_name          = "${local.resource_prefix}-reading-daily-usage-high"
+  alarm_description   = "Daily reading generation attempts reached the alert share of the global ceiling"
+  namespace           = aws_cloudwatch_log_metric_filter.reading_daily_usage_high.metric_transformation[0].namespace
+  metric_name         = aws_cloudwatch_log_metric_filter.reading_daily_usage_high.metric_transformation[0].name
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_notification_email == null ? [] : [aws_sns_topic.production_alarms[0].arn]
+  ok_actions          = var.alarm_notification_email == null ? [] : [aws_sns_topic.production_alarms[0].arn]
+}
+
 resource "aws_cloudwatch_metric_alarm" "rds_low_memory" {
   alarm_name          = "${local.resource_prefix}-postgres-low-memory"
   alarm_description   = "RDS freeable memory remained below 100 MiB for 10 minutes"

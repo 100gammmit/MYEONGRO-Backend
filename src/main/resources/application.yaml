@@ -149,6 +149,8 @@ app:
     cleanup-cron: "${reading.credits.cleanup-cron:0 */5 * * * *}"
     # Whole-service daily ceiling; 0 stops every new generation immediately.
     global-daily-attempt-limit: ${reading.credits.global-daily-attempt-limit:1600}
+    # Share of the ceiling that starts READING_DAILY_USAGE_HIGH warnings for the CloudWatch alarm.
+    usage-alert-percent: ${reading.credits.usage-alert-percent:50}
 
   consent:
     versions:

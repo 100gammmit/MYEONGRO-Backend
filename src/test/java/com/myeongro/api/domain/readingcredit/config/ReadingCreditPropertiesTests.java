@@ -31,7 +31,8 @@ class ReadingCreditPropertiesTests {
 			),
 			Duration.ofMinutes(5),
 			"0 */5 * * * *",
-			-1
+			-1,
+			101
 		);
 		try (var factory = Validation.buildDefaultValidatorFactory()) {
 			var paths = factory.getValidator().validate(invalid).stream()
@@ -44,7 +45,8 @@ class ReadingCreditPropertiesTests {
 					"costs.tarot.mindThreeCard",
 					"costs.tarot.relationshipThreeCard",
 					"costs.tarot.choiceFiveCard",
-					"globalDailyAttemptLimit"
+					"globalDailyAttemptLimit",
+					"usageAlertPercent"
 				);
 		}
 	}
@@ -57,7 +59,8 @@ class ReadingCreditPropertiesTests {
 			),
 			staleAfter,
 			cleanupCron,
-			1000
+			1000,
+			50
 		);
 	}
 }

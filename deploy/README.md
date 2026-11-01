@@ -84,6 +84,10 @@ HMAC key 네 개는 각각 용도가 하나뿐이다. key마다 32바이트 이�
 앞의 세 key를 백업하고, 향후 회전이 필요하면 먼저 versioned-key migration을 설계한다.
 `RATELIMIT_IP_SECRET`은 별도 migration 없이 교체할 수 있다.
 
+`READING_DAILY_USAGE_HIGH` CloudWatch alarm은 하루 생성 시도가 전역 상한의 50%에 이르면
+울린다. 정상 사용 증가라면 `READING_CREDITS_GLOBAL_DAILY_ATTEMPT_LIMIT`을 올리고, 비정상
+증가라면 원인을 확인한다. 긴급 시 이 값을 `0`으로 재배포하면 신규 AI 생성이 멈춘다.
+
 ## EC2 instance role과 호스트
 
 EC2 instance role에는 다음 권한이 필요하다.
