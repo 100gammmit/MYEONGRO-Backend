@@ -1,7 +1,6 @@
 package com.myeongro.api.global.auth.oauth;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
@@ -12,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -28,7 +26,6 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
-import com.myeongro.api.global.ratelimit.IpRateLimiter;
 
 class OAuth2LoginSuccessHandlerTests {
 
@@ -38,47 +35,12 @@ class OAuth2LoginSuccessHandlerTests {
 		org.mockito.Mockito.mock(AdultEligibilityService.class);
 	private final SignupAttemptCoordinator signupAttemptCoordinator =
 		org.mockito.Mockito.mock(SignupAttemptCoordinator.class);
-	private final IpRateLimiter ipRateLimiter =
-		org.mockito.Mockito.mock(IpRateLimiter.class);
 	private final OAuth2LoginSuccessHandler handler =
 		new OAuth2LoginSuccessHandler(
 			"http://localhost:3000",
 			eligibilityService,
-			signupAttemptCoordinator,
-			ipRateLimiter
+			signupAttemptCoordinator
 		);
-
-	@BeforeEach
-	void allowSignups() {
-		when(ipRateLimiter.tryAcquire(any(), any())).thenReturn(true);
-	}
-
-	@Test
-	void turnsAwayANewSignupOverTheIpLimitWithoutStartingAnAttempt() throws Exception {
-		MockHttpServletRequest request = requestWithNext("/records");
-		request.setRemoteAddr("203.0.113.7");
-		MockHttpServletResponse response = new MockHttpServletResponse();
-		var session = request.getSession();
-		when(ipRateLimiter.tryAcquire(IpRateLimiter.Scope.SIGNUP, "203.0.113.7")).thenReturn(false);
-
-		handler.onAuthenticationSuccess(request, response, pendingAuthentication());
-
-		assertThat(response.getRedirectedUrl())
-			.isEqualTo("http://localhost:3000/login?reason=signup-limited&next=%2Frecords");
-		assertThat(((org.springframework.mock.web.MockHttpSession) session).isInvalid()).isTrue();
-		org.mockito.Mockito.verifyNoInteractions(signupAttemptCoordinator);
-	}
-
-	@Test
-	void doesNotCountAnExistingMemberAgainstTheSignupLimit() throws Exception {
-		when(eligibilityService.hasConfirmationForUser(USER_ID)).thenReturn(true);
-
-		handler.onAuthenticationSuccess(
-			requestWithNext("/records"), new MockHttpServletResponse(), existingAuthentication()
-		);
-
-		org.mockito.Mockito.verifyNoInteractions(ipRateLimiter);
-	}
 
 	@Test
 	void redirectsAnExistingEligibleMemberToTheStoredFrontendPath() throws Exception {

@@ -13,7 +13,6 @@ import com.myeongro.api.domain.eligibility.service.AdultEligibilityService;
 import com.myeongro.api.global.auth.AdultEligibilitySessionFilter;
 import com.myeongro.api.global.auth.session.SessionAuthenticatedPrincipal;
 import com.myeongro.api.global.auth.session.SessionPrincipal;
-import com.myeongro.api.global.ratelimit.IpRateLimiter;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,18 +26,15 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 	private final String frontendOrigin;
 	private final AdultEligibilityService adultEligibilityService;
 	private final SignupAttemptCoordinator signupAttemptCoordinator;
-	private final IpRateLimiter ipRateLimiter;
 
 	public OAuth2LoginSuccessHandler(
 		String frontendOrigin,
 		AdultEligibilityService adultEligibilityService,
-		SignupAttemptCoordinator signupAttemptCoordinator,
-		IpRateLimiter ipRateLimiter
+		SignupAttemptCoordinator signupAttemptCoordinator
 	) {
 		this.frontendOrigin = OAuth2RedirectPath.frontendOrigin(frontendOrigin);
 		this.adultEligibilityService = adultEligibilityService;
 		this.signupAttemptCoordinator = signupAttemptCoordinator;
-		this.ipRateLimiter = ipRateLimiter;
 	}
 
 	@Override
@@ -55,10 +51,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 		}
 
 		if (authentication.getPrincipal() instanceof PendingSignupPrincipal pendingSignup) {
-			if (!ipRateLimiter.tryAcquire(IpRateLimiter.Scope.SIGNUP, request.getRemoteAddr())) {
-				denyLogin(response, session, "signup-limited", next);
-				return;
-			}
 			SignupAttemptCoordinator.Attempt attempt = signupAttemptCoordinator.beginAttempt(
 				pendingSignup.provider(),
 				pendingSignup.providerUserId()

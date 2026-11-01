@@ -123,8 +123,7 @@ public class SecurityConfig {
 				.successHandler(new OAuth2LoginSuccessHandler(
 					frontendOrigin,
 					adultEligibilityService,
-					signupAttemptCoordinator,
-					ipRateLimiter
+					signupAttemptCoordinator
 				))
 			)
 			.logout(logout -> logout.disable())

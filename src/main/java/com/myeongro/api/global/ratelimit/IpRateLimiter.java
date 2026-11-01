@@ -31,6 +31,7 @@ public class IpRateLimiter {
 
 	private static final Logger log = LoggerFactory.getLogger(IpRateLimiter.class);
 	static final String KEY_PREFIX = "myeongro:ratelimit:";
+	private static final Duration WINDOW = Duration.ofMinutes(1);
 	private static final String HMAC_ALGORITHM = "HmacSHA256";
 	private static final int MINIMUM_SECRET_BYTES = 32;
 	private static final int IPV6_NETWORK_BYTES = 8;
@@ -46,16 +47,13 @@ public class IpRateLimiter {
 	);
 
 	public enum Scope {
-		OAUTH_START("oauth-start", Duration.ofMinutes(1)),
-		OAUTH_CALLBACK("oauth-callback", Duration.ofMinutes(1)),
-		SIGNUP("signup", Duration.ofDays(1));
+		OAUTH_START("oauth-start"),
+		OAUTH_CALLBACK("oauth-callback");
 
 		private final String keyName;
-		private final Duration window;
 
-		Scope(String keyName, Duration window) {
+		Scope(String keyName) {
 			this.keyName = keyName;
-			this.window = window;
 		}
 	}
 
@@ -95,7 +93,7 @@ public class IpRateLimiter {
 			count = redisTemplate.execute(
 				COUNT_SCRIPT,
 				List.of(KEY_PREFIX + scope.keyName + ":" + hash(network(remoteAddress))),
-				Long.toString(scope.window.toMillis())
+				Long.toString(WINDOW.toMillis())
 			);
 		} catch (RuntimeException exception) {
 			log.warn("IP_RATE_LIMIT_UNAVAILABLE scope={} cause={}", scope, exception.getClass().getSimpleName());

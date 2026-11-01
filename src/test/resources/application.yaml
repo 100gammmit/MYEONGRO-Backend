@@ -34,7 +34,6 @@ app:
     ip-secret: test-only-rate-limit-ip-secret-32-bytes
     oauth-start-per-minute: 20
     oauth-callback-per-minute: 20
-    signup-per-day: 5
 
   eligibility:
     adult-policy-version: 2026-09-09

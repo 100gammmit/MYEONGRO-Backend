@@ -28,7 +28,7 @@ class IpRateLimiterTests {
 	private IpRateLimiter limiter(String ipSecret) {
 		return new IpRateLimiter(
 			redisTemplate,
-			new IpRateLimitProperties(20, 20, 5),
+			new IpRateLimitProperties(20, 30),
 			ipSecret,
 			SELECTION_SECRET,
 			TAROT_SECRET,
@@ -60,9 +60,9 @@ class IpRateLimiterTests {
 
 	@Test
 	void appliesEachScopesOwnLimit() {
-		countIs(6L);
+		countIs(21L);
 
-		assertThat(limiter.tryAcquire(IpRateLimiter.Scope.SIGNUP, "203.0.113.7")).isFalse();
+		assertThat(limiter.tryAcquire(IpRateLimiter.Scope.OAUTH_START, "203.0.113.7")).isFalse();
 		assertThat(limiter.tryAcquire(IpRateLimiter.Scope.OAUTH_CALLBACK, "203.0.113.7")).isTrue();
 	}
 

@@ -102,9 +102,8 @@ app:
   rate-limit:
     # Dedicated HMAC key for client network hashes; must differ from the reading keys.
     ip-secret: ${ratelimit.ip-secret}
-    oauth-start-per-minute: ${ratelimit.oauth-start-per-minute:20}
-    oauth-callback-per-minute: ${ratelimit.oauth-callback-per-minute:20}
-    signup-per-day: ${ratelimit.signup-per-day:5}
+    oauth-start-per-minute: ${ratelimit.oauth-start-per-minute:60}
+    oauth-callback-per-minute: ${ratelimit.oauth-callback-per-minute:60}
 
   eligibility:
     adult-policy-version: 2026-09-09
@@ -149,7 +148,7 @@ app:
     stale-after: ${reading.credits.stale-after:5m}
     cleanup-cron: "${reading.credits.cleanup-cron:0 */5 * * * *}"
     # Whole-service daily ceiling; 0 stops every new generation immediately.
-    global-daily-attempt-limit: ${reading.credits.global-daily-attempt-limit:1000}
+    global-daily-attempt-limit: ${reading.credits.global-daily-attempt-limit:1600}
 
   consent:
     versions:
