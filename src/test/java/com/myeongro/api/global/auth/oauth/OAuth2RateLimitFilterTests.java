@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import com.myeongro.api.global.ratelimit.IpRateLimiter;
 
@@ -72,5 +73,23 @@ class OAuth2RateLimitFilterTests {
 
 		assertThat(chain.getRequest()).isNotNull();
 		verifyNoInteractions(ipRateLimiter);
+	}
+
+	@Test
+	void stillLimitsAnOauthStartThatCarriesAForwardedPrefix() throws Exception {
+		MockHttpServletRequest request = request("/oauth2/authorization/kakao");
+		request.addHeader("X-Forwarded-Prefix", "/other");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		var chain = new MockFilterChain(
+			new jakarta.servlet.http.HttpServlet() {
+			},
+			new ForwardedHeaderFilter(),
+			filter
+		);
+
+		chain.doFilter(request, response);
+
+		assertThat(response.getRedirectedUrl())
+			.isEqualTo("http://localhost:3000/login?reason=rate-limited&next=%2F");
 	}
 }
