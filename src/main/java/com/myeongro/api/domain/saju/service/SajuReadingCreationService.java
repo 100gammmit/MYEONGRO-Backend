@@ -47,15 +47,23 @@ public class SajuReadingCreationService {
 		UUID requestId,
 		SajuReadingCreateRequest request
 	) {
-		int targetYear = LocalDate.ofInstant(
+		int currentYear = LocalDate.ofInstant(
 			clock.instant(), SajuCalculationRules.BIRTH_ZONE
 		).getYear();
 		return workflow.create(
 			userId,
 			requestId,
 			ConsentScope.SAJU,
-			() -> inputNormalizer.normalize(request),
-			input -> inputAssembler.assemble(input, targetYear)
+			() -> inputNormalizer.normalize(request, currentYear),
+			input -> {
+				// Existing completed requests replay before this gate, including across New Year.
+				if (input.targetYear() != currentYear && input.targetYear() != currentYear + 1) {
+					throw com.myeongro.api.domain.reading.service.ReadingInputSupport.invalid(
+						"INVALID_TARGET_YEAR", "targetYear", "리딩 연도는 올해 또는 내년을 선택해 주세요."
+					);
+				}
+				return inputAssembler.assemble(input, input.targetYear());
+			}
 		);
 	}
 }

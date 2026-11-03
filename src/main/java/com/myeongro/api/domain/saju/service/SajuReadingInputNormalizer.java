@@ -30,13 +30,22 @@ public class SajuReadingInputNormalizer {
 	}
 
 	public SajuCalculationInput normalize(SajuReadingCreateRequest request) {
-		return normalize(request, ReadingSchemaVersions.SAJU, null);
+		return normalize(request, LocalDate.now(com.myeongro.api.domain.saju.calculation.SajuCalculationRules.BIRTH_ZONE).getYear());
+	}
+
+	public SajuCalculationInput normalize(SajuReadingCreateRequest request, int currentYear) {
+		int targetYear = request.targetYear() == null ? currentYear : request.targetYear();
+		if (targetYear < 1900 || targetYear > 2100) {
+			throw ReadingInputSupport.invalid("INVALID_TARGET_YEAR", "targetYear", "리딩 연도를 확인해 주세요.");
+		}
+		return normalize(request, ReadingSchemaVersions.SAJU, null, targetYear);
 	}
 
 	private SajuCalculationInput normalize(
 		SajuReadingCreateRequest request,
 		int schemaVersion,
-		String legacyCityCode
+		String legacyCityCode,
+		int targetYear
 	) {
 		String question = ReadingInputSupport.normalizeQuestion(request.question());
 		SajuBirthProfileRequest profile = request.birthProfile();
@@ -91,7 +100,8 @@ public class SajuReadingInputNormalizer {
 			schemaVersion,
 			question,
 			focusArea,
-			ReadingInputSupport.immutable(normalizedProfile)
+			ReadingInputSupport.immutable(normalizedProfile),
+			targetYear
 		);
 	}
 

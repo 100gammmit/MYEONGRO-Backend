@@ -28,8 +28,8 @@
 두 offset의 instant를 모두 후보에 포함하고 `DST_OVERLAP_AMBIGUOUS` limitation을 남긴다.
 
 저장 snapshot에는 `calculationVersion`, `engine`, `engineVersion`,
-`cityCatalogVersion`, `targetYear`를 함께 기록한다. 실패 리딩 재시도는 저장 snapshot을
-strict decode하고 계산을 다시 수행하지 않는다. 엔진·규칙·카탈로그를 변경할 때 기존
+`cityCatalogVersion`, `targetYear`를 함께 기록한다. 기존 기록 조회는 저장된 계산정보를
+사용하고 계산을 다시 수행하지 않는다. 실패 리딩은 새 입력·새 requestId로 요청한다. 엔진·규칙·카탈로그를 변경할 때 기존
 fixture 기대값을 덮어쓰지 말고 새 계산 버전을 추가한다.
 
 골든 fixture는 `src/test/resources/saju/golden/saju-ko-v1.json`과
@@ -37,4 +37,23 @@ fixture 기대값을 덮어쓰지 말고 새 계산 버전을 추가한다.
 `src/test/resources/saju/golden/saju-ko-v4.json`에 있으며 공식 엔진 소스
 `https://github.com/6tail/lunar-java/tree/v1.7.7`을 검증 출처로 기록한다. v4 fixture는 v3와 같은
 케이스의 기대값을 한국어 용어로 옮긴 것이다.
-실패 리딩 재시도는 저장된 v1~v4 snapshot을 모두 읽을 수 있고, 해석 입력 변환은 한자와 한국어 용어를 모두 받는다.
+기존 v1~v4 계산 fixture는 보존하며, 해석 입력 변환은 한자와 한국어 용어를 모두 받는다.
+
+## 월운 달력 `saju-monthly-ko-v1`
+
+사주 schema v6은 원국 `saju-ko-v4`를 변경하지 않고 최소 snapshot에 `monthlyCalendar`를 추가한다.
+원본 출생정보는 여전히 요청 중에만 사용한다. 월운은 출생시각 후보를 병합한 뒤 한 번 계산하며,
+선택한 연도의 달력 1~12월 각각을 절입 전·후 두 구간으로 나눈다. 절입 시각은 lunar-java의
+UTC+8 민간시각에서 instant를 거쳐 Asia/Seoul로 변환한다. 대상 연도 달력에 출생지의 진태양시 보정을 적용하지 않는다.
+
+각 구간은 `startInclusive`(시작 포함), `endExclusive`(종료 미포함), `yearGanZhi`, `monthGanZhi`를 갖는다.
+`stemTenGod`는 출생 후보들에서 일간이 공통으로 확인될 때만 저장한다. 입춘 전 구간의 연간지는
+전년도 간지일 수 있으며 달력 연도 `targetYear`와 혼동하지 않는다. timestamp는 초 단위 한국 시각이다.
+공개 API는 한국 날짜 기준 올해·내년을 선택한다. 명시 연도는 요청 지문에 포함하고, 완료된 요청의
+멱등 조회가 새로운 생성의 연도 유효성 검사보다 먼저 수행되어 연말 재전송도 기존 결과로 수렴한다.
+
+월운 계산 재현 fixture는 `src/test/resources/saju/golden/saju-monthly-ko-v1.json`이다.
+기존 원국 골든과 2020년 입춘 경계를 유지하며 2027년 전체 절입을 고정한다. 이 fixture는 지정 엔진의
+계산 계약 재현성을 검증하며 천문학적 오차나 미래 예측의 정확성을 입증하는 자료가 아니다.
+M3에서는 월운 달력을 DB snapshot에만 담고 현재 OpenAI 해석 입력에는 전달하지 않는다.
+기존 DB v5 기록은 migration으로 재계산하지 않으며 월별 해석 생성/표시는 M4의 별도 범위다.

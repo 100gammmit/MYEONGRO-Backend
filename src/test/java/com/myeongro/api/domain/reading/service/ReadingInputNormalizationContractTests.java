@@ -76,9 +76,9 @@ class ReadingInputNormalizationContractTests {
 		assertThat(profile).containsEntry("birthTime", "14:30")
 			.containsEntry("birthTimePrecision", "exact")
 			.containsEntry("provinceCode", "11");
-		assertThat(normalized.schemaVersion()).isEqualTo(5);
+		assertThat(normalized.schemaVersion()).isEqualTo(6);
 		assertThat(normalized.idempotencyPayload())
-			.containsOnlyKeys("question", "focusArea", "birthProfile");
+			.containsOnlyKeys("question", "focusArea", "birthProfile", "targetYear");
 	}
 
 	@Test

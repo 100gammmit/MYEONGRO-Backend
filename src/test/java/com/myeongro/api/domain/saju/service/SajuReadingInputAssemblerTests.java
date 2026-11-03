@@ -39,7 +39,7 @@ class SajuReadingInputAssemblerTests {
 
 		PreparedReadingInput assembled = assembler.assemble(base, 2026);
 
-		assertThat(assembled.schemaVersion()).isEqualTo(5);
+		assertThat(assembled.schemaVersion()).isEqualTo(6);
 		assertThat(assembled.aiPayload())
 			.containsOnlyKeys("focusArea", "targetYear", "calculation");
 		assertThat(assembled.storedPayload())
@@ -57,6 +57,8 @@ class SajuReadingInputAssemblerTests {
 			.containsKeys("calculationVersion", "engine", "engineVersion",
 				"cityCatalogVersion", "pillars", "currentLuckCycle", "annualFortune")
 			.doesNotContainKeys("timeCorrection", "luckCycle");
+		assertThat(storedCalculation).containsKey("monthlyCalendar");
+		assertThat(aiCalculation.containsKey("monthlyCalendar")).isFalse();
 		assertThat(storedCalculation.toString())
 			.doesNotContain("startAge", "endAge", "direction", "precision",
 				"candidateCount", "candidateZoneOffsets", "APPROXIMATE_BIRTH_TIME");
@@ -67,7 +69,7 @@ class SajuReadingInputAssemblerTests {
 			ReadingSchemaVersions.SAJU,
 			"올해 흐름이 궁금해요",
 			SajuFocusArea.CAREER,
-			profile()
+			profile(), 2026
 		);
 	}
 

@@ -13,7 +13,8 @@ public record SajuCalculationInput(
 	int schemaVersion,
 	String question,
 	SajuFocusArea focusArea,
-	Map<String, Object> birthProfile
+	Map<String, Object> birthProfile,
+	int targetYear
 ) implements ReadingRequestInput {
 
 	public SajuCalculationInput {
@@ -35,7 +36,8 @@ public record SajuCalculationInput(
 		return ReadingInputSupport.orderedMap(
 			"question", question,
 			"focusArea", focusArea.value(),
-			"birthProfile", birthProfile
+			"birthProfile", birthProfile,
+			"targetYear", targetYear
 		);
 	}
 }

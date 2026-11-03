@@ -261,6 +261,41 @@ class ReadingCreationWorkflowTests {
 	}
 
 	@Test
+	void rejectsNewPastYearRequestBeforeCalculationOrReservation() {
+		var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		var facade = service(acceptedConsent(), repository, generator);
+		var request = sajuRequest();
+		assertThatThrownBy(() -> facade.createSajuReading(USER_ID, REQUEST_ID, new SajuReadingCreateRequest(
+			request.question(), request.requestId(), request.birthProfile(), request.focusArea(), 2025
+		))).isInstanceOfSatisfying(InvalidReadingRequestException.class, error -> {
+			assertThat(error.getCode()).isEqualTo("INVALID_TARGET_YEAR");
+			assertThat(error.getField()).isEqualTo("targetYear");
+		});
+		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
+		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+		verifyNoInteractions(generator);
+	}
+
+	@Test
+	void replaysCompletedExplicitYearAfterYearRollOverWithoutRecalculation() {
+		var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		var existing = sajuReading("completed");
+		when(repository.findExisting(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.eq(ReadingKind.SAJU), org.mockito.ArgumentMatchers.isNull(),
+			org.mockito.ArgumentMatchers.eq(6), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap()))
+			.thenReturn(Optional.of(existing));
+		var facade = service(acceptedConsent(), repository, generator);
+		var request = sajuRequest();
+		assertThat(facade.createSajuReading(USER_ID, REQUEST_ID, new SajuReadingCreateRequest(
+			request.question(), request.requestId(), request.birthProfile(), request.focusArea(), 2025
+		))).isSameAs(existing);
+		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+		verifyNoInteractions(generator);
+	}
+
+	@Test
 	void marksPendingGenerationFailedAndPropagatesStable502Exception() {
 		ConsentService consentService = acceptedConsent();
 		ReadingCreationRepository repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);

@@ -14,8 +14,23 @@ public record SajuReadingCreateRequest(
 	UUID requestId,
 	@NotNull
 	SajuBirthProfileRequest birthProfile,
-	String focusArea
+	String focusArea,
+	@com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = TargetYearDeserializer.class)
+	Integer targetYear
 ) {
+	public static class TargetYearDeserializer extends com.fasterxml.jackson.databind.JsonDeserializer<Integer> {
+		@Override
+		public Integer deserialize(com.fasterxml.jackson.core.JsonParser parser, com.fasterxml.jackson.databind.DeserializationContext context)
+			throws java.io.IOException {
+			if (!parser.hasToken(com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT)) {
+				return context.reportInputMismatch(Integer.class, "targetYear must be an integer");
+			}
+			return parser.getIntValue();
+		}
+	}
+	public SajuReadingCreateRequest(String question, UUID requestId, SajuBirthProfileRequest birthProfile, String focusArea) {
+		this(question, requestId, birthProfile, focusArea, null);
+	}
 
 	@JsonAnySetter
 	void rejectUnknownField(String name, Object value) {

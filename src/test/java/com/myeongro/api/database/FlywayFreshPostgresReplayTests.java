@@ -34,10 +34,29 @@ class FlywayFreshPostgresReplayTests {
 			.load();
 
 		flyway.clean();
+		var baseline = Flyway.configure().dataSource(jdbcUrl, username, password)
+			.locations("classpath:db/migration").target("2").load().migrate();
+		UUID legacyOwner = createProfile(jdbcUrl, username, password);
+		UUID legacyReading = UUID.randomUUID();
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			var insert = connection.prepareStatement("""
+			 insert into public.readings(id, user_id, kind, title, input_payload, input_hash, schema_version)
+			 values (?, ?, 'saju', 'legacy-v5', '{"targetYear":2026,"calculationSnapshot":{
+			 "calculationVersion":"saju-ko-v4","engine":"lunar-java","engineVersion":"1.7.7","cityCatalogVersion":"kr-admin-v1",
+			 "targetYear":2026,"pillars":{"year":null,"month":null,"day":null,"time":null},"fiveElements":{},
+			 "relations":[],"limitations":[],"uncertainty":{"varyingFields":[]}}}'::jsonb, 'test-legacy', 5)
+			 """)) {
+			insert.setObject(1, legacyReading); insert.setObject(2, legacyOwner); insert.executeUpdate();
+		}
 		var result = flyway.migrate();
 
 		assertThat(result.success).isTrue();
-		assertThat(result.migrationsExecuted).isEqualTo(2);
+		assertThat(result.migrationsExecuted + baseline.migrationsExecuted).isEqualTo(3);
+		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
+			var query = connection.prepareStatement("select schema_version, jsonb_exists(input_payload->'calculationSnapshot', 'monthlyCalendar') from public.readings where id = ?")) {
+			query.setObject(1, legacyReading);
+			try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); assertThat(row.getInt(1)).isEqualTo(5); assertThat(row.getBoolean(2)).isFalse(); }
+		}
 		verifyHistory(jdbcUrl, username, password);
 		verifyCurrentSchema(jdbcUrl, username, password);
 		verifySecurityDefinerPrivileges(jdbcUrl, username, password);
@@ -61,6 +80,9 @@ class FlywayFreshPostgresReplayTests {
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isTrue();
 			assertThat(resultSet.getString("version")).isEqualTo("2");
+			assertThat(resultSet.getBoolean("success")).isTrue();
+			assertThat(resultSet.next()).isTrue();
+			assertThat(resultSet.getString("version")).isEqualTo("3");
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isFalse();
 		}

@@ -63,6 +63,9 @@ class ReadingInputFingerprinterTests {
 			)));
 
 		assertThat(fingerprint).isNotEqualTo(plainSha256(original));
+		assertThat(fingerprint).isNotEqualTo(fingerprinter.fingerprint(new SajuCalculationInput(
+			original.schemaVersion(), original.question(), original.focusArea(), original.birthProfile(), 2027
+		)));
 	}
 
 	@Test
@@ -184,7 +187,7 @@ class ReadingInputFingerprinterTests {
 				"birthDate", birthDate,
 				"birthTimePrecision", "unknown",
 				"luckDirectionBasis", "unspecified"
-			)
+			), 2026
 		);
 	}
 }

@@ -233,7 +233,7 @@ class ReadingEndpointContractTests {
 					"""))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.reading.kind").value("saju"))
-			.andExpect(jsonPath("$.reading.schemaVersion").value(5));
+			.andExpect(jsonPath("$.reading.schemaVersion").value(6));
 	}
 
 	@Test
