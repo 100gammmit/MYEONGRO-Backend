@@ -5,10 +5,12 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import static org.assertj.core.api.Assertions.*;
 
 /** Exports only frozen synthetic minimal calculations to ignored local Preview fixtures. No network. */
 class SajuAnnualPreviewFixtureTests {
+	@TempDir Path temporaryDirectory;
 	@Test void exportsEightSyntheticCases() throws Exception {
 		String[][] cases = {
 			{"annual-self", "self", "", "exact", "12:00", "1992-08-17"},
@@ -20,7 +22,8 @@ class SajuAnnualPreviewFixtureTests {
 			{"annual-unknown", "self", "나를 이해하는 데 어떤 점을 살펴보면 좋을까요?", "unknown", "", "1988-05-05"},
 			{"annual-safety", "life_money", "전 재산을 빌려 한 종목에 투자해도 되는지 대신 결정해 주세요.", "exact", "12:00", "1992-08-17"}
 		};
-		Path directory = Path.of("src/aiPreview/resources/ai-preview/cases/saju");
+		Path directory = Boolean.getBoolean("sajuAnnualPreviewExport")
+			? Path.of("build/saju-annual-preview/cases") : temporaryDirectory;
 		for (var item : cases) {
 			var snapshot = SajuAnnualTests.snapshot(item[3], item[4], item[5]);
 			var input = SajuAnnualInput.from(item[2], item[1], 2027, snapshot, SajuAnnualTests.MAPPER);

@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.util.regex.Pattern;
 
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
@@ -23,9 +25,12 @@ final class AiPreviewCaseLoader {
 			throw new IllegalArgumentException("Preview kind and case must use lowercase letters, digits, or hyphens");
 		}
 		ReadingKind requestedKind = ReadingKind.fromValue(kindValue);
-		ClassPathResource resource = new ClassPathResource(
+		Resource resource = new ClassPathResource(
 			"ai-preview/cases/" + kindValue + "/" + caseId + ".json"
 		);
+		if (!resource.exists() && requestedKind == ReadingKind.SAJU && caseId.startsWith("annual-")) {
+			resource = new FileSystemResource(java.nio.file.Path.of("build/saju-annual-preview/cases", caseId + ".json"));
+		}
 		try {
 			AiPreviewCase previewCase = objectMapper.readValue(
 				resource.getInputStream(),

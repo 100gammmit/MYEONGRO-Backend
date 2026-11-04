@@ -8,8 +8,16 @@ import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 public class SajuAnnualGenerationException extends OpenAiReadingGenerationException {
 	private final Map<String, Object> metrics;
 	public SajuAnnualGenerationException(Exception cause, Map<String, Object> metrics) {
-		super(OpenAiReadingGenerationStage.RESPONSE_CONTRACT, cause);
-		this.metrics = Map.copyOf(metrics);
+		// Jackson exception messages/causes can retain response excerpts and echoed free text.
+		super(OpenAiReadingGenerationStage.RESPONSE_CONTRACT,
+			new IllegalArgumentException("Annual response rejected: " + safeCode(cause)));
+		var measured = new java.util.LinkedHashMap<>(metrics);
+		measured.put("contractCode", safeCode(cause));
+		this.metrics = Map.copyOf(measured);
 	}
 	public Map<String, Object> metrics() { return metrics; }
+	private static String safeCode(Exception cause) {
+		return cause instanceof SajuAnnualContractViolation violation
+			? violation.code().name() : cause.getClass().getSimpleName();
+	}
 }

@@ -85,7 +85,8 @@ tasks.named('test') {
         'freshPostgresUsername',
         'freshPostgresPassword',
         'freshRedisHost',
-        'freshRedisPort'
+        'freshRedisPort',
+        'sajuAnnualPreviewExport'
     ].each { propertyName ->
         if (System.getProperty(propertyName) != null) {
             systemProperty propertyName, System.getProperty(propertyName)

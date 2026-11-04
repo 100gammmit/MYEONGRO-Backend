@@ -44,8 +44,8 @@ final class AiPreviewMarkdownRenderer {
 				appendSection(markdown, result.get("annualOverview"));
 				appendHeading(markdown, 2, "월별 요약");
 				appendSections(markdown, result.get("months"));
-				appendHeading(markdown, 2, "공유하는 절입 구간 해석");
-				if (result.get("periods") instanceof List<?> periods) {
+				if (result.get("periods") instanceof List<?> periods && !periods.isEmpty()) {
+					appendHeading(markdown, 2, "공유하는 절입 구간 해석");
 					for (Object item : periods) {
 						if (item instanceof Map<?, ?> period) appendParagraph(markdown, String.valueOf(period.get("periodId")));
 						appendSection(markdown, item);

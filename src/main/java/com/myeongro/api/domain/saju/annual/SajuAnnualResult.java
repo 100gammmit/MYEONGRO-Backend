@@ -4,7 +4,7 @@ import java.util.List;
 import com.myeongro.api.domain.reading.service.ReadingMode;
 
 public record SajuAnnualResult(
-	String reportType, int targetYear, ReadingMode readingMode, Boolean questionRedirected,
+	String reportType, String detailLevel, int targetYear, ReadingMode readingMode, Boolean questionRedirected,
 	String title, Section annualOverview, List<Month> months, List<Period> periods,
 	Section questionReading, String summary, String disclaimer
 ) {

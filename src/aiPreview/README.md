@@ -89,15 +89,15 @@ fixture에는 실제 서비스 생성기가 받는 정규화된 입력을 저장
 
 한국어 기획서는 `docs/plans/saju-m4-annual-report.md`다. 현재는 Preview 전용이며 공개 사주 controller·DB·가격·UI는 바꾸지 않는다. `annual_monthly` 생성기는 운영 router에 등록하지 않는다. 기존 종합 사주의 schema v6과 활성 프롬프트도 그대로다.
 
-`SajuAnnualPreviewFixtureTests`는 합성 출생정보를 로컬 계산한 뒤 원문을 제거한 최소 snapshot만 ignored fixture 8개로 내보낸다. 각 fixture의 `input`은 `reportType`, `targetYear`, `focusArea`, `calculationSnapshot`으로 제한한다. 질문은 비어 있어도 되며 직접 식별정보와 길이 검사는 provider 호출 전에 적용한다.
+`SajuAnnualPreviewFixtureTests`는 기본적으로 @TempDir에만 합성 fixture를 만들고 검증한다. 명시적으로 export 속성을 켰을 때만 `build/saju-annual-preview/cases`에 8개를 만든다. 원본 출생정보를 제거한 최소 snapshot만 내보내며 개발자의 source Preview fixture를 덮어쓰지 않는다. Preview는 같은 이름의 classpath fixture가 없을 때 이 build 경로를 읽는다. 각 fixture의 `input`은 `reportType`, `targetYear`, `focusArea`, `calculationSnapshot`으로 제한한다. 질문은 비어 있어도 되며 직접 식별정보와 길이 검사는 provider 호출 전에 적용한다.
 
 ```powershell
-.\gradlew.bat test --tests '*SajuAnnualPreviewFixtureTests'
+.\gradlew.bat test --tests '*SajuAnnualPreviewFixtureTests' -DsajuAnnualPreviewExport=true
 .\gradlew.bat aiPreview -Pkind=saju -Pcase=annual-self
 .\gradlew.bat aiPreview -Pkind=saju -Pcase=annual-self -Pexecute=true
 ```
 
-연간 결과의 `months`는 달력 1~12월의 요약이며 `periods`는 연속한 동일 월운을 합친 구간별 해석이다. 구간 ID는 계산 순서대로 부여하며 월별 참조와 적용 기간은 계측 JSON의 `metrics.calendar`에 있다. AI에는 날짜·출생 원문을 보내지 않는다. `questionReading`은 질문이 없으면 null이다. 서버는 월/구간 누락·순서·중복·다른 구간 근거·없는 근거를 거부한다.
+연간 결과의 `months`는 달력 1~12월의 요약이며 `periods`는 상세형(full)에서만 연속한 동일 월운을 합친 구간별 해석을 담는다. 일간 미확정 간략형(brief)은 periods=[]이며 연간 개요·월별 한 줄 요약·계산 구간만 제공한다. detailLevel은 서버가 계산 근거로 정하며 임의로 full을 선택하지 못한다. 구간 ID는 계산 순서대로 부여하며 월별 참조와 적용 기간은 계측 JSON의 `metrics.calendar`에 있다. AI에는 날짜·출생 원문을 보내지 않는다. `questionReading`은 질문이 없으면 null이다. 서버는 월/구간 누락·순서·중복·두 구간 근거 누락·다른 구간 근거·없는 근거를 거부한다.
 
 계측은 실제 응답 모델, 입력/출력/전체 토큰, 종료 이유와 호출 시간을 보관한다. provider 응답 후 계약 검증 실패도 원문 응답 없이 토큰 계측만 남긴다. 캐시 읽기/쓰기와 계정별 요율을 기록하지 않으므로 기본 단가 추정은 청구액이 아니다. 실제 사용자 데이터는 사용하지 않는다.
 
