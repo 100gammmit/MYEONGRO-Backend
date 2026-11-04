@@ -55,7 +55,9 @@ import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 	SajuInterpretationInputMapper.class,
 	TarotReadingResultValidator.class,
 	SajuReadingResultValidator.class,
-	DeclinedReadingFactory.class
+	DeclinedReadingFactory.class,
+	com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog.class,
+	com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator.class
 })
 public class AiPreviewApplication {
 

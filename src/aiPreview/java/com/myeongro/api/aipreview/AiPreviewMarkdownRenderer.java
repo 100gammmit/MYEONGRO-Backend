@@ -40,6 +40,18 @@ final class AiPreviewMarkdownRenderer {
 		if ("tarot".equals(report.kind())) {
 			appendSections(markdown, result.get("sections"));
 		} else if ("saju".equals(report.kind())) {
+			if ("annual_monthly".equals(result.get("reportType"))) {
+				appendSection(markdown, result.get("annualOverview"));
+				appendHeading(markdown, 2, "월별 요약");
+				appendSections(markdown, result.get("months"));
+				appendHeading(markdown, 2, "공유하는 절입 구간 해석");
+				if (result.get("periods") instanceof List<?> periods) {
+					for (Object item : periods) {
+						if (item instanceof Map<?, ?> period) appendParagraph(markdown, String.valueOf(period.get("periodId")));
+						appendSection(markdown, item);
+					}
+				}
+			}
 			appendSections(markdown, result.get("natalSections"));
 			appendSection(markdown, result.get("annualReading"));
 			appendSection(markdown, result.get("questionReading"));
@@ -53,6 +65,12 @@ final class AiPreviewMarkdownRenderer {
 		}
 		appendDisclaimer(markdown, text(result.get("disclaimer"), null));
 		appendExecutionMetadata(markdown, report);
+		if (!report.metrics().isEmpty()) {
+			appendHeading(markdown, 2, "평가 계측");
+			for (String key : List.of("responseModel", "promptTokens", "completionTokens", "totalTokens", "finishReason")) {
+				appendMetadata(markdown, key, String.valueOf(report.metrics().get(key)));
+			}
+		}
 		return markdown.toString();
 	}
 

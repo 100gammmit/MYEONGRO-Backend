@@ -242,6 +242,30 @@ class ReadingEndpointContractTests {
 	}
 
 	@Test
+	void keepsAnnualReportOutOfPublicCreationDuringPreviewStage() throws Exception {
+		mockMvc.perform(post("/api/saju/readings")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "reportType":"annual_monthly",
+					  "question":"합성 평가 질문",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "birthProfile":{
+					    "calendarType":"solar",
+					    "birthDate":"1992-08-17",
+					    "birthTimePrecision":"unknown",
+					    "luckDirectionBasis":"unspecified"
+					  }
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
+			.andExpect(jsonPath("$.field").value("reportType"));
+		org.mockito.Mockito.verifyNoInteractions(sajuCreationService);
+	}
+
+	@Test
 	void rejectsExplicitNullTargetYearBeforeCreation() throws Exception {
 		mockMvc.perform(post("/api/saju/readings")
 				.principal(authentication())

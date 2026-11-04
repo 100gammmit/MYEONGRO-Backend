@@ -46,7 +46,9 @@ final class AiPreviewCaseLoader {
 		if (!requestedCaseId.equals(previewCase.id()) || requestedKind != previewCase.kind()) {
 			throw new IllegalArgumentException("AI preview case metadata does not match its path");
 		}
-		if (previewCase.question() == null || previewCase.question().isBlank()) {
+		boolean annual = requestedKind == ReadingKind.SAJU
+			&& "annual_monthly".equals(previewCase.input().get("reportType"));
+		if (!annual && (previewCase.question() == null || previewCase.question().isBlank())) {
 			throw new IllegalArgumentException("AI preview question is required");
 		}
 		if (requestedKind == ReadingKind.TAROT && previewCase.spreadType() == null) {

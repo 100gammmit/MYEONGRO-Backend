@@ -35,6 +35,9 @@ final class AiPreviewRunner {
 	private final String caseId;
 	private final boolean execute;
 	private final String model;
+	private final com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator annualGenerator;
+	private final com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog annualPrompts;
+	private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
 	AiPreviewRunner(
 		ReadingGenerator readingGenerator,
@@ -43,6 +46,9 @@ final class AiPreviewRunner {
 		AiPreviewCaseLoader caseLoader,
 		AiPreviewReportWriter reportWriter,
 		AiPreviewLabelFactory labelFactory,
+		com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator annualGenerator,
+		com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog annualPrompts,
+		com.fasterxml.jackson.databind.ObjectMapper objectMapper,
 		@Value("${ai-preview.kind:}") String kind,
 		@Value("${ai-preview.case:}") String caseId,
 		@Value("${ai-preview.execute:false}") boolean execute,
@@ -58,6 +64,9 @@ final class AiPreviewRunner {
 		this.caseId = caseId;
 		this.execute = execute;
 		this.model = model;
+		this.annualGenerator = annualGenerator;
+		this.annualPrompts = annualPrompts;
+		this.objectMapper = objectMapper;
 	}
 
 	void run() {
@@ -75,12 +84,33 @@ final class AiPreviewRunner {
 
 		Instant startedAt = Instant.now();
 		long startedNanos = System.nanoTime();
-		GeneratedReading generated = readingGenerator.generate(
-			previewCase.kind(),
-			previewCase.spreadType() == null ? null : previewCase.spreadType().value(),
-			previewCase.question(),
-			previewCase.input()
-		);
+		Map<String, Object> metrics = Map.of();
+		GeneratedReading generated;
+		if (isAnnual(previewCase)) {
+			var prepared = annualInput(previewCase);
+			com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator.Evaluation evaluated;
+			try {
+				evaluated = annualGenerator.generate(prepared);
+			} catch (com.myeongro.api.domain.saju.annual.SajuAnnualGenerationException exception) {
+				var failure = new AiPreviewReport(label, previewCase.id(), "saju", null, model,
+					prompt.version(), prompt.sha256(), startedAt, (System.nanoTime() - startedNanos) / 1_000_000,
+					Map.of("resultType", "failed", "title", "연간 리포트 검증 실패"), exception.metrics());
+				var written = reportWriter.write(failure);
+				System.out.println("Rejected annual output metrics: " + written.json());
+				throw exception;
+			}
+			generated = evaluated.reading();
+			var measured = new java.util.LinkedHashMap<>(evaluated.metrics());
+			measured.put("calendar", objectMapper.convertValue(prepared.calendar(), Map.class));
+			metrics = measured;
+		} else {
+			generated = readingGenerator.generate(
+				previewCase.kind(),
+				previewCase.spreadType() == null ? null : previewCase.spreadType().value(),
+				previewCase.question(),
+				previewCase.input()
+			);
+		}
 		long durationMillis = (System.nanoTime() - startedNanos) / 1_000_000;
 		AiPreviewReport report = new AiPreviewReport(
 			label,
@@ -92,7 +122,7 @@ final class AiPreviewRunner {
 			prompt.sha256(),
 			startedAt,
 			durationMillis,
-			generated.payload()
+			generated.payload(), metrics
 		);
 		AiPreviewWrittenReport output = reportWriter.write(report);
 		System.out.println("AI preview completed in " + durationMillis + " ms");
@@ -103,7 +133,10 @@ final class AiPreviewRunner {
 	private PromptIdentity promptIdentity(AiPreviewCase previewCase) {
 		String prompt;
 		String version;
-		if (previewCase.kind() == ReadingKind.TAROT) {
+		if (isAnnual(previewCase)) {
+			annualInput(previewCase); // Validate input even in a dry run.
+			prompt = annualPrompts.prompt(); version = annualPrompts.version();
+		} else if (previewCase.kind() == ReadingKind.TAROT) {
 			List<String> cardIds = selectedCardIds(previewCase.input());
 			prompt = tarotPromptCatalog.prompt(previewCase.spreadType(), cardIds);
 			version = tarotPromptCatalog.version(previewCase.spreadType());
@@ -112,6 +145,24 @@ final class AiPreviewRunner {
 			version = sajuPromptCatalog.version();
 		}
 		return new PromptIdentity(version, sha256(prompt));
+	}
+
+	private boolean isAnnual(AiPreviewCase previewCase) {
+		return previewCase.kind() == ReadingKind.SAJU && "annual_monthly".equals(previewCase.input().get("reportType"));
+	}
+
+	private com.myeongro.api.domain.saju.annual.SajuAnnualInput annualInput(AiPreviewCase previewCase) {
+		Map<String, Object> input = previewCase.input();
+		if (!input.keySet().equals(java.util.Set.of("reportType", "targetYear", "focusArea", "calculationSnapshot"))) {
+			throw new IllegalArgumentException("Annual preview requires a frozen snapshot only");
+		}
+		@SuppressWarnings("unchecked")
+		Map<String, Object> snapshot = (Map<String, Object>)input.get("calculationSnapshot");
+		if (!(input.get("targetYear") instanceof Integer targetYear)) {
+			throw new IllegalArgumentException("Annual preview targetYear must be an integer");
+		}
+		return com.myeongro.api.domain.saju.annual.SajuAnnualInput.from(previewCase.question(),
+			(String)input.get("focusArea"), targetYear, snapshot, objectMapper);
 	}
 
 	private List<String> selectedCardIds(Map<String, Object> input) {

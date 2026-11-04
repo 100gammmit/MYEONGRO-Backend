@@ -13,6 +13,11 @@ record AiPreviewReport(
 	String promptSha256,
 	Instant executedAt,
 	long durationMillis,
-	Map<String, Object> result
+	Map<String, Object> result,
+	Map<String, Object> metrics
 ) {
+	AiPreviewReport(String label, String caseId, String kind, String spreadType, String model,
+		String promptVersion, String promptSha256, Instant executedAt, long durationMillis, Map<String, Object> result) {
+		this(label, caseId, kind, spreadType, model, promptVersion, promptSha256, executedAt, durationMillis, result, Map.of());
+	}
 }
