@@ -51,7 +51,7 @@ class FlywayFreshPostgresReplayTests {
 		var result = flyway.migrate();
 
 		assertThat(result.success).isTrue();
-		assertThat(result.migrationsExecuted + baseline.migrationsExecuted).isEqualTo(3);
+		assertThat(result.migrationsExecuted + baseline.migrationsExecuted).isEqualTo(4);
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
 			var query = connection.prepareStatement("select schema_version, jsonb_exists(input_payload->'calculationSnapshot', 'monthlyCalendar') from public.readings where id = ?")) {
 			query.setObject(1, legacyReading);
@@ -61,6 +61,7 @@ class FlywayFreshPostgresReplayTests {
 		verifyCurrentSchema(jdbcUrl, username, password);
 		verifySecurityDefinerPrivileges(jdbcUrl, username, password);
 		verifyReadingCreationContract(jdbcUrl, username, password);
+		verifyAnnualReportContract(jdbcUrl, username, password);
 		verifyConsentTransitionSerialization(jdbcUrl, username, password);
 	}
 
@@ -83,6 +84,9 @@ class FlywayFreshPostgresReplayTests {
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isTrue();
 			assertThat(resultSet.getString("version")).isEqualTo("3");
+			assertThat(resultSet.getBoolean("success")).isTrue();
+			assertThat(resultSet.next()).isTrue();
+			assertThat(resultSet.getString("version")).isEqualTo("4");
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isFalse();
 		}
@@ -635,6 +639,46 @@ class FlywayFreshPostgresReplayTests {
 			return;
 		}
 		throw new AssertionError("Expected SQL state " + expected);
+	}
+
+	private void verifyAnnualReportContract(String url, String username, String password) throws Exception {
+		var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+		var snapshot = new java.util.LinkedHashMap<String, Object>();
+		snapshot.put("calculationVersion", "saju-ko-v4"); snapshot.put("engine", "lunar-java");
+		snapshot.put("engineVersion", "1.7.7"); snapshot.put("cityCatalogVersion", "kr-admin-v1-province");
+		snapshot.put("targetYear", 2027);
+		var pillars = new java.util.LinkedHashMap<String, Object>();
+		for (String name : List.of("year", "month", "day", "time")) pillars.put(name, null);
+		snapshot.put("pillars", pillars); snapshot.put("fiveElements", java.util.Map.of()); snapshot.put("relations", List.of());
+		snapshot.put("limitations", List.of()); snapshot.put("uncertainty", java.util.Map.of("varyingFields", List.of()));
+		snapshot.put("monthlyCalendar", new com.myeongro.api.domain.saju.calculation.SajuMonthlyCalendarService().calculate(2027, null));
+		var payload = new java.util.LinkedHashMap<String, Object>();
+		payload.put("targetYear", 2027); payload.put("calculationSnapshot", snapshot); payload.put("reportType", "annual_monthly");
+		try (var connection = DriverManager.getConnection(url, username, password);
+			var check = connection.prepareStatement("select public.is_valid_saju_v7_input(?::jsonb), public.is_valid_saju_v6_input(?::jsonb), public.is_valid_saju_v7_input(?::jsonb)")) {
+			check.setString(1, mapper.writeValueAsString(payload)); check.setString(2, mapper.writeValueAsString(payload));
+			var withoutType = new java.util.LinkedHashMap<>(payload); withoutType.remove("reportType");
+			check.setString(3, mapper.writeValueAsString(withoutType));
+			try (var row = check.executeQuery()) { assertThat(row.next()).isTrue(); assertThat(row.getBoolean(1)).isTrue(); assertThat(row.getBoolean(2)).isFalse(); assertThat(row.getBoolean(3)).isFalse(); }
+		}
+		UUID owner = createProfile(url, username, password);
+		for (boolean succeeds : List.of(false, true)) {
+			PendingReading pending;
+			UUID request = UUID.randomUUID();
+			try (var connection = DriverManager.getConnection(url, username, password);
+				var query = connection.prepareStatement("select * from public.create_pending_reading(?, ?, 'annual-hash', 'saju'::public.reading_kind, null, 7, ?::jsonb, 'openai', 'test-model', 'annual-test', 4, 10, 1000)")) {
+				query.setObject(1, owner); query.setObject(2, request); query.setString(3, mapper.writeValueAsString(payload));
+				try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); pending = new PendingReading(row.getObject("reading_id", UUID.class), row.getLong("generation_id"), row.getBoolean("created")); }
+			}
+			assertBalances(url, username, password, owner, 10, 0);
+			if (succeeds) complete(url, username, password, pending); else fail(url, username, password, pending);
+			assertBalances(url, username, password, owner, succeeds ? 6 : 10, 0);
+			try (var connection = DriverManager.getConnection(url, username, password);
+				var query = connection.prepareStatement("select status::text, schema_version, input_payload = ?::jsonb from public.readings where id = ?")) {
+				query.setString(1, mapper.writeValueAsString(payload)); query.setObject(2, pending.readingId());
+				try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); assertThat(row.getString(1)).isEqualTo(succeeds ? "completed" : "failed"); assertThat(row.getInt(2)).isEqualTo(7); assertThat(row.getBoolean(3)).isTrue(); }
+			}
+		}
 	}
 
 	private record PendingReading(UUID readingId, long generationId, boolean created) {

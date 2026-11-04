@@ -49,6 +49,8 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 	private final SajuPromptCatalog promptCatalog;
 	private final SajuReadingResultValidator resultValidator;
 	private final DeclinedReadingFactory declinedReadingFactory;
+	private final com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator annualGenerator;
+	private final com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog annualPrompts;
 
 	public OpenAiSajuReadingGenerator(
 		ChatModel chatModel,
@@ -58,12 +60,23 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 		SajuReadingResultValidator resultValidator,
 		DeclinedReadingFactory declinedReadingFactory
 	) {
+		this(chatModel, objectMapper, model, promptCatalog, resultValidator, declinedReadingFactory, null, null);
+	}
+
+	@org.springframework.beans.factory.annotation.Autowired
+	public OpenAiSajuReadingGenerator(ChatModel chatModel, ObjectMapper objectMapper,
+		@Value("${app.reading.openai.model}") String model, SajuPromptCatalog promptCatalog,
+		SajuReadingResultValidator resultValidator, DeclinedReadingFactory declinedReadingFactory,
+		com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator annualGenerator,
+		com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog annualPrompts) {
 		this.chatModel = chatModel;
 		this.objectMapper = objectMapper;
 		this.model = model;
 		this.promptCatalog = promptCatalog;
 		this.resultValidator = resultValidator;
 		this.declinedReadingFactory = declinedReadingFactory;
+		this.annualGenerator = annualGenerator;
+		this.annualPrompts = annualPrompts;
 	}
 
 	@Override
@@ -78,6 +91,14 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 		}
 		return new ReadingGenerationMetadata("openai", model, promptCatalog.version());
 	}
+	@Override
+	public ReadingGenerationMetadata metadata(String spreadType, Map<String, Object> input) {
+		if ("annual_monthly".equals(input.get("reportType"))) {
+			if (spreadType != null || annualPrompts == null) throw new IllegalArgumentException("Annual configuration required");
+			return new ReadingGenerationMetadata("openai", model, annualPrompts.version());
+		}
+		return metadata(spreadType);
+	}
 
 	@Override
 	public GeneratedReading generate(
@@ -88,6 +109,13 @@ public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 	) {
 		if (kind != ReadingKind.SAJU || spreadType != null) {
 			throw new IllegalArgumentException("Saju input is required");
+		}
+		if ("annual_monthly".equals(input.get("reportType"))) {
+			if (annualGenerator == null) throw new IllegalStateException("Annual generator not configured");
+			var annual = com.myeongro.api.domain.saju.annual.SajuAnnualInput.from(question,
+				requiredText(input.get("focusArea")), requiredInteger(input.get("targetYear")),
+				requiredMap(input.get("calculationSnapshot")), objectMapper);
+			return annualGenerator.generate(annual).reading();
 		}
 		Prompt prompt;
 		Map<String, Object> trustedCalculation;

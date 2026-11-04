@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import com.myeongro.api.domain.reading.service.ReadingSafetyPrompt;
 
-/** Not component-scanned: M4-A is imported by AI Preview only. */
+/** Explicitly imported by production configuration and the isolated Preview application. */
 public class SajuAnnualPromptCatalog {
 	private final String prompt;
 	private final String version;

@@ -7,4 +7,5 @@ public interface ReadingGenerationHandler extends ReadingGenerator {
 	ReadingKind kind();
 
 	ReadingGenerationMetadata metadata(String spreadType);
+	default ReadingGenerationMetadata metadata(String spreadType, java.util.Map<String, Object> input) { return metadata(spreadType); }
 }

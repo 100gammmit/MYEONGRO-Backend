@@ -16,8 +16,23 @@ public record SajuReadingCreateRequest(
 	SajuBirthProfileRequest birthProfile,
 	String focusArea,
 	@com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = TargetYearDeserializer.class)
-	Integer targetYear
+	Integer targetYear,
+	@com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = ReportTypeDeserializer.class)
+	String reportType
 ) {
+	public SajuReadingCreateRequest(String question, UUID requestId, SajuBirthProfileRequest birthProfile, String focusArea, Integer targetYear) {
+		this(question, requestId, birthProfile, focusArea, targetYear, null);
+	}
+	public static class ReportTypeDeserializer extends com.fasterxml.jackson.databind.JsonDeserializer<String> {
+		@Override public String getNullValue(com.fasterxml.jackson.databind.DeserializationContext context) throws com.fasterxml.jackson.databind.JsonMappingException {
+			return context.reportInputMismatch(String.class, "reportType must be a string when present");
+		}
+		@Override public String getAbsentValue(com.fasterxml.jackson.databind.DeserializationContext context) { return null; }
+		@Override public String deserialize(com.fasterxml.jackson.core.JsonParser parser, com.fasterxml.jackson.databind.DeserializationContext context) throws java.io.IOException {
+			if (!parser.hasToken(com.fasterxml.jackson.core.JsonToken.VALUE_STRING)) return context.reportInputMismatch(String.class, "reportType must be a string");
+			return parser.getText();
+		}
+	}
 	public static class TargetYearDeserializer extends com.fasterxml.jackson.databind.JsonDeserializer<Integer> {
 		@Override
 		public Integer getNullValue(com.fasterxml.jackson.databind.DeserializationContext context)

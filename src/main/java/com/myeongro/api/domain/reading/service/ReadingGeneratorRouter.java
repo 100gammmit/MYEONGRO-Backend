@@ -42,6 +42,9 @@ public class ReadingGeneratorRouter implements ReadingGenerator {
 	public ReadingGenerationMetadata metadata(ReadingKind kind, String spreadType) {
 		return handler(kind).metadata(spreadType);
 	}
+	public ReadingGenerationMetadata metadata(ReadingKind kind, String spreadType, Map<String, Object> input) {
+		return handler(kind).metadata(spreadType, input);
+	}
 
 	private ReadingGenerationHandler handler(ReadingKind kind) {
 		ReadingGenerationHandler handler = handlers.get(kind);

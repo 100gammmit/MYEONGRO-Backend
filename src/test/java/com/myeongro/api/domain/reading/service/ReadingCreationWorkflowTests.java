@@ -388,7 +388,7 @@ class ReadingCreationWorkflowTests {
 		ReadingGenerationMetadataResolver metadataResolver =
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
 		when(metadataResolver.resolve(
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.nullable(String.class)
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.nullable(String.class), org.mockito.ArgumentMatchers.anyMap()
 		)).thenReturn(new ReadingGenerationMetadata(
 			"openai", "gpt-test", "test-prompt"
 		));
@@ -460,6 +460,33 @@ class ReadingCreationWorkflowTests {
 			"관계 리딩",
 			resultPayload()
 		);
+	}
+
+	@Test
+	void annualReplayDoesNotRecalculateAndFailureNeverCompletes() {
+		var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		var request = new SajuReadingCreateRequest("", REQUEST_ID, sajuRequest().birthProfile(), "career", 2026, "annual_monthly");
+		when(repository.findExisting(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.eq(ReadingKind.SAJU), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(7),
+			org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap())).thenReturn(Optional.of(sajuReading("completed")));
+		service(acceptedConsent(), repository, generator).createSajuReading(USER_ID, REQUEST_ID, request);
+		verifyNoInteractions(generator);
+		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+		when(repository.findExisting(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap()))
+			.thenReturn(Optional.empty());
+		when(repository.createPending(org.mockito.ArgumentMatchers.any())).thenReturn(pending());
+		when(generator.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+			.thenThrow(new OpenAiReadingGenerationException());
+		assertThatThrownBy(() -> service(acceptedConsent(), repository, generator).createSajuReading(USER_ID, REQUEST_ID, request))
+			.isInstanceOf(OpenAiReadingGenerationException.class);
+		verify(repository).failPending(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("OPENAI_READING_GENERATION_FAILED"));
+		verify(repository, never()).completePending(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+		var command = ArgumentCaptor.forClass(PendingReadingCommand.class);
+		verify(repository).createPending(command.capture());
+		assertThat(command.getValue().schemaVersion()).isEqualTo(7);
+		assertThat(command.getValue().creditCost()).isEqualTo(4);
 	}
 
 	private TarotReadingCreateRequest request() {

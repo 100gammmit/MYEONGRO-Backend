@@ -40,6 +40,10 @@ public record ReadingCreditProperties(
 			case SAJU -> costs.saju();
 		};
 	}
+	public int cost(ReadingKind kind, String spreadType, String reportType) {
+		if (kind == ReadingKind.SAJU) com.myeongro.api.domain.saju.model.SajuReportType.fromValue(reportType);
+		return cost(kind, spreadType); // Both approved Saju reports, full/brief, use the same configured cost.
+	}
 
 	public record Costs(
 		@Valid @NotNull Tarot tarot,

@@ -242,14 +242,17 @@ class ReadingEndpointContractTests {
 	}
 
 	@Test
-	void keepsAnnualReportOutOfPublicCreationDuringPreviewStage() throws Exception {
+	void acceptsAnnualReportWithNoQuestion() throws Exception {
+		when(userResolver.requireUser(org.mockito.ArgumentMatchers.any())).thenReturn(new AuthenticatedUser(USER_ID));
+		when(sajuCreationService.create(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(REQUEST_ID), org.mockito.ArgumentMatchers.any()))
+			.thenReturn(new CreatedReadingResponse(READING_ID, ReadingKind.SAJU, null, 7, "completed", "한 해 리포트", Map.of(), Map.of(), null, Instant.now(), Instant.now()));
 		mockMvc.perform(post("/api/saju/readings")
 				.principal(authentication())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
 					  "reportType":"annual_monthly",
-					  "question":"합성 평가 질문",
+					  "focusArea":"self",
 					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
 					  "birthProfile":{
 					    "calendarType":"solar",
@@ -259,10 +262,8 @@ class ReadingEndpointContractTests {
 					  }
 					}
 					"""))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
-			.andExpect(jsonPath("$.field").value("reportType"));
-		org.mockito.Mockito.verifyNoInteractions(sajuCreationService);
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.reading.schemaVersion").value(7));
 	}
 
 	@Test

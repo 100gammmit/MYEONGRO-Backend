@@ -38,7 +38,7 @@ public class SajuReadingInputNormalizer {
 		if (targetYear < 1900 || targetYear > 2100) {
 			throw ReadingInputSupport.invalid("INVALID_TARGET_YEAR", "targetYear", "리딩 연도를 확인해 주세요.");
 		}
-		return normalize(request, ReadingSchemaVersions.SAJU, null, targetYear);
+		return normalize(request, com.myeongro.api.domain.saju.model.SajuReportType.fromValue(request.reportType()).schemaVersion(), null, targetYear);
 	}
 
 	private SajuCalculationInput normalize(
@@ -47,7 +47,10 @@ public class SajuReadingInputNormalizer {
 		String legacyCityCode,
 		int targetYear
 	) {
-		String question = ReadingInputSupport.normalizeQuestion(request.question());
+		var reportType = com.myeongro.api.domain.saju.model.SajuReportType.fromValue(request.reportType());
+		String question = reportType == com.myeongro.api.domain.saju.model.SajuReportType.ANNUAL_MONTHLY
+			? (request.question() == null ? "" : request.question().trim()) : ReadingInputSupport.normalizeQuestion(request.question());
+		if (question.length() > 300) throw ReadingInputSupport.invalid("QUESTION_TOO_LONG", "question", "질문은 300자 이하로 입력해 주세요.");
 		SajuBirthProfileRequest profile = request.birthProfile();
 		if (profile == null) {
 			throw ReadingInputSupport.invalid(
@@ -69,7 +72,7 @@ public class SajuReadingInputNormalizer {
 		SajuFocusArea focusArea = SajuFocusArea.fromValue(request.focusArea());
 		boolean birthPlaceRequired = precision != BirthTimePrecision.UNKNOWN;
 		if (!birthPlaceRequired
-			&& schemaVersion == ReadingSchemaVersions.SAJU
+			&& schemaVersion >= ReadingSchemaVersions.SAJU
 			&& profile.provinceCode() != null) {
 			throw ReadingInputSupport.invalid(
 				"INVALID_BIRTH_PLACE",
@@ -101,7 +104,7 @@ public class SajuReadingInputNormalizer {
 			question,
 			focusArea,
 			ReadingInputSupport.immutable(normalizedProfile),
-			targetYear
+			targetYear, reportType
 		);
 	}
 

@@ -73,6 +73,23 @@ class SajuReadingInputAssemblerTests {
 		);
 	}
 
+	@Test
+	void annualUsesSeparateSchemaAndStoresOnlyDiscriminatorAndMinimalCalculation() {
+		var input = new SajuCalculationInput(7, "", SajuFocusArea.SELF, profile(), 2026,
+			com.myeongro.api.domain.saju.model.SajuReportType.ANNUAL_MONTHLY);
+		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot());
+		var assembled = assembler.assemble(input, 2026);
+		assertThat(assembled.schemaVersion()).isEqualTo(7);
+		assertThat(assembled.question()).isEmpty();
+		assertThat(assembled.storedPayload()).containsOnlyKeys("reportType", "targetYear", "calculationSnapshot")
+			.containsEntry("reportType", "annual_monthly");
+		assertThat(assembled.aiPayload()).containsOnlyKeys("reportType", "focusArea", "targetYear", "calculationSnapshot");
+		assertThat(assembled.storedPayload().toString()).doesNotContain("birthDate", "birthTime", "provinceCode", "focusArea", "question");
+		var annual = com.myeongro.api.domain.saju.annual.SajuAnnualInput.from("", "self", 2026,
+			(Map<String, Object>) assembled.storedPayload().get("calculationSnapshot"), new ObjectMapper());
+		assertThat(annual.calendar().months()).hasSize(12);
+	}
+
 	private Map<String, Object> profile() {
 		return Map.of(
 			"calendarType", "solar",

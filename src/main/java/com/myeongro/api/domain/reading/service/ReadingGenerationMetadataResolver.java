@@ -16,4 +16,7 @@ public class ReadingGenerationMetadataResolver {
 	public ReadingGenerationMetadata resolve(ReadingKind kind, String spreadType) {
 		return generatorRouter.metadata(kind, spreadType);
 	}
+	public ReadingGenerationMetadata resolve(ReadingKind kind, String spreadType, java.util.Map<String, Object> input) {
+		return generatorRouter.metadata(kind, spreadType, input);
+	}
 }

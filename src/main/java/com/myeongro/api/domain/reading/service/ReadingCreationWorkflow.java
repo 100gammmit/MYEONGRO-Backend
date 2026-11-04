@@ -82,7 +82,7 @@ public class ReadingCreationWorkflow {
 
 		PreparedReadingInput prepared = pendingInputFinalizer.apply(input);
 		ReadingGenerationMetadata metadata = generationMetadataResolver.resolve(
-			prepared.kind(), prepared.spreadType()
+			prepared.kind(), prepared.spreadType(), prepared.aiPayload()
 		);
 		PendingReadingCreation pending = repository.createPending(PendingReadingCommand.builder()
 			.userId(userId)
@@ -95,7 +95,7 @@ public class ReadingCreationWorkflow {
 			.provider(metadata.provider())
 			.model(metadata.model())
 			.promptVersion(metadata.promptVersion())
-			.creditCost(creditProperties.cost(prepared.kind(), prepared.spreadType()))
+			.creditCost(creditProperties.cost(prepared.kind(), prepared.spreadType(), (String)prepared.aiPayload().get("reportType")))
 			.build());
 		if (pending.reading().result() != null) {
 			return pending.reading();

@@ -47,6 +47,7 @@ class ReadingGeneratorBeanSelectionTests {
 			.withUserConfiguration(ReadingSafetyPrompt.class)
 			.withUserConfiguration(TarotPromptCatalog.class)
 			.withUserConfiguration(SajuPromptCatalog.class)
+			.withUserConfiguration(com.myeongro.api.domain.saju.annual.SajuAnnualConfiguration.class)
 			.withUserConfiguration(TestChatModelConfig.class)
 			.withUserConfiguration(DemoReadingGenerator.class)
 			.withUserConfiguration(OpenAiTarotReadingGenerator.class)

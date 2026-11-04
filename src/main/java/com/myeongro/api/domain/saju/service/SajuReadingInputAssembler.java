@@ -64,6 +64,13 @@ public class SajuReadingInputAssembler {
 			new TypeReference<Map<String, Object>>() { }
 		));
 		SajuStoredInput storedInput = new SajuStoredInput(targetYear, storedCalculation);
+		if (input.reportType() == com.myeongro.api.domain.saju.model.SajuReportType.ANNUAL_MONTHLY) {
+			Map<String, Object> stored = new LinkedHashMap<>(storedInput.payload());
+			stored.put("reportType", input.reportType().value());
+			return new PreparedReadingInput(ReadingKind.SAJU, null, input.schemaVersion(), input.question(),
+				Map.of("reportType", input.reportType().value(), "targetYear", targetYear,
+					"focusArea", input.focusArea().value(), "calculationSnapshot", storedCalculation), stored);
+		}
 		return new PreparedReadingInput(
 			ReadingKind.SAJU,
 			null,

@@ -14,8 +14,12 @@ public record SajuCalculationInput(
 	String question,
 	SajuFocusArea focusArea,
 	Map<String, Object> birthProfile,
-	int targetYear
+	int targetYear,
+	com.myeongro.api.domain.saju.model.SajuReportType reportType
 ) implements ReadingRequestInput {
+	public SajuCalculationInput(int schemaVersion, String question, SajuFocusArea focusArea, Map<String, Object> birthProfile, int targetYear) {
+		this(schemaVersion, question, focusArea, birthProfile, targetYear, com.myeongro.api.domain.saju.model.SajuReportType.BIRTH_ANNUAL_QUESTION);
+	}
 
 	public SajuCalculationInput {
 		birthProfile = Collections.unmodifiableMap(new LinkedHashMap<>(birthProfile));
@@ -33,6 +37,10 @@ public record SajuCalculationInput(
 
 	@Override
 	public Map<String, Object> idempotencyPayload() {
+		if (reportType == com.myeongro.api.domain.saju.model.SajuReportType.ANNUAL_MONTHLY) {
+			return ReadingInputSupport.orderedMap("reportType", reportType.value(), "question", question,
+				"focusArea", focusArea.value(), "birthProfile", birthProfile, "targetYear", targetYear);
+		}
 		return ReadingInputSupport.orderedMap(
 			"question", question,
 			"focusArea", focusArea.value(),

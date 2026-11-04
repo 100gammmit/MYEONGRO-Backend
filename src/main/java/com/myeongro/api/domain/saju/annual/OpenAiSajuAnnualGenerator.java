@@ -21,7 +21,7 @@ import com.myeongro.api.domain.reading.service.ReadingMode;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationStage;
 
-/** Deliberately not a ReadingGenerationHandler and not component-scanned in M4-A. */
+/** Delegated to by the sole SAJU handler; Preview imports it without the web workflow. */
 public class OpenAiSajuAnnualGenerator {
 	private final ChatModel chatModel;
 	private final ObjectMapper mapper;
