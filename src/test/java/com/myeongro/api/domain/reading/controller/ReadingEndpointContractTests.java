@@ -234,6 +234,33 @@ class ReadingEndpointContractTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.reading.kind").value("saju"))
 			.andExpect(jsonPath("$.reading.schemaVersion").value(6));
+
+		var request = org.mockito.ArgumentCaptor.forClass(SajuReadingCreateRequest.class);
+		verify(sajuCreationService).create(org.mockito.ArgumentMatchers.eq(USER_ID),
+			org.mockito.ArgumentMatchers.eq(REQUEST_ID), request.capture());
+		org.assertj.core.api.Assertions.assertThat(request.getValue().targetYear()).isNull();
+	}
+
+	@Test
+	void rejectsExplicitNullTargetYearBeforeCreation() throws Exception {
+		mockMvc.perform(post("/api/saju/readings")
+				.principal(authentication())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "question":"올해 흐름이 궁금합니다",
+					  "requestId":"82ed11d5-2269-438c-9815-42e6f13735f4",
+					  "targetYear":null,
+					  "birthProfile":{
+					    "calendarType":"solar",
+					    "birthDate":"1992-08-17",
+					    "birthTimePrecision":"unknown",
+					    "luckDirectionBasis":"unspecified"
+					  }
+					}
+					"""))
+			.andExpect(status().isBadRequest());
+		org.mockito.Mockito.verifyNoInteractions(sajuCreationService);
 	}
 
 	@Test

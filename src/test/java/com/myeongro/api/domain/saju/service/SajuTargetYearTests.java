@@ -11,10 +11,11 @@ import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 class SajuTargetYearTests {
 	@Test void rejectsNonIntegerJsonYearsInsteadOfCoercingThem() throws Exception {
 		var mapper = new ObjectMapper();
-		for (String value : new String[]{"2026.5", "\"2026\"", "true", "2147483648"}) {
+		for (String value : new String[]{"null", "2026.5", "\"2026\"", "true", "2147483648"}) {
 			assertThatThrownBy(() -> mapper.readValue("{\"targetYear\":" + value + "}", SajuReadingCreateRequest.class))
 				.isInstanceOf(com.fasterxml.jackson.core.JsonProcessingException.class);
 		}
 		assertThat(mapper.readValue("{\"targetYear\":2027}", SajuReadingCreateRequest.class).targetYear()).isEqualTo(2027);
+		assertThat(mapper.readValue("{}", SajuReadingCreateRequest.class).targetYear()).isNull();
 	}
 }
