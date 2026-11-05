@@ -87,6 +87,8 @@ fixture에는 실제 서비스 생성기가 받는 정규화된 입력을 저장
 
 ## M4-A 한 해 리포트 비공개 평가
 
+한 해 리포트의 USER 입력 `calendarMonths`에는 `periodIds`와 같은 순서의 `periodDays`가 포함된다. 각 값은 해당 구간이 그 달 안에서 차지하는 실제 경과 시간을 일수로 환산하고 소수 첫째 자리에서 표시한 값이다(소수 둘째 자리 반올림). 달을 걸치는 공유 구간의 전체 길이가 아니라 달별로 잘린 길이를 사용한다. 운영과 Preview가 같은 `SajuAnnualCalendar` 계산을 사용하므로 별도 주입기는 필요 없다. 이 값은 AI 입력 정보이며 공개 응답·저장 snapshot의 필드를 추가하지 않는다. 날짜 비중을 해석에서 어떻게 사용하는지는 별도 프롬프트 채택 사항이다.
+
 한국어 기획서는 `docs/plans/saju-m4-annual-report.md`다. M4-A의 격리 Preview로 검증한 생성기를 M4-B에서 기존 SAJU handler에 위임 연결한다. 별도의 중복 SAJU handler를 등록하지 않으며 기존 종합 사주의 schema v6과 활성 프롬프트는 그대로다. 한 해 리포트는 schema v7, 사용자 승인 비용은 상세형·간략형 모두 4크레딧이다.
 
 `SajuAnnualPreviewFixtureTests`는 기본적으로 @TempDir에만 합성 fixture를 만들고 검증한다. 명시적으로 export 속성을 켰을 때만 `build/saju-annual-preview/cases`에 8개를 만든다. 원본 출생정보를 제거한 최소 snapshot만 내보내며 개발자의 source Preview fixture를 덮어쓰지 않는다. Preview는 같은 이름의 classpath fixture가 없을 때 이 build 경로를 읽는다. 각 fixture의 `input`은 `reportType`, `targetYear`, `focusArea`, `calculationSnapshot`으로 제한한다. 질문은 비어 있어도 되며 직접 식별정보와 길이 검사는 provider 호출 전에 적용한다.

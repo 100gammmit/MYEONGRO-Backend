@@ -1,5 +1,8 @@
 package com.myeongro.api.domain.saju.annual;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -11,8 +14,15 @@ import com.myeongro.api.domain.saju.calculation.SajuMonthlyCalendarService;
 /** A deterministic view of the frozen M3 calendar, not a new fortune calculation. */
 public record SajuAnnualCalendar(int targetYear, List<Month> months, List<Period> periods) {
 	public SajuAnnualCalendar { months = List.copyOf(months); periods = List.copyOf(periods); }
-	public record Month(int month, List<String> periodIds) {
-		public Month { periodIds = List.copyOf(periodIds); }
+	/** Days covered inside this month, aligned with periodIds (not merged period durations). */
+	public record Month(int month, List<String> periodIds, List<BigDecimal> periodDays) {
+		public Month {
+			periodIds = List.copyOf(periodIds);
+			periodDays = List.copyOf(periodDays);
+			if (periodIds.size() != periodDays.size()) {
+				throw new IllegalArgumentException("Period references and days must align");
+			}
+		}
 	}
 	public record Period(String id, String startInclusive, String endExclusive,
 		String yearGanZhi, String monthGanZhi, String stemTenGod) { }
@@ -34,6 +44,7 @@ public record SajuAnnualCalendar(int targetYear, List<Month> months, List<Period
 				.atStartOfDay().atOffset(ZoneOffset.ofHours(9));
 			OffsetDateTime monthEnd = cursor.plusMonths(1);
 			List<String> references = new ArrayList<>();
+			List<BigDecimal> days = new ArrayList<>();
 			for (var slice : month.periods()) {
 				var start = OffsetDateTime.parse(slice.startInclusive());
 				var end = OffsetDateTime.parse(slice.endExclusive());
@@ -57,10 +68,12 @@ public record SajuAnnualCalendar(int targetYear, List<Month> months, List<Period
 						slice.yearGanZhi(), slice.monthGanZhi(), slice.stemTenGod()));
 				}
 				references.add(id);
+				days.add(BigDecimal.valueOf(Duration.between(start, end).toSeconds())
+					.divide(BigDecimal.valueOf(86_400), 1, RoundingMode.HALF_UP));
 				cursor = end;
 			}
 			if (!cursor.equals(monthEnd)) throw new IllegalArgumentException("Incomplete month");
-			months.add(new Month(index + 1, references));
+			months.add(new Month(index + 1, references, days));
 		}
 		return new SajuAnnualCalendar(calendar.targetYear(), months, periods);
 	}
