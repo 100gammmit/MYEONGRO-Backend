@@ -13,6 +13,10 @@ public class SajuAnnualGenerationException extends OpenAiReadingGenerationExcept
 			new IllegalArgumentException("Annual response rejected: " + safeCode(cause)));
 		var measured = new java.util.LinkedHashMap<>(metrics);
 		measured.put("contractCode", safeCode(cause));
+		if (cause instanceof SajuAnnualContractViolation violation && violation.evidenceIssue() != null) {
+			measured.put("evidenceIssue", violation.evidenceIssue().name());
+			measured.put("contractPath", violation.contractPath());
+		}
 		this.metrics = Map.copyOf(measured);
 	}
 	public Map<String, Object> metrics() { return metrics; }

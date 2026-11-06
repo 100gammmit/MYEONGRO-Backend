@@ -17,9 +17,10 @@ public class SajuAnnualResultValidator {
 		}
 		text(result.title()); text(result.summary()); text(result.disclaimer());
 		Set<String> available = input.trustedCalculation().keySet();
-		section(result.annualOverview(), available);
+		section(result.annualOverview(), available, "annualOverview.evidenceKeys");
 		if (!result.annualOverview().evidenceKeys().contains("annualFlow")) {
-			throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.OVERVIEW_EVIDENCE);
+			throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.OVERVIEW_EVIDENCE,
+				SajuAnnualContractViolation.EvidenceIssue.MISSING_REQUIRED, "annualOverview.evidenceKeys");
 		}
 		if (result.months() == null || result.months().size() != 12 || result.periods() == null
 			|| result.periods().size() != ("brief".equals(input.detailLevel()) ? 0 : input.calendar().periods().size())) {
@@ -33,9 +34,11 @@ public class SajuAnnualResultValidator {
 			allowed.removeIf(key -> key.startsWith("monthlyFlow."));
 			var expected = input.calendar().months().get(index).periodIds().stream().map(id -> "monthlyFlow." + id).toList();
 			allowed.addAll(expected);
-			evidence(month.evidenceKeys(), allowed);
+			String path = "months.m%02d.evidenceKeys".formatted(index + 1);
+			evidence(month.evidenceKeys(), allowed, path);
 			if (!month.evidenceKeys().containsAll(expected)) {
-				throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.MONTH_EVIDENCE);
+				throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.MONTH_EVIDENCE,
+					SajuAnnualContractViolation.EvidenceIssue.MISSING_REQUIRED, path);
 			}
 		}
 		for (int index = 0; index < result.periods().size(); index++) {
@@ -45,23 +48,28 @@ public class SajuAnnualResultValidator {
 			text(period.heading()); text(period.body());
 			var allowed = new HashSet<>(available);
 			allowed.removeIf(key -> key.startsWith("monthlyFlow.") && !key.equals("monthlyFlow." + expected));
-			evidence(period.evidenceKeys(), allowed);
+			String path = "periods." + expected + ".evidenceKeys";
+			evidence(period.evidenceKeys(), allowed, path);
 			if (!period.evidenceKeys().contains("monthlyFlow." + expected)) {
-				throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.PERIOD_EVIDENCE);
+				throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.PERIOD_EVIDENCE,
+					SajuAnnualContractViolation.EvidenceIssue.MISSING_REQUIRED, path);
 			}
 		}
 		if (input.question().isBlank()) {
 			if (result.questionReading() != null) throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.FABRICATED_QUESTION);
-		} else { section(result.questionReading(), available); }
+		} else { section(result.questionReading(), available, "questionReading.evidenceKeys"); }
 	}
-	private void section(SajuAnnualResult.Section section, Set<String> available) {
+	private void section(SajuAnnualResult.Section section, Set<String> available, String path) {
 		if (section == null) throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.SECTION_REQUIRED);
-		text(section.heading()); text(section.body()); evidence(section.evidenceKeys(), available);
+		text(section.heading()); text(section.body()); evidence(section.evidenceKeys(), available, path);
 	}
-	private void evidence(List<String> keys, Set<String> available) {
-		if (keys == null || keys.isEmpty() || keys.size() != new HashSet<>(keys).size() || !available.containsAll(keys)) {
-			throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.EVIDENCE);
-		}
+	private void evidence(List<String> keys, Set<String> available, String path) {
+		SajuAnnualContractViolation.EvidenceIssue issue = null;
+		if (keys == null) issue = SajuAnnualContractViolation.EvidenceIssue.NULL;
+		else if (keys.isEmpty()) issue = SajuAnnualContractViolation.EvidenceIssue.EMPTY;
+		else if (!available.containsAll(keys)) issue = SajuAnnualContractViolation.EvidenceIssue.UNSUPPORTED;
+		else if (keys.size() != new HashSet<>(keys).size()) issue = SajuAnnualContractViolation.EvidenceIssue.DUPLICATE;
+		if (issue != null) throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.EVIDENCE, issue, path);
 	}
 	private void text(String text) {
 		if (text == null || text.isBlank()) throw new SajuAnnualContractViolation(SajuAnnualContractViolation.Code.TEXT_REQUIRED);
