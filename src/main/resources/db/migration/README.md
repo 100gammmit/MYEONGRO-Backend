@@ -49,7 +49,9 @@ docker rm -f myeongro-flyway-check-postgres
 
 검증은 다음 계약을 확인한다.
 
-- 빈 `public` 스키마에 V1 하나만 적용된다.
+- 빈 `public` 스키마에 현재 V1~V4가 순서대로 적용된다.
+- 기존 V2까지의 v5 기록을 보존한 채 V3·V4를 적용하고, v6 월별 계산과
+  v7 한 해 리포트의 입력·차감·완료 계약을 확인한다.
 - 최종 테이블, enum, 인덱스, 외래 키와 check constraint가 생성된다.
 - 신용 차감·생성 완료·실패·오래된 생성 정리 함수가 실제 PostgreSQL에서 동작한다.
 - SECURITY DEFINER 함수는 PUBLIC 실행 권한을 갖지 않는다.

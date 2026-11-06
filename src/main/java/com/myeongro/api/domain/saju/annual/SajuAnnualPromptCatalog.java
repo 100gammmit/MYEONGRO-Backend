@@ -14,7 +14,7 @@ public class SajuAnnualPromptCatalog {
 	public SajuAnnualPromptCatalog(ReadingSafetyPrompt safety,
 		@Value("classpath:prompts/saju/common-ko-v11.md") Resource common,
 		@Value("classpath:prompts/saju/interpretation/interpretation-guide-ko-v7.md") Resource interpretation,
-		@Value("classpath:prompts/saju/reports/annual-monthly/annual-monthly-ko-v23.md") Resource report) {
+		@Value("classpath:prompts/saju/reports/annual-monthly/annual-monthly-ko-v27.md") Resource report) {
 		try {
 			List<Resource> parts = List.of(common, interpretation, report);
 			var contents = new java.util.ArrayList<String>();
