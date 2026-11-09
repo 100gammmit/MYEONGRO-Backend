@@ -7,16 +7,11 @@ import com.myeongro.api.domain.dailycard.exception.InvalidDailyCardSelectionExce
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 
 public record DailyCardSelectionRequest(
 	@NotNull UUID drawId,
-	@Min(1) @Max(5) int selectedSlot,
-	@NotBlank
-	@Pattern(regexp = "[a-z0-9][a-z0-9-]{0,63}")
-	String contentVersion
+	@Min(1) @Max(5) int selectedSlot
 ) {
 
 	@JsonAnySetter

@@ -14,7 +14,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import com.myeongro.api.domain.dailycard.exception.DailyCardContentVersionMismatchException;
 import com.myeongro.api.domain.dailycard.service.DailyCardSelectionService;
 
 class DailyCardSelectionControllerTests {
@@ -35,10 +34,9 @@ class DailyCardSelectionControllerTests {
 
 	@Test
 	void returnsSelectionWithoutAuthenticationContract() throws Exception {
-		when(service.select(DRAW_ID, 3, "daily-one-card-static-v2"))
+		when(service.select(DRAW_ID, 3))
 			.thenReturn(new DailyCardSelectionResponse(new DailyCardSelectionResponse.Selection(
-				LocalDate.of(2026, 8, 25), "major-17-star", 3,
-				"daily-one-card-static-v2"
+				LocalDate.of(2026, 8, 25), "major-17-star", 3
 			)));
 
 		mockMvc.perform(post("/api/tarot/daily-card-selections")
@@ -47,7 +45,8 @@ class DailyCardSelectionControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.selection.dateKst").value("2026-08-25"))
 			.andExpect(jsonPath("$.selection.cardId").value("major-17-star"))
-			.andExpect(jsonPath("$.selection.variantIndex").value(3));
+			.andExpect(jsonPath("$.selection.variantIndex").value(3))
+			.andExpect(jsonPath("$.selection.contentVersion").doesNotExist());
 	}
 
 	@Test
@@ -67,23 +66,20 @@ class DailyCardSelectionControllerTests {
 	}
 
 	@Test
-	void reportsContentVersionMismatchAsConflict() throws Exception {
-		when(service.select(DRAW_ID, 3, "daily-one-card-static-v2"))
-			.thenThrow(new DailyCardContentVersionMismatchException());
-
+	void rejectsContentVersionBecauseTheFrontOwnsContent() throws Exception {
 		mockMvc.perform(post("/api/tarot/daily-card-selections")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content(validRequest()))
-			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("DAILY_CARD_CONTENT_VERSION_MISMATCH"));
+				.content(validRequest().replace("}", ",\"contentVersion\":\"daily-one-card-static-v2\"}")))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("UNKNOWN_FIELD"))
+			.andExpect(jsonPath("$.field").value("contentVersion"));
 	}
 
 	private String validRequest() {
 		return """
 			{
 			  "drawId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-			  "selectedSlot":3,
-			  "contentVersion":"daily-one-card-static-v2"
+			  "selectedSlot":3
 			}
 			""";
 	}

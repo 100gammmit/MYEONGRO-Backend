@@ -29,7 +29,7 @@ public class DailyCardSelectionController {
 		@Valid @RequestBody DailyCardSelectionRequest request
 	) {
 		return ResponseEntity.ok(service.select(
-			request.drawId(), request.selectedSlot(), request.contentVersion()
+			request.drawId(), request.selectedSlot()
 		));
 	}
 }

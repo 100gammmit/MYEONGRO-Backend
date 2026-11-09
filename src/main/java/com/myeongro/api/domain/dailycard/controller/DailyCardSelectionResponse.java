@@ -11,8 +11,7 @@ public record DailyCardSelectionResponse(
 	public record Selection(
 		@JsonFormat(pattern = "yyyy-MM-dd") LocalDate dateKst,
 		String cardId,
-		int variantIndex,
-		String contentVersion
+		int variantIndex
 	) {
 	}
 }

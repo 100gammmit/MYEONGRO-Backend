@@ -8,21 +8,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.myeongro.api.domain.dailycard.exception.DailyCardContentVersionMismatchException;
 import com.myeongro.api.domain.dailycard.exception.InvalidDailyCardSelectionException;
 
 @RestControllerAdvice(assignableTypes = DailyCardSelectionController.class)
 public class DailyCardSelectionExceptionHandler {
-
-	@ExceptionHandler(DailyCardContentVersionMismatchException.class)
-	public ResponseEntity<Map<String, String>> versionMismatch(
-		DailyCardContentVersionMismatchException exception
-	) {
-		return ResponseEntity.status(409).body(Map.of(
-			"code", "DAILY_CARD_CONTENT_VERSION_MISMATCH",
-			"message", exception.getMessage()
-		));
-	}
 
 	@ExceptionHandler(InvalidDailyCardSelectionException.class)
 	public ResponseEntity<Map<String, String>> invalidSelection(

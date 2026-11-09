@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 import com.myeongro.api.domain.dailycard.config.DailyCardProperties;
 import com.myeongro.api.domain.dailycard.controller.DailyCardSelectionResponse;
-import com.myeongro.api.domain.dailycard.exception.DailyCardContentVersionMismatchException;
 import com.myeongro.api.domain.dailycard.exception.InvalidDailyCardSelectionException;
 import com.myeongro.api.domain.tarot.model.MajorArcana;
 import com.myeongro.api.domain.tarot.selection.TarotCardRanker;
@@ -48,8 +47,7 @@ public class DailyCardSelectionService {
 
 	public DailyCardSelectionResponse select(
 		UUID drawId,
-		int selectedSlot,
-		String contentVersion
+		int selectedSlot
 	) {
 		if (drawId == null) {
 			throw new InvalidDailyCardSelectionException(
@@ -61,13 +59,8 @@ public class DailyCardSelectionService {
 				"INVALID_SELECTED_SLOT", "selectedSlot", "selectedSlot은 1에서 5 사이여야 합니다."
 			);
 		}
-		if (!properties.contentVersion().equals(contentVersion)) {
-			throw new DailyCardContentVersionMismatchException();
-		}
 		LocalDate dateKst = LocalDate.now(clock.withZone(SERVICE_ZONE));
-		List<String> context = List.of(
-			dateKst.toString(), drawId.toString(), contentVersion
-		);
+		List<String> context = List.of(dateKst.toString(), drawId.toString());
 		List<String> candidates = cardRanker.rank(
 			CARD_NAMESPACE, context, MajorArcana.all()
 		).subList(0, 5);
@@ -77,11 +70,11 @@ public class DailyCardSelectionService {
 			.toList();
 		int variantIndex = Integer.parseInt(cardRanker.rank(
 			VARIANT_NAMESPACE,
-			List.of(dateKst.toString(), drawId.toString(), contentVersion, cardId),
+			List.of(dateKst.toString(), drawId.toString(), cardId),
 			variants
 		).getFirst());
 		return new DailyCardSelectionResponse(new DailyCardSelectionResponse.Selection(
-			dateKst, cardId, variantIndex, contentVersion
+			dateKst, cardId, variantIndex
 		));
 	}
 }

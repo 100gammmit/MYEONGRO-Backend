@@ -150,8 +150,7 @@ class AuthenticatedReadingSecurityTests {
 				.content("""
 					{
 					  "drawId":"82ed11d5-2269-438c-9815-42e6f13735f4",
-					  "selectedSlot":3,
-					  "contentVersion":"daily-one-card-static-v2"
+					  "selectedSlot":3
 					}
 					"""))
 			.andExpect(status().isOk());
