@@ -113,7 +113,7 @@ public class SajuCalculationService {
 					);
 				}
 				Resolution resolution = approximateResolver.resolveExact(
-					corrections, luckBasis, targetYear
+					corrections, luckBasis, targetYear, checkDeadline
 				);
 				candidate = resolution.trusted();
 				correction = timeCorrection(corrections);

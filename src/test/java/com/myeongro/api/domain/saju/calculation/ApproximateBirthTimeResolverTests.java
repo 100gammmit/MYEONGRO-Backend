@@ -1,6 +1,7 @@
 package com.myeongro.api.domain.saju.calculation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -11,9 +12,11 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 
+import com.myeongro.api.domain.reading.exception.ReadingGenerationExpiredException;
 import com.myeongro.api.domain.saju.calculation.LunarJavaFourPillarsAdapter.Candidate;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot.AnnualFortune;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot.Pillar;
@@ -21,6 +24,31 @@ import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot.Pillars;
 import com.myeongro.api.domain.saju.model.LuckDirectionBasis;
 
 class ApproximateBirthTimeResolverTests {
+
+	@Test
+	void stopsBeforeTheSecondExactCandidateWhenTheDeadlineExpires() {
+		var corrector = new TrueSolarTimeCorrector();
+		var corrections = corrector.correctCandidates(LocalDateTime.parse("1988-10-09T02:30"), 127.0);
+		assertThat(corrections).hasSize(2);
+		var adapter = org.mockito.Mockito.mock(LunarJavaFourPillarsAdapter.class);
+		var expired = new AtomicBoolean();
+		when(adapter.calculate(
+			any(), any(), org.mockito.ArgumentMatchers.eq(true), any(), anyInt()
+		)).thenAnswer(invocation -> {
+			expired.set(true);
+			return candidate(30);
+		});
+
+		assertThatThrownBy(() -> new ApproximateBirthTimeResolver(corrector, adapter)
+			.resolveExact(corrections, LuckDirectionBasis.MALE, 2026, () -> {
+				if (expired.get()) {
+					throw new ReadingGenerationExpiredException();
+				}
+			}))
+			.isInstanceOf(ReadingGenerationExpiredException.class);
+
+		verify(adapter).calculate(any(), any(), org.mockito.ArgumentMatchers.eq(true), any(), anyInt());
+	}
 
 	@Test
 	void evaluatesEveryMinuteAndKeepsOnlyFactsSharedByAllCandidates() {

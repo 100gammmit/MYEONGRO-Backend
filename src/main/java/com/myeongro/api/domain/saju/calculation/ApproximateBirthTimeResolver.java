@@ -57,16 +57,18 @@ public class ApproximateBirthTimeResolver {
 	public Resolution resolveExact(
 		List<TrueSolarTimeCorrector.Correction> corrections,
 		LuckDirectionBasis luckDirectionBasis,
-		int targetYear
+		int targetYear,
+		Runnable checkDeadline
 	) {
 		if (corrections.isEmpty()) {
 			throw new IllegalArgumentException("Civil time does not exist");
 		}
 		List<Candidate> candidates = corrections.stream()
-			.map(correction -> adapter.calculate(
-				correction.trueSolarTime(), correction.engineCivilTime(), true,
-				luckDirectionBasis, targetYear
-			))
+			.map(correction -> {
+				checkDeadline.run();
+				return adapter.calculate(correction.trueSolarTime(), correction.engineCivilTime(), true,
+					luckDirectionBasis, targetYear);
+			})
 			.toList();
 		CandidateSet candidateSet = new CandidateSet(
 			candidates,
