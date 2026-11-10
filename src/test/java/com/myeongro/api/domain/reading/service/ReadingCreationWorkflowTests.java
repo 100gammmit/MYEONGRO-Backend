@@ -9,11 +9,15 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +34,7 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
 import com.myeongro.api.domain.reading.exception.ReadingDailyCapacityReachedException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationExpiredException;
 import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
@@ -47,6 +52,11 @@ import com.myeongro.api.domain.tarot.model.TarotSpreadType;
 import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
 import com.myeongro.api.domain.tarot.service.TarotReadingInputNormalizer;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
+import com.myeongro.api.domain.saju.calculation.ApproximateBirthTimeResolver;
+import com.myeongro.api.domain.saju.calculation.LunarJavaFourPillarsAdapter;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationSnapshot.Pillars;
+import com.myeongro.api.domain.saju.calculation.TrueSolarTimeCorrector;
+import com.myeongro.api.domain.saju.model.LuckDirectionBasis;
 import org.springframework.core.io.ClassPathResource;
 import com.myeongro.api.domain.readingcredit.ReadingCreditTestFixtures;
 
@@ -237,7 +247,7 @@ class ReadingCreationWorkflowTests {
 		assertThat(response).isSameAs(existing);
 		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
 		verify(sajuInputAssembler, never()).assemble(
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()
 		);
 		verifyNoInteractions(generator);
 	}
@@ -251,7 +261,7 @@ class ReadingCreationWorkflowTests {
 		org.mockito.Mockito.doThrow(
 			new SajuCalculationException(new IllegalStateException("engine"))
 		).when(sajuInputAssembler).assemble(
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()
 		);
 
 		assertThatThrownBy(() -> service.createSajuReading(USER_ID, REQUEST_ID, sajuRequest()))
@@ -265,6 +275,56 @@ class ReadingCreationWorkflowTests {
 			token.capture(), org.mockito.ArgumentMatchers.anyInt()
 		);
 		verify(repository).releasePreparation(USER_ID, token.getValue());
+		verifyNoInteractions(generator);
+	}
+
+	@Test
+	void stopsBeforeNextSajuCandidateWhenTheSharedPreparationDeadlineExpires() {
+		var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		var now = new AtomicLong();
+		var facade = service(acceptedConsent(), repository, generator, now::get);
+		when(repository.acquirePreparation(
+			org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+		)).thenAnswer(invocation -> {
+			now.set(Duration.ofSeconds(20).toNanos());
+			return true;
+		});
+		var adapter = org.mockito.Mockito.mock(LunarJavaFourPillarsAdapter.class);
+		when(adapter.calculate(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.anyInt()
+		)).thenAnswer(invocation -> {
+			now.addAndGet(Duration.ofSeconds(5).toNanos());
+			return new LunarJavaFourPillarsAdapter.Candidate(
+				new Pillars(null, null, null, null), null, Map.of(), List.of(), null, null);
+		});
+		var resolver = new ApproximateBirthTimeResolver(new TrueSolarTimeCorrector(), adapter);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			resolver.resolveUnknown(LocalDate.of(1992, 8, 17), 127.0, LuckDirectionBasis.UNSPECIFIED,
+				2026, invocation.getArgument(2, Runnable.class));
+			throw new AssertionError("Expired preparation kept calculating");
+		}).when(sajuInputAssembler).assemble(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()
+		);
+
+		assertThatThrownBy(() -> facade.createSajuReading(USER_ID, REQUEST_ID, sajuRequest()))
+			.isInstanceOf(ReadingGenerationExpiredException.class);
+
+		verify(adapter).calculate(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.anyInt()
+		);
+		var token = ArgumentCaptor.forClass(UUID.class);
+		verify(repository).acquirePreparation(
+			org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			token.capture(), org.mockito.ArgumentMatchers.anyInt()
+		);
+		verify(repository).releasePreparation(USER_ID, token.getValue());
+		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
 		verifyNoInteractions(generator);
 	}
 
@@ -306,7 +366,7 @@ class ReadingCreationWorkflowTests {
 			assertThat(error.getField()).isEqualTo("targetYear");
 		});
 		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
-		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
 		verifyNoInteractions(generator);
 	}
 
@@ -324,7 +384,7 @@ class ReadingCreationWorkflowTests {
 		assertThat(facade.createSajuReading(USER_ID, REQUEST_ID, new SajuReadingCreateRequest(
 			request.question(), request.requestId(), request.birthProfile(), request.focusArea(), 2025
 		))).isSameAs(existing);
-		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
 		verifyNoInteractions(generator);
 	}
 
@@ -418,6 +478,15 @@ class ReadingCreationWorkflowTests {
 		ReadingCreationRepository repository,
 		ReadingGenerator generator
 	) {
+		return service(consentService, repository, generator, System::nanoTime);
+	}
+
+	private CreationFacade service(
+		ConsentService consentService,
+		ReadingCreationRepository repository,
+		ReadingGenerator generator,
+		LongSupplier nanoTime
+	) {
 		when(repository.acquirePreparation(
 			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
@@ -432,7 +501,7 @@ class ReadingCreationWorkflowTests {
 		sajuInputAssembler = org.mockito.Mockito.mock(SajuReadingInputAssembler.class);
 		when(sajuInputAssembler.assemble(
 			org.mockito.ArgumentMatchers.any(),
-			org.mockito.ArgumentMatchers.anyInt()
+			org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()
 		)).thenAnswer(invocation -> {
 			SajuCalculationInput input = invocation.getArgument(0);
 			int targetYear = invocation.getArgument(1);
@@ -461,7 +530,8 @@ class ReadingCreationWorkflowTests {
 			),
 			metadataResolver,
 			ReadingCreditTestFixtures.properties(),
-			new DirectIdentifierInputGuard()
+			new DirectIdentifierInputGuard(),
+			nanoTime
 		);
 		SajuBirthPlaceCatalog birthPlaceCatalog = new SajuBirthPlaceCatalog(
 			new ObjectMapper(),
@@ -509,7 +579,7 @@ class ReadingCreationWorkflowTests {
 			org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap())).thenReturn(Optional.of(sajuReading("completed")));
 		service(acceptedConsent(), repository, generator).createSajuReading(USER_ID, REQUEST_ID, request);
 		verifyNoInteractions(generator);
-		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+		verify(sajuInputAssembler, never()).assemble(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any());
 		when(repository.findExisting(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
 			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap()))
 			.thenReturn(Optional.empty());
@@ -665,7 +735,7 @@ class ReadingCreationWorkflowTests {
 
 		verifyNoInteractions(repository, generator);
 		verify(sajuInputAssembler, never()).assemble(
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()
 		);
 	}
 }

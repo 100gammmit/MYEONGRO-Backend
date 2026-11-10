@@ -2,7 +2,6 @@ package com.myeongro.api.domain.saju.calculation;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,8 +23,6 @@ import com.myeongro.api.domain.saju.model.LuckDirectionBasis;
 @Component
 public class ApproximateBirthTimeResolver {
 
-	private static final long RANGE_BUDGET_NANOS = Duration.ofSeconds(25).toNanos();
-
 	private final TrueSolarTimeCorrector corrector;
 	private final LunarJavaFourPillarsAdapter adapter;
 
@@ -41,12 +38,13 @@ public class ApproximateBirthTimeResolver {
 		LocalDateTime rememberedTime,
 		double longitude,
 		LuckDirectionBasis luckDirectionBasis,
-		int targetYear
+		int targetYear,
+		Runnable checkDeadline
 	) {
 		LocalDateTime start = rememberedTime.minusMinutes(SajuCalculationRules.APPROXIMATE_MINUTES);
 		LocalDateTime end = rememberedTime.plusMinutes(SajuCalculationRules.APPROXIMATE_MINUTES);
 		CandidateSet candidateSet = candidatesForRange(
-			start, end, longitude, true, luckDirectionBasis, targetYear
+			start, end, longitude, true, luckDirectionBasis, targetYear, checkDeadline
 		);
 		List<SajuLimitationCode> limitations = new ArrayList<>();
 		limitations.add(SajuLimitationCode.APPROXIMATE_BIRTH_TIME);
@@ -87,12 +85,13 @@ public class ApproximateBirthTimeResolver {
 		LocalDate birthDate,
 		double longitude,
 		LuckDirectionBasis luckDirectionBasis,
-		int targetYear
+		int targetYear,
+		Runnable checkDeadline
 	) {
 		LocalDateTime start = birthDate.atStartOfDay();
 		LocalDateTime end = birthDate.atTime(23, 59);
 		CandidateSet candidateSet = candidatesForRange(
-			start, end, longitude, false, luckDirectionBasis, targetYear
+			start, end, longitude, false, luckDirectionBasis, targetYear, checkDeadline
 		);
 		List<SajuLimitationCode> limitations = new ArrayList<>();
 		addDstLimitations(candidateSet, limitations);
@@ -156,20 +155,21 @@ public class ApproximateBirthTimeResolver {
 		double longitude,
 		boolean includeTime,
 		LuckDirectionBasis luckDirectionBasis,
-		int targetYear
+		int targetYear,
+		Runnable checkDeadline
 	) {
 		List<Candidate> candidates = new ArrayList<>();
 		Set<String> offsets = new LinkedHashSet<>();
 		boolean gap = false;
 		boolean overlap = false;
-		long startedAt = System.nanoTime();
 		for (LocalDateTime cursor = start; !cursor.isAfter(end); cursor = cursor.plusMinutes(1)) {
+			checkDeadline.run();
 			List<TrueSolarTimeCorrector.Correction> corrections =
 				corrector.correctCandidates(cursor, longitude);
 			gap |= corrections.isEmpty();
 			overlap |= corrections.size() > 1;
 			for (TrueSolarTimeCorrector.Correction correction : corrections) {
-				checkRangeBudget(startedAt);
+				checkDeadline.run();
 				offsets.add(correction.zoneOffset());
 				candidates.add(adapter.calculate(
 					correction.trueSolarTime(), correction.engineCivilTime(), includeTime,
@@ -177,14 +177,8 @@ public class ApproximateBirthTimeResolver {
 				));
 			}
 		}
-		checkRangeBudget(startedAt);
+		checkDeadline.run();
 		return new CandidateSet(candidates, offsets, gap, overlap);
-	}
-
-	private static void checkRangeBudget(long startedAt) {
-		if (System.nanoTime() - startedAt >= RANGE_BUDGET_NANOS) {
-			throw new SajuCalculationException(new IllegalStateException("Birth time calculation timed out"));
-		}
 	}
 
 	private void addDstLimitations(

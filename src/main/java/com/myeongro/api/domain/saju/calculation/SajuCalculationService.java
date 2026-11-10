@@ -17,6 +17,7 @@ import com.myeongro.api.domain.saju.model.BirthTimePrecision;
 import com.myeongro.api.domain.saju.model.LuckDirectionBasis;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
+import com.myeongro.api.domain.reading.exception.ReadingGenerationExpiredException;
 
 @Service
 public class SajuCalculationService {
@@ -36,9 +37,15 @@ public class SajuCalculationService {
 	}
 
 	public SajuCalculationSnapshot calculate(Map<String, Object> birthProfile, int targetYear) {
+		return calculate(birthProfile, targetYear, () -> {});
+	}
+
+	public SajuCalculationSnapshot calculate(
+		Map<String, Object> birthProfile, int targetYear, Runnable checkDeadline
+	) {
 		try {
-			return doCalculate(birthProfile, targetYear);
-		} catch (SajuCalculationException | InvalidReadingRequestException exception) {
+			return doCalculate(birthProfile, targetYear, checkDeadline);
+		} catch (SajuCalculationException | InvalidReadingRequestException | ReadingGenerationExpiredException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
 			throw new SajuCalculationException(exception);
@@ -47,7 +54,8 @@ public class SajuCalculationService {
 
 	private SajuCalculationSnapshot doCalculate(
 		Map<String, Object> birthProfile,
-		int targetYear
+		int targetYear,
+		Runnable checkDeadline
 	) {
 		LocalDate birthDate = LocalDate.parse(requiredString(birthProfile, "birthDate"));
 		BirthTimePrecision precision = BirthTimePrecision.fromValue(
@@ -68,7 +76,7 @@ public class SajuCalculationService {
 		List<SajuLimitationCode> limitations = new ArrayList<>();
 		if (precision == BirthTimePrecision.UNKNOWN) {
 			Resolution resolution = approximateResolver.resolveUnknown(
-				birthDate, longitude, luckBasis, targetYear
+				birthDate, longitude, luckBasis, targetYear, checkDeadline
 			);
 			candidate = resolution.trusted();
 			limitations.addAll(resolution.limitations());
@@ -90,7 +98,7 @@ public class SajuCalculationService {
 			if (precision == BirthTimePrecision.APPROXIMATE) {
 				var centerCorrections = corrector.correctCandidates(civilTime, longitude);
 				Resolution resolution = approximateResolver.resolve(
-					civilTime, longitude, luckBasis, targetYear
+					civilTime, longitude, luckBasis, targetYear, checkDeadline
 				);
 				candidate = resolution.trusted();
 				correction = timeCorrection(centerCorrections);

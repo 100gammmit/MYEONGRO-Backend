@@ -35,9 +35,10 @@ class SajuReadingInputAssemblerTests {
 	@Test
 	void separatesTransientBirthDataAiInputAndMinimalStoredInput() {
 		SajuCalculationInput base = baseInput();
-		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot());
+		Runnable deadline = () -> {};
+		when(calculationService.calculate(profile(), 2026, deadline)).thenReturn(snapshot());
 
-		PreparedReadingInput assembled = assembler.assemble(base, 2026);
+		PreparedReadingInput assembled = assembler.assemble(base, 2026, deadline);
 
 		assertThat(assembled.schemaVersion()).isEqualTo(6);
 		assertThat(assembled.aiPayload())
@@ -77,8 +78,9 @@ class SajuReadingInputAssemblerTests {
 	void annualUsesSeparateSchemaAndStoresOnlyDiscriminatorAndMinimalCalculation() {
 		var input = new SajuCalculationInput(7, "", SajuFocusArea.SELF, profile(), 2026,
 			com.myeongro.api.domain.saju.model.SajuReportType.ANNUAL_MONTHLY);
-		when(calculationService.calculate(profile(), 2026)).thenReturn(snapshot());
-		var assembled = assembler.assemble(input, 2026);
+		Runnable deadline = () -> {};
+		when(calculationService.calculate(profile(), 2026, deadline)).thenReturn(snapshot());
+		var assembled = assembler.assemble(input, 2026, deadline);
 		assertThat(assembled.schemaVersion()).isEqualTo(7);
 		assertThat(assembled.question()).isEmpty();
 		assertThat(assembled.storedPayload()).containsOnlyKeys("reportType", "targetYear", "calculationSnapshot")

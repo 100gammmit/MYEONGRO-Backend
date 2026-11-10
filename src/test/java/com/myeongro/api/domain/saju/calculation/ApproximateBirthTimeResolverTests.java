@@ -40,7 +40,8 @@ class ApproximateBirthTimeResolverTests {
 			LocalDateTime.parse("1992-08-17T12:00"),
 			127.0,
 			LuckDirectionBasis.MALE,
-			2026
+			2026,
+			() -> {}
 		);
 
 		assertThat(resolution.uncertainty().candidateCount()).isEqualTo(121);

@@ -43,10 +43,10 @@ public class SajuReadingInputAssembler {
 		this.monthlyCalendarService = monthlyCalendarService;
 	}
 
-	public PreparedReadingInput assemble(SajuCalculationInput input, int targetYear) {
+	public PreparedReadingInput assemble(SajuCalculationInput input, int targetYear, Runnable checkDeadline) {
 		if (input.targetYear() != targetYear) throw new IllegalArgumentException("Target year mismatch");
 		SajuCalculationSnapshot snapshot = calculationService.calculate(
-			input.birthProfile(), targetYear
+			input.birthProfile(), targetYear, checkDeadline
 		);
 		Map<String, Object> calculated = objectMapper.convertValue(
 			snapshot, new TypeReference<Map<String, Object>>() {

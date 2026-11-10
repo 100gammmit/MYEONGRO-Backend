@@ -63,7 +63,7 @@ public class SajuReadingCreationService {
 					);
 				}
 			},
-			input -> inputAssembler.assemble(input, input.targetYear())
+			(input, checkDeadline) -> inputAssembler.assemble(input, input.targetYear(), checkDeadline)
 		);
 	}
 }

@@ -4,10 +4,12 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.BiFunction;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.consent.service.ConsentService;
@@ -34,7 +36,9 @@ public class ReadingCreationWorkflow {
 	private final ReadingGenerationMetadataResolver generationMetadataResolver;
 	private final ReadingCreditProperties creditProperties;
 	private final DirectIdentifierInputGuard directIdentifierInputGuard;
+	private final LongSupplier nanoTime;
 
+	@Autowired
 	public ReadingCreationWorkflow(
 		ConsentService consentService,
 		ReadingCreationRepository repository,
@@ -44,6 +48,20 @@ public class ReadingCreationWorkflow {
 		ReadingCreditProperties creditProperties,
 		DirectIdentifierInputGuard directIdentifierInputGuard
 	) {
+		this(consentService, repository, generator, inputFingerprinter, generationMetadataResolver,
+			creditProperties, directIdentifierInputGuard, System::nanoTime);
+	}
+
+	ReadingCreationWorkflow(
+		ConsentService consentService,
+		ReadingCreationRepository repository,
+		ReadingGenerator generator,
+		ReadingInputFingerprinter inputFingerprinter,
+		ReadingGenerationMetadataResolver generationMetadataResolver,
+		ReadingCreditProperties creditProperties,
+		DirectIdentifierInputGuard directIdentifierInputGuard,
+		LongSupplier nanoTime
+	) {
 		this.consentService = consentService;
 		this.repository = repository;
 		this.generator = generator;
@@ -51,6 +69,7 @@ public class ReadingCreationWorkflow {
 		this.generationMetadataResolver = generationMetadataResolver;
 		this.creditProperties = creditProperties;
 		this.directIdentifierInputGuard = directIdentifierInputGuard;
+		this.nanoTime = nanoTime;
 	}
 
 	public <T extends ReadingRequestInput> CreatedReadingResponse create(
@@ -59,7 +78,7 @@ public class ReadingCreationWorkflow {
 		ConsentScope consentScope,
 		Supplier<T> inputSupplier,
 		Consumer<T> validateNewRequest,
-		Function<T, PreparedReadingInput> pendingInputFinalizer
+		BiFunction<T, Runnable, PreparedReadingInput> pendingInputFinalizer
 	) {
 		requireCreationAllowed(userId, requestId, consentScope);
 		T input = inputSupplier.get();
@@ -73,7 +92,8 @@ public class ReadingCreationWorkflow {
 		validateNewRequest.accept(input);
 		int creditCost = creditProperties.cost(input.kind(), input.spreadType());
 		UUID preparationToken = UUID.randomUUID();
-		long preparationStartedAt = System.nanoTime();
+		long preparationStartedAt = nanoTime.getAsLong();
+		Runnable checkDeadline = () -> checkPreparationBudget(preparationStartedAt);
 		if (!repository.acquirePreparation(userId, requestId, preparationToken, creditCost)) {
 			return replay(userId, requestId, input, inputHash)
 				.orElseThrow(ReadingGenerationExpiredException::new);
@@ -82,12 +102,12 @@ public class ReadingCreationWorkflow {
 		PreparedReadingInput prepared;
 		PendingReadingCreation pending;
 		try {
-			checkPreparationBudget(preparationStartedAt);
-			prepared = pendingInputFinalizer.apply(input);
+			checkDeadline.run();
+			prepared = pendingInputFinalizer.apply(input, checkDeadline);
 			ReadingGenerationMetadata metadata = generationMetadataResolver.resolve(
 				prepared.kind(), prepared.spreadType(), prepared.aiPayload()
 			);
-			checkPreparationBudget(preparationStartedAt);
+			checkDeadline.run();
 			pending = repository.createPending(PendingReadingCommand.builder()
 				.userId(userId)
 				.requestId(requestId)
@@ -116,8 +136,8 @@ public class ReadingCreationWorkflow {
 		return generatePending(prepared, pending);
 	}
 
-	private static void checkPreparationBudget(long startedAt) {
-		if (System.nanoTime() - startedAt >= PREPARATION_BUDGET_NANOS) {
+	private void checkPreparationBudget(long startedAt) {
+		if (nanoTime.getAsLong() - startedAt >= PREPARATION_BUDGET_NANOS) {
 			throw new ReadingGenerationExpiredException();
 		}
 	}

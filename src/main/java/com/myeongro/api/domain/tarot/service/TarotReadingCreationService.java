@@ -45,7 +45,7 @@ public class TarotReadingCreationService {
 				return inputNormalizer.normalize(request, spread, cardIds);
 			},
 			input -> {},
-			PreparedReadingInput::fromNormalized
+			(input, checkDeadline) -> PreparedReadingInput.fromNormalized(input)
 		);
 	}
 }
