@@ -225,7 +225,8 @@ class JdbcReadingCreationRepositoryTests {
 			"prompt-v1",
 			1,
 			10,
-			1000
+			1000,
+			REQUEST_ID
 		);
 		assertThat(sql.getAllValues().get(1))
 			.contains("from public.readings")
@@ -413,6 +414,7 @@ class JdbcReadingCreationRepositoryTests {
 			.model("gpt-test")
 			.promptVersion("prompt-v1")
 			.creditCost(1)
+			.preparationToken(REQUEST_ID)
 			.build();
 	}
 

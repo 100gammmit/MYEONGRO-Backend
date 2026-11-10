@@ -20,6 +20,10 @@ public interface ReadingCreationRepository {
 		Map<String, Object> input
 	);
 
+	boolean acquirePreparation(UUID userId, UUID requestId, UUID token, int creditCost);
+
+	void releasePreparation(UUID userId, UUID token);
+
 	PendingReadingCreation createPending(PendingReadingCommand command);
 
 	CreatedReadingResponse completePending(

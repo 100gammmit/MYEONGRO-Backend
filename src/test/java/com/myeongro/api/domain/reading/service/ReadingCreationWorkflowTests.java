@@ -27,7 +27,9 @@ import com.myeongro.api.domain.reading.dto.CreatedReadingResponse;
 import com.myeongro.api.domain.reading.dto.GeneratedReading;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
+import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsException;
 import com.myeongro.api.domain.reading.exception.OpenAiReadingGenerationException;
+import com.myeongro.api.domain.reading.exception.ReadingDailyCapacityReachedException;
 import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
 import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.reading.repository.PendingReadingCommand;
@@ -257,7 +259,38 @@ class ReadingCreationWorkflowTests {
 			.hasMessage("사주 계산을 완료하지 못했습니다.");
 
 		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
+		var token = ArgumentCaptor.forClass(UUID.class);
+		verify(repository).acquirePreparation(
+			org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			token.capture(), org.mockito.ArgumentMatchers.anyInt()
+		);
+		verify(repository).releasePreparation(USER_ID, token.getValue());
 		verifyNoInteractions(generator);
+	}
+
+	@Test
+	void rejectsSajuBeforeCalculationWhenPreparationIsUnavailable() {
+		var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		var facade = service(acceptedConsent(), repository, generator);
+		when(repository.acquirePreparation(
+			org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+		)).thenThrow(
+			new ReadingGenerationInProgressException(),
+			new InsufficientReadingCreditsException(USER_ID, 4),
+			new ReadingDailyCapacityReachedException()
+		);
+
+		assertThatThrownBy(() -> facade.createSajuReading(USER_ID, REQUEST_ID, sajuRequest()))
+			.isInstanceOf(ReadingGenerationInProgressException.class);
+		assertThatThrownBy(() -> facade.createSajuReading(USER_ID, REQUEST_ID, sajuRequest()))
+			.isInstanceOf(InsufficientReadingCreditsException.class);
+		assertThatThrownBy(() -> facade.createSajuReading(USER_ID, REQUEST_ID, sajuRequest()))
+			.isInstanceOf(ReadingDailyCapacityReachedException.class);
+
+		verifyNoInteractions(sajuInputAssembler, generator);
+		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
@@ -385,6 +418,10 @@ class ReadingCreationWorkflowTests {
 		ReadingCreationRepository repository,
 		ReadingGenerator generator
 	) {
+		when(repository.acquirePreparation(
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()
+		)).thenReturn(true);
 		ReadingGenerationMetadataResolver metadataResolver =
 			org.mockito.Mockito.mock(ReadingGenerationMetadataResolver.class);
 		when(metadataResolver.resolve(

@@ -51,7 +51,7 @@ class FlywayFreshPostgresReplayTests {
 		var result = flyway.migrate();
 
 		assertThat(result.success).isTrue();
-		assertThat(result.migrationsExecuted + baseline.migrationsExecuted).isEqualTo(4);
+		assertThat(result.migrationsExecuted + baseline.migrationsExecuted).isEqualTo(5);
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
 			var query = connection.prepareStatement("select schema_version, jsonb_exists(input_payload->'calculationSnapshot', 'monthlyCalendar') from public.readings where id = ?")) {
 			query.setObject(1, legacyReading);
@@ -61,6 +61,7 @@ class FlywayFreshPostgresReplayTests {
 		verifyCurrentSchema(jdbcUrl, username, password);
 		verifySecurityDefinerPrivileges(jdbcUrl, username, password);
 		verifyReadingCreationContract(jdbcUrl, username, password);
+		verifyReadingPreparation(jdbcUrl, username, password);
 		verifyAnnualReportContract(jdbcUrl, username, password);
 		verifyConsentTransitionSerialization(jdbcUrl, username, password);
 	}
@@ -87,6 +88,9 @@ class FlywayFreshPostgresReplayTests {
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isTrue();
 			assertThat(resultSet.getString("version")).isEqualTo("4");
+			assertThat(resultSet.getBoolean("success")).isTrue();
+			assertThat(resultSet.next()).isTrue();
+			assertThat(resultSet.getString("version")).isEqualTo("5");
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isFalse();
 		}
@@ -141,16 +145,103 @@ class FlywayFreshPostgresReplayTests {
 				   and grantee = 'PUBLIC'
 				   and privilege_type = 'EXECUTE'
 				   and routine_name in (
+				     'acquire_reading_preparation',
 				     'apply_daily_reading_credit_reset',
 				     'complete_reading_generation',
 				     'create_pending_reading',
 				     'fail_reading_generation',
 				     'fail_stale_reading_generations',
-				     'get_reading_credit_status'
+				     'get_reading_credit_status',
+				     'release_reading_preparation'
 				   )
 				 """)) {
 			assertThat(resultSet.next()).isTrue();
 			assertThat(resultSet.getInt(1)).isZero();
+		}
+	}
+
+	private void verifyReadingPreparation(String url, String username, String password) throws Exception {
+		UUID user = createProfile(url, username, password);
+		int attempts = capacityUsedToday(url, username, password);
+		UUID firstRequest = UUID.randomUUID();
+		UUID secondRequest = UUID.randomUUID();
+		UUID firstToken = UUID.randomUUID();
+		UUID secondToken = UUID.randomUUID();
+		try (var first = DriverManager.getConnection(url, username, password);
+			 var second = DriverManager.getConnection(url, username, password);
+			 var executor = Executors.newSingleThreadExecutor()) {
+			assertSqlState("RL112", () -> acquirePreparation(first, user, firstRequest, firstToken, 11, 1000));
+			assertSqlState("RL113", () -> acquirePreparation(first, user, firstRequest, firstToken, 1, 0));
+
+			first.setAutoCommit(false);
+			assertThat(acquirePreparation(first, user, firstRequest, firstToken, 1, 1000)).isTrue();
+			var contender = executor.submit(() -> {
+				try {
+					acquirePreparation(second, user, secondRequest, secondToken, 1, 1000);
+					return "acquired";
+				} catch (SQLException exception) {
+					return exception.getSQLState();
+				}
+			});
+			first.commit();
+			first.setAutoCommit(true);
+			assertThat(contender.get(5, TimeUnit.SECONDS)).isEqualTo("RL111");
+			assertThat(capacityUsedToday(url, username, password)).isEqualTo(attempts);
+
+			try (var expire = first.prepareStatement("""
+				update public.reading_preparations set expires_at = clock_timestamp() where user_id = ?
+				""")) {
+				expire.setObject(1, user);
+				expire.executeUpdate();
+			}
+			assertThat(acquirePreparation(second, user, secondRequest, secondToken, 1, 1000)).isTrue();
+			assertSqlState("RL108", () -> reservePrepared(first, user, firstRequest, firstToken, 1000));
+			try (var release = first.prepareStatement("select public.release_reading_preparation(?, ?)")) {
+				release.setObject(1, user);
+				release.setObject(2, firstToken);
+				release.executeQuery().close();
+			}
+			assertSqlState("RL113", () -> reservePrepared(second, user, secondRequest, secondToken, attempts));
+			assertThat(capacityUsedToday(url, username, password)).isEqualTo(attempts);
+			reservePrepared(second, user, secondRequest, secondToken, 1000);
+			assertThat(capacityUsedToday(url, username, password)).isEqualTo(attempts + 1);
+			assertThat(acquirePreparation(first, user, secondRequest, firstToken, 1, 1000)).isFalse();
+			assertSqlState("RL111", () -> acquirePreparation(first, user, firstRequest, firstToken, 1, 1000));
+		}
+	}
+
+	private boolean acquirePreparation(
+		Connection connection, UUID user, UUID request, UUID token, int cost, int limit
+	) throws SQLException {
+		try (var query = connection.prepareStatement("select public.acquire_reading_preparation(?, ?, ?, ?, 10, ?)")) {
+			query.setObject(1, user);
+			query.setObject(2, request);
+			query.setObject(3, token);
+			query.setInt(4, cost);
+			query.setInt(5, limit);
+			try (var row = query.executeQuery()) {
+				assertThat(row.next()).isTrue();
+				return row.getBoolean(1);
+			}
+		}
+	}
+
+	private void reservePrepared(Connection connection, UUID user, UUID request, UUID token, int limit)
+		throws SQLException {
+		try (var query = connection.prepareStatement("""
+			select created from public.create_pending_reading(
+			  ?, ?, 'prepared-hash', 'tarot'::public.reading_kind, 'mind_three_card', 1,
+			  '{}'::jsonb, 'openai', 'test-model', 'test-prompt', 1, 10, ?, ?
+			)
+			""")) {
+			query.setObject(1, user);
+			query.setObject(2, request);
+			query.setInt(3, limit);
+			query.setObject(4, token);
+			try (var row = query.executeQuery()) {
+				assertThat(row.next()).isTrue();
+				assertThat(row.getBoolean(1)).isTrue();
+			}
 		}
 	}
 

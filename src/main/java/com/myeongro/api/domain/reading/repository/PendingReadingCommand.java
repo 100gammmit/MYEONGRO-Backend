@@ -18,6 +18,7 @@ public record PendingReadingCommand(
 	String provider,
 	String model,
 	String promptVersion,
-	int creditCost
+	int creditCost,
+	UUID preparationToken
 ) {
 }

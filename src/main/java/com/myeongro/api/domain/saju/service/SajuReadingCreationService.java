@@ -62,8 +62,8 @@ public class SajuReadingCreationService {
 						"INVALID_TARGET_YEAR", "targetYear", "리딩 연도는 올해 또는 내년을 선택해 주세요."
 					);
 				}
-				return inputAssembler.assemble(input, input.targetYear());
-			}
+			},
+			input -> inputAssembler.assemble(input, input.targetYear())
 		);
 	}
 }

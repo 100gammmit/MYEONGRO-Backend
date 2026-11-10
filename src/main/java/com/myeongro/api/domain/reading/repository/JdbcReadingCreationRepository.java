@@ -59,7 +59,7 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	private static final String CREATE_PENDING = """
 		select reading_id, generation_id, created
 		from public.create_pending_reading(
-			?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?, ?, ?, ?
+			?, ?, ?, cast(? as public.reading_kind), ?, ?, cast(? as jsonb), ?, ?, ?, ?, ?, ?, ?
 		)
 		""";
 	private static final String SELECT_READING = """
@@ -167,6 +167,25 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 	}
 
 	@Override
+	public boolean acquirePreparation(UUID userId, UUID requestId, UUID token, int creditCost) {
+		try {
+			return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+				"select public.acquire_reading_preparation(?, ?, ?, ?, ?, ?)",
+				Boolean.class, userId, requestId, token, creditCost,
+				creditProperties.dailyFreeGrant(), creditProperties.globalDailyAttemptLimit()
+			));
+		} catch (DataAccessException exception) {
+			throw mapDatabaseException(exception, userId, creditCost);
+		}
+	}
+
+	@Override
+	public void releasePreparation(UUID userId, UUID token) {
+		jdbcTemplate.query("select public.release_reading_preparation(?, ?)",
+			(org.springframework.jdbc.core.ResultSetExtractor<Void>) result -> null, userId, token);
+	}
+
+	@Override
 	public PendingReadingCreation createPending(PendingReadingCommand command) {
 		try {
 			PendingIds pendingIds = jdbcTemplate.queryForObject(
@@ -187,7 +206,8 @@ public class JdbcReadingCreationRepository implements ReadingCreationRepository 
 				command.promptVersion(),
 				command.creditCost(),
 				creditProperties.dailyFreeGrant(),
-				creditProperties.globalDailyAttemptLimit()
+				creditProperties.globalDailyAttemptLimit(),
+				command.preparationToken()
 			);
 			if (pendingIds == null || pendingIds.readingId() == null) {
 				throw new IllegalStateException("Pending reading was not created");

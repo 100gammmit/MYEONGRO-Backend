@@ -163,6 +163,9 @@ production Redis와 Caddy image도 읽기 쉬운 version tag와 digest를 함께
 불가능하므로 cutover 전에 배포를 중단한다.
 
 Database migration은 forward-only이며 배포 script가 자동 rollback하지 않는다.
+리딩 준비 실행권을 도입하는 V5 배포와 이미지 롤백에는 리딩 생성 트래픽을 먼저 중지하고
+기존 인스턴스의 진행 중 요청을 종료한다. 앱 버전 교체와 readiness 확인이 끝난 뒤 생성
+트래픽을 다시 연다. V5는 이전 이미지가 사용하는 예약 함수 시그니처를 유지한다.
 
 ## 개인정보·보유기간 출시 gate
 
