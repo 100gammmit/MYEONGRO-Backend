@@ -7,10 +7,12 @@ suffix="$$"
 network_name="myeongro-caddy-ip-test-$suffix"
 proxy_name="myeongro-caddy-ip-proxy-$suffix"
 upstream_name="myeongro-caddy-ip-upstream-$suffix"
+curl_sink=/dev/null
 
 if command -v cygpath >/dev/null 2>&1; then
   deploy_mount_dir="$(cygpath -w "$deploy_dir")"
   export MSYS_NO_PATHCONV=1
+  curl_sink=NUL
 else
   deploy_mount_dir="$deploy_dir"
 fi
@@ -96,17 +98,25 @@ body_status() {
   local bytes="$1"
   shift
   printf '%*s{}' "$((bytes - 2))" '' | curl --silent --show-error --insecure --http1.1 \
-    --max-time 10 --output /dev/null --write-out '%{http_code}' \
+    --max-time 10 --output "$curl_sink" --write-out '%{http_code}' \
     --resolve "localhost:${host_port}:127.0.0.1" \
     --header "Content-Type: application/json" --data-binary @- "$@" \
     "https://localhost:${host_port}/api/tarot/daily-card-selections"
 }
 
-if [[ "$(body_status 32768)" != 200 || "$(body_status 32769)" != 413 ||
-      "$(body_status 32768 --header 'Transfer-Encoding: chunked')" != 200 ||
-      "$(body_status 32769 --header 'Transfer-Encoding: chunked')" != 413 ]]; then
-  echo "Caddy did not enforce the request body limit for both framing modes" >&2
-  exit 1
-fi
+check_body_status() {
+  local expected="$1"
+  shift
+  local actual
+  actual="$(body_status "$@")"
+  if [[ "$actual" != "$expected" ]]; then
+    echo "Caddy returned $actual instead of $expected for body test: $*" >&2
+    exit 1
+  fi
+}
 
+check_body_status 200 32768
+check_body_status 413 32769
+check_body_status 200 32768 --header 'Transfer-Encoding: chunked'
+check_body_status 413 32769 --header 'Transfer-Encoding: chunked'
 echo "Caddy request body limit test passed"
