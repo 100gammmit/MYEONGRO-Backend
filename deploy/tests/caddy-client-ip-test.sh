@@ -31,6 +31,7 @@ docker network create "$network_name" >/dev/null
 
 # Stands in for the API and echoes the headers the production proxy forwarded.
 upstream_config=':8080 {
+	respond /api/tarot/daily-card-selections "{http.request.body}"
 	respond "forwarded=[{header.Forwarded}] real-ip=[{header.X-Real-IP}] prefix=[{header.X-Forwarded-Prefix}] port=[{header.X-Forwarded-Port}] ssl=[{header.X-Forwarded-Ssl}] xff=[{header.X-Forwarded-For}]"
 }'
 docker run --detach \
@@ -90,3 +91,22 @@ if ! grep -Eq 'xff=\[[0-9a-fA-F:.]+\]' <<<"$response"; then
 fi
 
 echo "Caddy client IP test passed"
+
+body_status() {
+  local bytes="$1"
+  shift
+  printf '%*s{}' "$((bytes - 2))" '' | curl --silent --show-error --insecure --http1.1 \
+    --max-time 10 --output /dev/null --write-out '%{http_code}' \
+    --resolve "localhost:${host_port}:127.0.0.1" \
+    --header "Content-Type: application/json" --data-binary @- "$@" \
+    "https://localhost:${host_port}/api/tarot/daily-card-selections"
+}
+
+if [[ "$(body_status 32768)" != 200 || "$(body_status 32769)" != 413 ||
+      "$(body_status 32768 --header 'Transfer-Encoding: chunked')" != 200 ||
+      "$(body_status 32769 --header 'Transfer-Encoding: chunked')" != 413 ]]; then
+  echo "Caddy did not enforce the request body limit for both framing modes" >&2
+  exit 1
+fi
+
+echo "Caddy request body limit test passed"

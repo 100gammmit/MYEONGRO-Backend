@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -84,6 +85,17 @@ class SecurityConfigTests {
 	@BeforeEach
 	void allowRequestsByDefault() {
 		when(ipRateLimiter.tryAcquire(any(), any())).thenReturn(true);
+	}
+
+	@Test
+	void limitsPublicSignupAndDailyCardJsonBeforeMvc() throws Exception {
+		for (String path : new String[]{"/api/signup", "/api/tarot/daily-card-selections"}) {
+			mockMvc.perform(post(path)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(" ".repeat(JsonRequestBodyLimitFilter.MAX_BYTES + 1)))
+				.andExpect(status().isPayloadTooLarge())
+				.andExpect(result -> assertThat(result.getHandler()).isNull());
+		}
 	}
 
 	@Test

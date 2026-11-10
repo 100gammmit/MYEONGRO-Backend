@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.savedrequest.NullRequestCache;
 import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 
@@ -95,6 +96,7 @@ public class SecurityConfig {
 				pendingSignupAccessFilter,
 				AdultEligibilitySessionFilter.class
 			)
+			.addFilterAfter(new JsonRequestBodyLimitFilter(), AuthorizationFilter.class)
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
 					"/actuator/health",
