@@ -29,6 +29,9 @@ https://{$API_DOMAIN_NAME} {
 		# could pick its own IP. Rate limits depend on that value. The other forwarded
 		# headers would let a client rewrite the request path and URL Spring sees.
 		handle {
+			request_body {
+				max_size 32768
+			}
 			reverse_proxy api:8080 {
 				header_up -Forwarded
 				header_up -X-Real-IP
