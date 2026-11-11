@@ -1,0 +1,1 @@
+synthetic annual-only interpretation

@@ -45,7 +45,9 @@ class ApplicationYamlContractTests {
 			"app.reading.prompts.tarot.spreads.choice-five-card",
 			"app.reading.prompts.saju.common",
 			"app.reading.prompts.saju.interpretation",
-			"app.reading.prompts.saju.reports.birth-annual-question"
+			"app.reading.prompts.saju.annual-interpretation",
+			"app.reading.prompts.saju.reports.birth-annual-question",
+			"app.reading.prompts.saju.reports.annual-monthly"
 		);
 
 		assertThat(promptKeys).allSatisfy(key -> {

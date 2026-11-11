@@ -40,7 +40,9 @@ class ReadingGeneratorBeanSelectionTests {
 				"app.reading.prompts.tarot.spreads.choice-five-card=classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v4.md",
 				"app.reading.prompts.saju.common=classpath:prompts/saju/common-ko-v1.md",
 				"app.reading.prompts.saju.interpretation=classpath:prompts/saju/interpretation/interpretation-guide-ko-v1.md",
-				"app.reading.prompts.saju.reports.birth-annual-question=classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md"
+				"app.reading.prompts.saju.annual-interpretation=classpath:prompts/saju/annual-interpretation-fixture.md",
+				"app.reading.prompts.saju.reports.birth-annual-question=classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v1.md",
+				"app.reading.prompts.saju.reports.annual-monthly=classpath:prompts/saju/reports/annual-monthly/annual-monthly-ko-v5.md"
 			)
 			.withBean(ObjectMapper.class, ObjectMapper::new)
 			.withBean(TarotReadingResultValidator.class)
@@ -73,12 +75,18 @@ class ReadingGeneratorBeanSelectionTests {
 		Path common = directory.resolve("shared-common.md");
 		String marker = "synthetic shared saju instructions";
 		Files.writeString(common, marker);
-		contextRunner.withPropertyValues("app.reading.prompts.saju.common=" + common.toUri())
+		Path base = directory.resolve("base-guide.md");
+		Files.writeString(base, "synthetic shared interpretation");
+		contextRunner.withPropertyValues("app.reading.prompts.saju.common=" + common.toUri(),
+				"app.reading.prompts.saju.interpretation=" + base.toUri())
 			.run(context -> {
 				assertThat(context).hasNotFailed();
 				assertThat(context.getBean(SajuPromptCatalog.class).prompt()).startsWith(marker);
+				assertThat(context.getBean(SajuPromptCatalog.class).prompt())
+					.contains("synthetic shared interpretation").doesNotContain("synthetic annual-only interpretation");
 				assertThat(context.getBean(com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog.class)
-					.prompt()).startsWith(marker);
+					.prompt()).startsWith(marker)
+					.containsSubsequence("synthetic shared interpretation", "synthetic annual-only interpretation");
 			});
 	}
 

@@ -144,6 +144,7 @@ class SajuAnnualTests {
 		return new SajuAnnualPromptCatalog(new ReadingSafetyPrompt(new ClassPathResource("prompts/reading/safety/reading-safety-ko-v3.md")),
 			new ClassPathResource("prompts/saju/common-ko-v11.md"),
 			new ClassPathResource("prompts/saju/interpretation/interpretation-guide-ko-v7.md"),
+			new ClassPathResource("prompts/saju/annual-interpretation-fixture.md"),
 			new ClassPathResource("prompts/saju/reports/annual-monthly/annual-monthly-ko-v5.md"));
 	}
 	@Test void generatorUsesStrictSchemaNoRawBirthDataAndRejectsTruncation() throws Exception {

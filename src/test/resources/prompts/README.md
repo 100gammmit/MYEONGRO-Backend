@@ -3,3 +3,5 @@
 이 디렉터리의 8개 Markdown은 기존 테스트가 참조하던 운영 구버전을 내용 변경 없이 옮긴 fixture다. 동일한 classpath를 유지하므로 Java 테스트와 테스트 설정을 활성 버전에 맞춰 수정할 필요가 없다.
 
 운영 프롬프트가 아니며 main 리소스나 운영 JAR에 포함하지 않는다. 운영 버전 갱신에 따라 함께 갱신하지 않는다. 테스트의 구조·라우팅 계약을 변경할 때만 필요성을 다시 판단한다.
+
+`saju/annual-interpretation-fixture.md`는 연간 전용 합성 구간의 wiring을 확인하기 위한 별도 synthetic fixture다. 운영 월운 지시나 버전에는 의존하지 않는다.

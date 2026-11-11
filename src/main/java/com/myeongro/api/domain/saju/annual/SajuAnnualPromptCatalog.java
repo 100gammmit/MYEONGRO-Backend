@@ -13,10 +13,11 @@ public class SajuAnnualPromptCatalog {
 	private final String version;
 	public SajuAnnualPromptCatalog(ReadingSafetyPrompt safety,
 		@Value("${app.reading.prompts.saju.common}") Resource common,
-		@Value("classpath:prompts/saju/interpretation/interpretation-guide-ko-v7.md") Resource interpretation,
-		@Value("classpath:prompts/saju/reports/annual-monthly/annual-monthly-ko-v27.md") Resource report) {
+		@Value("${app.reading.prompts.saju.interpretation}") Resource interpretation,
+		@Value("${app.reading.prompts.saju.annual-interpretation}") Resource annualInterpretation,
+		@Value("${app.reading.prompts.saju.reports.annual-monthly}") Resource report) {
 		try {
-			List<Resource> parts = List.of(common, interpretation, report);
+			List<Resource> parts = List.of(common, interpretation, annualInterpretation, report);
 			var contents = new java.util.ArrayList<String>();
 			var versions = new java.util.ArrayList<String>();
 			for (Resource part : parts) {

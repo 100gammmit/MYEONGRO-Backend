@@ -56,6 +56,7 @@ class SajuAnnualCliFailureTests {
 		var prompts = new SajuAnnualPromptCatalog(new ReadingSafetyPrompt(new ClassPathResource("prompts/reading/safety/reading-safety-ko-v3.md")),
 			new ClassPathResource("prompts/saju/common-ko-v11.md"),
 			new ClassPathResource("prompts/saju/interpretation/interpretation-guide-ko-v7.md"),
+			new ClassPathResource("prompts/saju/annual-interpretation-fixture.md"),
 			new ClassPathResource("prompts/saju/reports/annual-monthly/annual-monthly-ko-v5.md"));
 		var generator = new OpenAiSajuAnnualGenerator(model, mapper, "test", prompts, new DeclinedReadingFactory());
 		var writer = new AiPreviewReportWriter(mapper, new AiPreviewMarkdownRenderer(ZoneId.of("Asia/Seoul")), directory);
