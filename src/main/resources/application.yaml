@@ -134,7 +134,7 @@ app:
         common: classpath:prompts/saju/common-ko-v10.md
         interpretation: classpath:prompts/saju/interpretation/interpretation-guide-ko-v5.md
         reports:
-          birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v6.md
+          birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v16.md
 
   reading-credits:
     daily-free-grant: ${reading.credits.daily-free-grant:10}
