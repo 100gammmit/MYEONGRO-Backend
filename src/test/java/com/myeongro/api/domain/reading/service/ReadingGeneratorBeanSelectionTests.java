@@ -3,8 +3,11 @@ package com.myeongro.api.domain.reading.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -63,6 +66,20 @@ class ReadingGeneratorBeanSelectionTests {
 			assertThat(context.getBean(ReadingGenerator.class))
 				.isInstanceOf(ReadingGeneratorRouter.class);
 		});
+	}
+
+	@Test
+	void generalAndAnnualSajuUseTheSameConfiguredCommon(@TempDir Path directory) throws Exception {
+		Path common = directory.resolve("shared-common.md");
+		String marker = "synthetic shared saju instructions";
+		Files.writeString(common, marker);
+		contextRunner.withPropertyValues("app.reading.prompts.saju.common=" + common.toUri())
+			.run(context -> {
+				assertThat(context).hasNotFailed();
+				assertThat(context.getBean(SajuPromptCatalog.class).prompt()).startsWith(marker);
+				assertThat(context.getBean(com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog.class)
+					.prompt()).startsWith(marker);
+			});
 	}
 
 	@Configuration(proxyBeanMethods = false)
