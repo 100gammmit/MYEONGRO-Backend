@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.assertj.core.api.Assertions.*;
 
-/** Exports only frozen synthetic minimal calculations to ignored local Preview fixtures. No network. */
+/** Exports synthetic birth-profile cases; Preview performs production calculation. No network. */
 class SajuAnnualPreviewFixtureTests {
 	@TempDir Path temporaryDirectory;
 	@Test void exportsEightSyntheticCases() throws Exception {
@@ -29,8 +29,12 @@ class SajuAnnualPreviewFixtureTests {
 			var input = SajuAnnualInput.from(item[2], item[1], 2027, snapshot, SajuAnnualTests.MAPPER);
 			if (item[0].equals("annual-stable-day")) assertThat(input.trustedCalculation()).containsKey("dayMaster");
 			if (item[0].equals("annual-unknown")) assertThat(input.trustedCalculation()).doesNotContainKey("dayMaster");
+			var profile = new java.util.LinkedHashMap<String, Object>();
+			profile.put("calendarType", "solar"); profile.put("birthDate", item[5]);
+			profile.put("birthTimePrecision", item[3]); profile.put("luckDirectionBasis", "unspecified");
+			if (!item[3].equals("unknown")) { profile.put("birthTime", item[4]); profile.put("provinceCode", "11"); }
 			var fixture = Map.of("id", item[0], "kind", "saju", "question", item[2], "input",
-				Map.of("reportType", "annual_monthly", "targetYear", 2027, "focusArea", item[1], "calculationSnapshot", snapshot));
+				Map.of("reportType", "annual_monthly", "targetYear", 2027, "focusArea", item[1], "birthProfile", profile));
 			Files.createDirectories(directory);
 			SajuAnnualTests.MAPPER.writerWithDefaultPrettyPrinter().writeValue(directory.resolve(item[0] + ".json").toFile(), fixture);
 		}

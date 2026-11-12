@@ -20,7 +20,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myeongro.api.domain.reading.entity.ReadingKind;
 import com.myeongro.api.domain.reading.service.*;
 import com.myeongro.api.domain.saju.annual.*;
-import com.myeongro.api.domain.saju.calculation.SajuMonthlyCalendarService;
 import com.myeongro.api.domain.saju.service.SajuPromptCatalog;
 import com.myeongro.api.domain.tarot.service.TarotPromptCatalog;
 
@@ -29,12 +28,10 @@ class SajuAnnualCliFailureTests {
 	@TempDir Path directory;
 	@Test void cliErrorOutputAndSavedMetricsDoNotContainModelExcerpt(CapturedOutput output) throws Exception {
 		var mapper = new ObjectMapper().findAndRegisterModules();
-		var snapshot = Map.<String, Object>of("targetYear", 2027, "pillars", Map.of(), "fiveElements", Map.of(),
-			"relations", List.of(), "limitations", List.of(), "uncertainty", Map.of(),
-			"annualFortune", Map.of("year", 2027, "ganZhi", "정미"),
-			"monthlyCalendar", mapper.convertValue(new SajuMonthlyCalendarService().calculate(2027, null), Map.class));
-		var previewCase = new AiPreviewCase("annual-cli-test", ReadingKind.SAJU, null, "", Map.of(
-			"reportType", "annual_monthly", "targetYear", 2027, "focusArea", "self", "calculationSnapshot", snapshot));
+		var preparer = AiPreviewSajuInputPreparerTests.preparer();
+		var birthCase = AiPreviewSajuInputPreparerTests.birthCase("unknown", true);
+		var previewCase = new AiPreviewCase("annual-cli-test", ReadingKind.SAJU, null, "", birthCase.input());
+		@SuppressWarnings("unchecked") var snapshot = (Map<String, Object>)preparer.prepare(previewCase).previewCase().input().get("calculationSnapshot");
 		var loader = mock(AiPreviewCaseLoader.class);
 		when(loader.load("saju", "annual-cli-test")).thenReturn(previewCase);
 		String marker = "SYNTHETIC_MODEL_OUTPUT_MARKER";
@@ -61,7 +58,7 @@ class SajuAnnualCliFailureTests {
 		var generator = new OpenAiSajuAnnualGenerator(model, mapper, "test", prompts, new DeclinedReadingFactory());
 		var writer = new AiPreviewReportWriter(mapper, new AiPreviewMarkdownRenderer(ZoneId.of("Asia/Seoul")), directory);
 		var runner = new AiPreviewRunner(mock(ReadingGenerator.class), mock(TarotPromptCatalog.class), mock(SajuPromptCatalog.class),
-			loader, writer, new AiPreviewLabelFactory(Clock.systemUTC()), generator, prompts, mapper,
+			loader, writer, new AiPreviewLabelFactory(Clock.systemUTC()), generator, prompts, mapper, preparer,
 			"saju", "annual-cli-test", true, "test");
 		assertThatThrownBy(runner::run).isInstanceOf(SajuAnnualGenerationException.class).satisfies(exception -> {
 			// CLI/Spring receive this same sanitized throwable; render its entire chain to captured stderr.

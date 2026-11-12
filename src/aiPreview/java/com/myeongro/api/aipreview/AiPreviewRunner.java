@@ -38,6 +38,7 @@ final class AiPreviewRunner {
 	private final com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator annualGenerator;
 	private final com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog annualPrompts;
 	private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+	private final AiPreviewSajuInputPreparer sajuInputPreparer;
 
 	AiPreviewRunner(
 		ReadingGenerator readingGenerator,
@@ -49,6 +50,7 @@ final class AiPreviewRunner {
 		com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator annualGenerator,
 		com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog annualPrompts,
 		com.fasterxml.jackson.databind.ObjectMapper objectMapper,
+		AiPreviewSajuInputPreparer sajuInputPreparer,
 		@Value("${ai-preview.kind:}") String kind,
 		@Value("${ai-preview.case:}") String caseId,
 		@Value("${ai-preview.execute:false}") boolean execute,
@@ -67,16 +69,27 @@ final class AiPreviewRunner {
 		this.annualGenerator = annualGenerator;
 		this.annualPrompts = annualPrompts;
 		this.objectMapper = objectMapper;
+		this.sajuInputPreparer = sajuInputPreparer;
 	}
 
 	void run() {
 		AiPreviewCase previewCase = caseLoader.load(kind, caseId);
+		Map<String, Object> calculationMetadata = Map.of();
+		if (previewCase.kind() == ReadingKind.SAJU) {
+			var prepared = sajuInputPreparer.prepare(previewCase);
+			previewCase = prepared.previewCase();
+			calculationMetadata = prepared.calculationMetadata();
+		}
 		String label = labelFactory.create(previewCase.kind());
 		if (!SAFE_LABEL.matcher(label).matches()) {
 			throw new IllegalArgumentException("Preview label must use letters, digits, hyphens, or underscores");
 		}
 		PromptIdentity prompt = promptIdentity(previewCase);
 		printPlan(previewCase, prompt, label);
+		if (!calculationMetadata.isEmpty()) {
+			System.out.println("- calculation version: " + calculationMetadata.get("calculationVersion"));
+			System.out.println("- engine version: " + calculationMetadata.get("engineVersion"));
+		}
 		if (!execute) {
 			System.out.println("Dry run only. Add -Pexecute=true to call OpenAI.");
 			return;
@@ -84,7 +97,7 @@ final class AiPreviewRunner {
 
 		Instant startedAt = Instant.now();
 		long startedNanos = System.nanoTime();
-		Map<String, Object> metrics = Map.of();
+		Map<String, Object> metrics = new java.util.LinkedHashMap<>(calculationMetadata);
 		GeneratedReading generated;
 		if (isAnnual(previewCase)) {
 			var prepared = annualInput(previewCase);
@@ -92,15 +105,18 @@ final class AiPreviewRunner {
 			try {
 				evaluated = annualGenerator.generate(prepared);
 			} catch (com.myeongro.api.domain.saju.annual.SajuAnnualGenerationException exception) {
+				var failureMetrics = new java.util.LinkedHashMap<>(calculationMetadata);
+				failureMetrics.putAll(exception.metrics());
 				var failure = new AiPreviewReport(label, previewCase.id(), "saju", null, model,
 					prompt.version(), prompt.sha256(), startedAt, (System.nanoTime() - startedNanos) / 1_000_000,
-					Map.of("resultType", "failed", "title", "연간 리포트 검증 실패"), exception.metrics());
+					Map.of("resultType", "failed", "title", "연간 리포트 검증 실패"), failureMetrics);
 				var written = reportWriter.write(failure);
 				System.out.println("Rejected annual output metrics: " + written.json());
 				throw exception;
 			}
 			generated = evaluated.reading();
-			var measured = new java.util.LinkedHashMap<>(evaluated.metrics());
+			var measured = new java.util.LinkedHashMap<>(calculationMetadata);
+			measured.putAll(evaluated.metrics());
 			measured.put("calendar", objectMapper.convertValue(prepared.calendar(), Map.class));
 			metrics = measured;
 		} else {

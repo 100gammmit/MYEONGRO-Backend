@@ -14,9 +14,11 @@
 실제 이용자의 질문, 출생정보, 이메일, OAuth 식별자 등 개인정보를 사용하지 않고
 합성된 평가 데이터만 사용한다.
 
-기본 명령은 fixture를 로드해 사용할 프롬프트 정보와 예상 호출만 출력한다.
-Controller와 운영 input normalizer를 거치지 않으며, fixture의 전체 입력 계약을
-자동 검증하지 않는다. 실제 OpenAI 호출은 `-Pexecute=true`를 명시해야 한다.
+기본 명령은 실제 OpenAI를 호출하지 않는다. 사주는 합성 출생정보를 운영 input
+normalizer와 계산·입력 조립기에 통과시켜 계산한 뒤 프롬프트와 계산 버전을 출력한다.
+타로는 기존 정규화된 카드 fixture를 사용한다. Controller, 인증·동의·DB·크레딧 경로는
+실행하지 않으며, dry-run 성공이 HTTP 전체 흐름의 성공을 뜻하지는 않는다.
+실제 OpenAI 호출은 `-Pexecute=true`를 명시해야 한다.
 
 ```powershell
 # 타로 호출 계획 확인
@@ -71,13 +73,23 @@ Tarot sample은 `mind_three_card`의 카드 수와 canonical position 순서를 
 다른 spread를 평가할 때는 해당 카드 수와 position 순서를 맞추고,
 choice spread에는 `choiceOptions.a`, `choiceOptions.b`를 포함한다.
 
-sample을 복사하거나 수정한 뒤에는 실제 호출 전에 운영 코드와의 입력 계약을
-수동으로 리뷰한다. 필요하면 이 작업을 Codex의 다른 스레드에 요청한다. dry-run
-성공은 JSON 역직렬화와 프롬프트 조합이 가능하다는 뜻이며, 운영 입력 계약 전체가
-유효하다는 보장은 아니다.
+사주 fixture의 `input`은 `birthProfile`, `focusArea`, 명시적인 정수 `targetYear`와
+선택적인 `reportType`만 받는다. `question`은 최상위에 두며 `requestId`는 입력하지 않는다.
+기본 reportType은 `birth_annual_question`, 연간은 `annual_monthly`다.
+출생정보 형식은 현재 운영 DTO와 같고, 시간 미상에서는 시간·출생지를 생략한다.
+중첩 unknown field, 계산 결과 직접 주입(`calculation`/`calculationSnapshot`)은 거부한다.
+sample처럼 실제 사용자가 아닌 합성 출생정보만 사용한다.
 
-fixture에는 실제 서비스 생성기가 받는 정규화된 입력을 저장한다. 특히 사주는
-프롬프트 변경만 비교할 수 있도록 생성기에 전달하는 계산 근거 `calculation`을 고정한다.
+운영 `SajuReadingInputNormalizer` → `SajuReadingInputAssembler`를 재사용한다.
+일반과 연간 모두 계산된 AI payload만 생성기로 전달하며 출생정보는 전송하지 않는다.
+프롬프트 비교에서는 출생정보·질문·관심사·대상 연도를 고정한다. 보고서 metrics에
+계산/엔진/좌표 카탈로그 버전을 기록하지만 출생 원문이나 좌표를 추가하지 않는다.
+평가용 연도는 normalizer의 1900~2100 범위를 사용하며, 생성 서비스의 올해/내년
+정책이나 계정별 제약은 이 로컬 도구에서 실행하지 않는다.
+
+기존 계산형 로컬 fixture는 자동 변환하거나 덮어쓰지 않는다. 출생정보를 역으로
+추정할 수 없으므로 원문을 보관하고 sample 형식으로 새 케이스를 작성해야 한다.
+과거 결과와 새 계산 입력의 결과를 동일 입력 전후 비교라고 부르지 않는다.
 
 운영과 Preview 모두 `ReadingRequestJson`으로 USER 메시지의 모든 Map 키를
 문자열 오름차순으로 직렬화한다. 중첩 Map과 배열 안의 Map에도 적용하지만,
@@ -91,7 +103,7 @@ fixture에는 실제 서비스 생성기가 받는 정규화된 입력을 저장
 
 한국어 기획서는 `docs/plans/saju-m4-annual-report.md`다. M4-A의 격리 Preview로 검증한 생성기를 M4-B에서 기존 SAJU handler에 위임 연결한다. 별도의 중복 SAJU handler를 등록하지 않으며 기존 종합 사주의 schema v6과 활성 프롬프트는 그대로다. 한 해 리포트는 schema v7, 사용자 승인 비용은 상세형·간략형 모두 4크레딧이다.
 
-`SajuAnnualPreviewFixtureTests`는 기본적으로 @TempDir에만 합성 fixture를 만들고 검증한다. 명시적으로 export 속성을 켰을 때만 `build/saju-annual-preview/cases`에 8개를 만든다. 원본 출생정보를 제거한 최소 snapshot만 내보내며 개발자의 source Preview fixture를 덮어쓰지 않는다. Preview는 같은 이름의 classpath fixture가 없을 때 이 build 경로를 읽는다. 각 fixture의 `input`은 `reportType`, `targetYear`, `focusArea`, `calculationSnapshot`으로 제한한다. 질문은 비어 있어도 되며 직접 식별정보와 길이 검사는 provider 호출 전에 적용한다.
+`SajuAnnualPreviewFixtureTests`는 기본적으로 @TempDir에만 합성 출생정보 fixture를 만들고 검증한다. 명시적으로 export 속성을 켰을 때만 `build/saju-annual-preview/cases`에 8개를 만든다. 개발자의 source Preview fixture는 덮어쓰지 않는다. Preview는 같은 이름의 classpath fixture가 없을 때 이 build 경로를 읽으므로, 동일 이름의 과거 계산형 classpath fixture가 남아 있으면 먼저 별도로 보관하고 새 형식으로 작성해야 한다. 각 fixture의 `input`은 `reportType`, `targetYear`, `focusArea`, `birthProfile`이다. 연간 질문은 비어 있어도 되며 직접 식별정보와 길이·출생정보 검사는 dry-run에서도 계산 전에 적용한다. 실행 때마다 운영 계산기로 연간 snapshot을 만들고 같은 `SajuAnnualInput`을 거치며, 수동 계산값을 모델에 전달하지 않는다.
 
 ```powershell
 .\gradlew.bat test --tests '*SajuAnnualPreviewFixtureTests' -DsajuAnnualPreviewExport=true

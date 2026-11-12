@@ -56,6 +56,16 @@ import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 	TarotReadingResultValidator.class,
 	SajuReadingResultValidator.class,
 	DeclinedReadingFactory.class,
+	com.myeongro.api.domain.reading.service.DirectIdentifierInputGuard.class,
+	com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog.class,
+	com.myeongro.api.domain.saju.calculation.TrueSolarTimeCorrector.class,
+	com.myeongro.api.domain.saju.calculation.LunarJavaFourPillarsAdapter.class,
+	com.myeongro.api.domain.saju.calculation.ApproximateBirthTimeResolver.class,
+	com.myeongro.api.domain.saju.calculation.SajuCalculationService.class,
+	com.myeongro.api.domain.saju.calculation.SajuMonthlyCalendarService.class,
+	com.myeongro.api.domain.saju.service.SajuReadingInputNormalizer.class,
+	com.myeongro.api.domain.saju.service.SajuStoredCalculationMapper.class,
+	com.myeongro.api.domain.saju.service.SajuReadingInputAssembler.class,
 	com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog.class,
 	com.myeongro.api.domain.saju.annual.OpenAiSajuAnnualGenerator.class
 })
