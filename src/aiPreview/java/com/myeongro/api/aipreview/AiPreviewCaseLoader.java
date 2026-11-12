@@ -39,7 +39,8 @@ final class AiPreviewCaseLoader {
 			validate(previewCase, requestedKind, caseId);
 			return previewCase;
 		} catch (IOException exception) {
-			throw new IllegalArgumentException("Cannot load AI preview case: " + caseId, exception);
+			// Parsing/binding failures may contain raw question or birth-profile values.
+			throw new IllegalArgumentException("Cannot load AI preview case");
 		}
 	}
 
