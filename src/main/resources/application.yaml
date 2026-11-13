@@ -131,11 +131,11 @@ app:
           relationship-three-card: classpath:prompts/tarot/spreads/relationship-three-card/relationship-three-card-ko-v24.md
           choice-five-card: classpath:prompts/tarot/spreads/choice-five-card/choice-five-card-ko-v20.md
       saju:
-        common: classpath:prompts/saju/common-ko-v15.md
+        common: classpath:prompts/saju/common-ko-v16.md
         interpretation: classpath:prompts/saju/interpretation/base-interpretation-ko-v2.md
         annual-interpretation: classpath:prompts/saju/reports/annual-monthly/monthly-interpretation-ko-v1.md
         reports:
-          birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v18.md
+          birth-annual-question: classpath:prompts/saju/reports/birth-annual-question/birth-annual-question-ko-v19.md
           annual-monthly: classpath:prompts/saju/reports/annual-monthly/annual-monthly-ko-v28.md
 
   reading-credits:
