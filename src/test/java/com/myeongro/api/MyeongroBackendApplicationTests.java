@@ -13,7 +13,7 @@ import org.springframework.test.context.DynamicPropertySource;
 @SpringBootTest
 @EnabledIfSystemProperty(
 	named = "freshRedisHost",
-	matches = ".+",
+	matches = ".*\\S.*",
 	disabledReason = "Set freshRedisHost (and optionally freshRedisPort) to run against a real Redis")
 class MyeongroBackendApplicationTests {
 
