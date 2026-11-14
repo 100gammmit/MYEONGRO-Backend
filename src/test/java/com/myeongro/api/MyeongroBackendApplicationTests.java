@@ -20,7 +20,12 @@ class MyeongroBackendApplicationTests {
 	@DynamicPropertySource
 	static void freshRedis(DynamicPropertyRegistry registry) {
 		registry.add("spring.data.redis.host", () -> System.getProperty("freshRedisHost"));
-		registry.add("spring.data.redis.port", () -> System.getProperty("freshRedisPort", "6379"));
+		registry.add("spring.data.redis.port", MyeongroBackendApplicationTests::freshRedisPort);
+	}
+
+	private static String freshRedisPort() {
+		String port = System.getProperty("freshRedisPort");
+		return port == null || port.isBlank() ? "6379" : port;
 	}
 
 	@Test
