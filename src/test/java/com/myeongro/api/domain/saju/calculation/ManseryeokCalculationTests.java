@@ -108,6 +108,10 @@ class ManseryeokCalculationTests {
 			assertThat(result.voids().get("day")).isNull();
 			assertThat(result.voids().get("year")).isNotNull();
 			assertThat(result.uncertainty().varyingFields()).contains("voids.day");
+			assertThat(result.hiddenStems().get("year")).isNotEmpty().allMatch(h->h.tenGod()==null);
+			assertThat(result.hiddenStems().get("month")).isNotEmpty().allMatch(h->h.tenGod()==null);
+			assertThat(result.uncertainty().varyingFields()).contains("hiddenStems.year.*.tenGod","hiddenStems.month.*.tenGod")
+				.noneMatch(f->f.matches("hiddenStems\\.[^.]+\\.tenGod"));
 		}
 		// Adjacent Yi/Bing day masters happen to share the Chen stage; a common derived
 		// stage must nevertheless be hidden and marked when the day-master basis is unknown.

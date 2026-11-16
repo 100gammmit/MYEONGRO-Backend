@@ -116,7 +116,7 @@ public class ManseryeokChartBuilder {
 			}
 			var merged = new ArrayList<HiddenStem>();
 			for (int i=0;i<old.size();i++) merged.add(new HiddenStem(old.get(i).stem(),Objects.equals(old.get(i).tenGod(),next.get(i).tenGod()) ? old.get(i).tenGod() : null));
-			if (!merged.equals(old)) varying.add("hiddenStems."+id+".tenGod");
+			if (!merged.equals(old)) varying.add("hiddenStems."+id+".*.tenGod");
 			hidden.put(id,List.copyOf(merged));
 		}
 		private <T> void merge(Map<String,T> values, String key, T next, String field) {

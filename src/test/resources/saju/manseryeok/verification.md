@@ -78,3 +78,5 @@
 - varyingFields는 공개 projection에서 chart.pillars.*, annualFlows.*.stemTenGod, monthlyCalendar.months.*.periods.*.stemTenGod로 변환한다. `*`는 배열/맵의 각 항목을 뜻하는 필드 경로다. legacy snapshot 경로는 변경하지 않는다.
 - 일간 미확정으로 가린 파생 12운성도 공개 미확정 항목에 남긴다. 전체 검증은 앞의1회 결과로 구분한다.
 - 보정 후 공개 만세력 전체 관련 테스트, 기존 Golden/M3/corrector/resolver, IpRateLimit, AuthenticatedReadingSecurity를 실행: 15 suites/50 tests, 실패·오류·skip0, BUILD SUCCESSFUL(42초). 실제 HTTP의 인코딩 경로 회귀와 공망·공개 경로 assertion을 포함한다. `git diff --check`도 통과했다.
+- 재리뷰에서 지장간 십성 경로의 배열 단계 누락1건이 남아 `hiddenStems.year.*.tenGod`/`hiddenStems.month.*.tenGod`로 통일했다. 연·월 지장간은 남고 일간만 미확정인 unknown/approximate 합성 표본에서 배열·미확정 십성·올바른 경로 및 잘못된 경로 부재를 함께 검증한다.
+- 잔여1건 보정 후 Calculation/ChartBuilder/ExternalReference/실제HTTP on·off 관련5 suites/14 tests 모두 통과, BUILD SUCCESSFUL(18초), diff check 통과. 두 번째 전체 suite는 실행하지 않았다.
