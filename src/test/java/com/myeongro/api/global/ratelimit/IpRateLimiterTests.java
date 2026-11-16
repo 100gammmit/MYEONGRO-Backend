@@ -50,6 +50,19 @@ class IpRateLimiterTests {
 	}
 
 	@Test
+	void calculationFailsClosedAndHasItsOwnTwentyRequestLimit() {
+		countIs(20L);
+		assertThat(limiter.acquire(IpRateLimiter.Scope.SAJU_CALCULATION, "203.0.113.7")).isEqualTo(IpRateLimiter.Decision.ALLOWED);
+		countIs(21L);
+		assertThat(limiter.acquire(IpRateLimiter.Scope.SAJU_CALCULATION, "203.0.113.7")).isEqualTo(IpRateLimiter.Decision.LIMITED);
+		countIs(null);
+		assertThat(limiter.tryAcquire(IpRateLimiter.Scope.SAJU_CALCULATION, "203.0.113.7")).isFalse();
+		when(redisTemplate.execute(any(), anyList(), any())).thenThrow(new RedisConnectionFailureException("redis down"));
+		assertThat(limiter.acquire(IpRateLimiter.Scope.SAJU_CALCULATION, "203.0.113.7")).isEqualTo(IpRateLimiter.Decision.UNAVAILABLE);
+		assertThat(limiter.tryAcquire(IpRateLimiter.Scope.OAUTH_CALLBACK, "203.0.113.7")).isTrue();
+	}
+
+	@Test
 	void allowsUpToTheLimitAndRejectsTheNextRequest() {
 		countIs(20L);
 		assertThat(limiter.tryAcquire(IpRateLimiter.Scope.OAUTH_START, "203.0.113.7")).isTrue();

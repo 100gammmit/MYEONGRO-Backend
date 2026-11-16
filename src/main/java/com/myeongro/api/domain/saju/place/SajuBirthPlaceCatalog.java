@@ -29,6 +29,8 @@ public class SajuBirthPlaceCatalog {
 	private final List<ProvinceView> provinces;
 	private final Map<String, SajuBirthPlace> placesByProvinceCode;
 	private final Map<String, String> provinceCodeByCityCode;
+	private final Map<String, CityPlace> cities;
+	private final List<PublicProvinceView> publicProvinces;
 
 	public SajuBirthPlaceCatalog(
 		ObjectMapper objectMapper,
@@ -39,6 +41,8 @@ public class SajuBirthPlaceCatalog {
 		this.provinces = data.provinces();
 		this.placesByProvinceCode = data.placesByProvinceCode();
 		this.provinceCodeByCityCode = data.provinceCodeByCityCode();
+		this.cities = data.cities();
+		this.publicProvinces = data.publicProvinces();
 	}
 
 	public String version() {
@@ -47,6 +51,17 @@ public class SajuBirthPlaceCatalog {
 
 	public List<ProvinceView> provinces() {
 		return provinces;
+	}
+
+	public List<PublicProvinceView> publicProvinces() { return publicProvinces; }
+	public String publicVersion() { return version.substring(0, version.length() - "-province".length()); }
+	public CityPlace requireCity(String provinceCode, String cityCode) {
+		requireProvince(provinceCode);
+		CityPlace city = cities.get(cityCode);
+		if (city == null || !city.provinceCode().equals(provinceCode)) {
+			throw new InvalidReadingRequestException("INVALID_BIRTH_PLACE", "birthProfile.cityCode", "출생 시·군·구를 다시 선택해 주세요.");
+		}
+		return city;
 	}
 
 	public SajuBirthPlace requireProvince(String provinceCode) {
@@ -86,6 +101,8 @@ public class SajuBirthPlaceCatalog {
 			List<ProvinceView> provinceViews = new ArrayList<>();
 			Map<String, SajuBirthPlace> provincePlaces = new LinkedHashMap<>();
 			Map<String, String> cityProvinces = new LinkedHashMap<>();
+			Map<String, CityPlace> cities = new LinkedHashMap<>();
+			List<PublicProvinceView> publicViews = new ArrayList<>();
 			for (JsonNode provinceNode : provinceNodes) {
 				String provinceCode = text(
 					provinceNode, "provinceCode", "Province code is required"
@@ -103,9 +120,10 @@ public class SajuBirthPlaceCatalog {
 				}
 				List<Double> latitudes = new ArrayList<>();
 				List<Double> longitudes = new ArrayList<>();
+				List<CityView> cityViews = new ArrayList<>();
 				for (JsonNode cityNode : cityNodes) {
 					String cityCode = text(cityNode, "cityCode", "City code is required");
-					text(cityNode, "cityName", "City name is required");
+					String cityName = text(cityNode, "cityName", "City name is required");
 					double latitude = number(cityNode, "latitude");
 					double longitude = number(cityNode, "longitude");
 					if (!CITY_CODE.matcher(cityCode).matches()
@@ -120,8 +138,11 @@ public class SajuBirthPlaceCatalog {
 					latitudes.add(latitude);
 					longitudes.add(longitude);
 					cityProvinces.put(cityCode, provinceCode);
+					cities.put(cityCode, new CityPlace(provinceCode, provinceName, cityCode, cityName, latitude, longitude));
+					cityViews.add(new CityView(cityCode, cityName));
 				}
 				provinceViews.add(new ProvinceView(provinceCode, provinceName));
+				publicViews.add(new PublicProvinceView(provinceCode, provinceName, List.copyOf(cityViews)));
 				provincePlaces.put(provinceCode, new SajuBirthPlace(
 					provinceCode, provinceName, median(latitudes), median(longitudes)
 				));
@@ -130,7 +151,7 @@ public class SajuBirthPlaceCatalog {
 				catalogVersion + "-province",
 				List.copyOf(provinceViews),
 				Map.copyOf(provincePlaces),
-				Map.copyOf(cityProvinces)
+				Map.copyOf(cityProvinces), Map.copyOf(cities), List.copyOf(publicViews)
 			);
 		} catch (IOException exception) {
 			throw new IllegalStateException("Cannot read birth-place catalog", exception);
@@ -166,12 +187,15 @@ public class SajuBirthPlaceCatalog {
 		String provinceName
 	) {
 	}
+	public record CityPlace(String provinceCode, String provinceName, String cityCode, String cityName, double latitude, double longitude) { }
+	public record CityView(String cityCode, String cityName) { }
+	public record PublicProvinceView(String provinceCode, String provinceName, List<CityView> cities) { }
 
 	private record CatalogData(
 		String version,
 		List<ProvinceView> provinces,
 		Map<String, SajuBirthPlace> placesByProvinceCode,
-		Map<String, String> provinceCodeByCityCode
+		Map<String, String> provinceCodeByCityCode, Map<String, CityPlace> cities, List<PublicProvinceView> publicProvinces
 	) {
 	}
 }

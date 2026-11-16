@@ -41,10 +41,16 @@ public class ApproximateBirthTimeResolver {
 		int targetYear,
 		Runnable checkDeadline
 	) {
+		return resolve(rememberedTime, longitude, luckDirectionBasis, targetYear, checkDeadline,
+			SajuCalculationSettings.LEGACY, SajuCandidateObserver.NONE);
+	}
+
+	public Resolution resolve(LocalDateTime rememberedTime, double longitude, LuckDirectionBasis luckDirectionBasis,
+		int targetYear, Runnable checkDeadline, SajuCalculationSettings settings, SajuCandidateObserver observer) {
 		LocalDateTime start = rememberedTime.minusMinutes(SajuCalculationRules.APPROXIMATE_MINUTES);
 		LocalDateTime end = rememberedTime.plusMinutes(SajuCalculationRules.APPROXIMATE_MINUTES);
 		CandidateSet candidateSet = candidatesForRange(
-			start, end, longitude, true, luckDirectionBasis, targetYear, checkDeadline
+			start, end, longitude, true, luckDirectionBasis, targetYear, checkDeadline, settings, observer
 		);
 		List<SajuLimitationCode> limitations = new ArrayList<>();
 		limitations.add(SajuLimitationCode.APPROXIMATE_BIRTH_TIME);
@@ -60,14 +66,19 @@ public class ApproximateBirthTimeResolver {
 		int targetYear,
 		Runnable checkDeadline
 	) {
+		return resolveExact(corrections, luckDirectionBasis, targetYear, checkDeadline,
+			SajuCalculationSettings.LEGACY, SajuCandidateObserver.NONE);
+	}
+
+	public Resolution resolveExact(List<TrueSolarTimeCorrector.Correction> corrections, LuckDirectionBasis luckDirectionBasis,
+		int targetYear, Runnable checkDeadline, SajuCalculationSettings settings, SajuCandidateObserver observer) {
 		if (corrections.isEmpty()) {
 			throw new IllegalArgumentException("Civil time does not exist");
 		}
 		List<Candidate> candidates = corrections.stream()
 			.map(correction -> {
 				checkDeadline.run();
-				return adapter.calculate(correction.trueSolarTime(), correction.engineCivilTime(), true,
-					luckDirectionBasis, targetYear);
+				return calculate(correction, true, luckDirectionBasis, targetYear, settings, observer);
 			})
 			.toList();
 		CandidateSet candidateSet = new CandidateSet(
@@ -90,10 +101,16 @@ public class ApproximateBirthTimeResolver {
 		int targetYear,
 		Runnable checkDeadline
 	) {
+		return resolveUnknown(birthDate, longitude, luckDirectionBasis, targetYear, checkDeadline,
+			SajuCalculationSettings.LEGACY, SajuCandidateObserver.NONE);
+	}
+
+	public Resolution resolveUnknown(LocalDate birthDate, double longitude, LuckDirectionBasis luckDirectionBasis,
+		int targetYear, Runnable checkDeadline, SajuCalculationSettings settings, SajuCandidateObserver observer) {
 		LocalDateTime start = birthDate.atStartOfDay();
 		LocalDateTime end = birthDate.atTime(23, 59);
 		CandidateSet candidateSet = candidatesForRange(
-			start, end, longitude, false, luckDirectionBasis, targetYear, checkDeadline
+			start, end, longitude, false, luckDirectionBasis, targetYear, checkDeadline, settings, observer
 		);
 		List<SajuLimitationCode> limitations = new ArrayList<>();
 		addDstLimitations(candidateSet, limitations);
@@ -158,7 +175,7 @@ public class ApproximateBirthTimeResolver {
 		boolean includeTime,
 		LuckDirectionBasis luckDirectionBasis,
 		int targetYear,
-		Runnable checkDeadline
+		Runnable checkDeadline, SajuCalculationSettings settings, SajuCandidateObserver observer
 	) {
 		List<Candidate> candidates = new ArrayList<>();
 		Set<String> offsets = new LinkedHashSet<>();
@@ -167,20 +184,27 @@ public class ApproximateBirthTimeResolver {
 		for (LocalDateTime cursor = start; !cursor.isAfter(end); cursor = cursor.plusMinutes(1)) {
 			checkDeadline.run();
 			List<TrueSolarTimeCorrector.Correction> corrections =
-				corrector.correctCandidates(cursor, longitude);
+				settings == SajuCalculationSettings.LEGACY ? corrector.correctCandidates(cursor, longitude)
+					: corrector.correctCandidates(cursor, longitude, settings);
 			gap |= corrections.isEmpty();
 			overlap |= corrections.size() > 1;
 			for (TrueSolarTimeCorrector.Correction correction : corrections) {
 				checkDeadline.run();
 				offsets.add(correction.zoneOffset());
-				candidates.add(adapter.calculate(
-					correction.trueSolarTime(), correction.engineCivilTime(), includeTime,
-					luckDirectionBasis, targetYear
-				));
+				candidates.add(calculate(correction, includeTime, luckDirectionBasis, targetYear, settings, observer));
 			}
 		}
 		checkDeadline.run();
 		return new CandidateSet(candidates, offsets, gap, overlap);
+	}
+
+	private Candidate calculate(TrueSolarTimeCorrector.Correction correction, boolean includeTime,
+		LuckDirectionBasis basis, int year, SajuCalculationSettings settings, SajuCandidateObserver observer) {
+		Candidate candidate = settings == SajuCalculationSettings.LEGACY
+			? adapter.calculate(correction.trueSolarTime(), correction.engineCivilTime(), includeTime, basis, year)
+			: adapter.calculate(correction.trueSolarTime(), correction.engineCivilTime(), includeTime, basis, year, settings.options());
+		observer.accept(candidate, correction);
+		return candidate;
 	}
 
 	private void addDstLimitations(

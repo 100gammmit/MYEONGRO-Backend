@@ -1,0 +1,35 @@
+# Synthetic UI observations, agent collected 2026-11-16, https://hankookmanse.com/ and /method
+# Solar, male, Seoul displayed longitude126.98, true-solar (longitude+EqT), 야자시 (MIDNIGHT sect2).
+# External pillars are year/month/day/time; not copied from this engine or the preliminary study.
+# Unknown UI gives calendar-day pillar; ours enumerates all valid minutes. Approximate has no counterpart in UI: center observation only.
+# category,date,time,precision,externalYear,externalMonth,externalDay,externalTime,comparison
+normal,1992-08-17,14:30,exact,임신,무신,을축,계미,match
+normal,2000-06-15,14:30,exact,경진,임오,갑진,신미,match
+normal,1985-05-20,10:15,exact,을축,신사,기미,기사,match
+normal,1972-11-03,16:40,exact,임자,경술,무술,경신,match
+normal,2004-02-29,09:20,exact,갑신,병인,무인,병진,match
+normal,2012-12-21,20:20,exact,임진,임자,병진,무술,match
+boundary,1992-08-17,23:30,exact,임신,무신,을축,정해,match
+boundary,1992-08-17,23:50,exact,임신,무신,을축,무자,match
+boundary,1992-08-18,00:30,exact,임신,무신,을축,무자,match
+boundary,1992-08-18,00:36,exact,임신,무신,을축,무자,longitude-boundary
+boundary,1992-08-18,00:40,exact,임신,무신,병인,무자,match
+boundary,1992-08-18,00:50,exact,임신,무신,병인,무자,match
+boundary,2000-06-15,00:30,exact,경진,임오,계묘,갑자,match
+boundary,2000-06-15,01:30,exact,경진,임오,갑진,갑자,match
+term,2020-02-04,18:00,exact,기해,정축,정축,기유,match
+term,2020-02-04,18:10,exact,경자,무인,정축,기유,match
+term,2020-03-05,11:55,exact,경자,무인,정미,병오,match
+term,2020-03-05,12:05,exact,경자,기묘,정미,병오,match
+term,2025-02-03,23:08,exact,갑진,정축,계묘,계해,match
+term,2025-02-03,23:12,exact,을사,무인,계묘,계해,match
+zone,1908-04-01,12:00,exact,무신,을묘,병술,갑오,match
+zone,1954-03-21,12:00,exact,갑오,정묘,병자,갑오,match
+zone,1961-08-10,12:00,exact,신축,병신,을해,임오,match
+zone,1988-07-01,14:30,exact,무진,무오,정사,병오,match
+zone,1988-05-08,02:30,exact,무진,정사,계해,계축,dst-gap-policy
+zone,1988-10-09,02:30,exact,무진,임술,정유,신축,dst-overlap-policy
+uncertain,1992-08-17,,unknown,임신,무신,을축,,unknown-policy
+uncertain,2000-06-15,,unknown,경진,임오,갑진,,unknown-policy
+uncertain,1992-08-18,00:36,approximate,임신,무신,을축,무자,range-policy
+uncertain,1988-10-09,02:30,approximate,무진,임술,정유,신축,range-overlap-policy

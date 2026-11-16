@@ -58,6 +58,16 @@ public final class SajuKoreanTerms {
 		return value == null ? null : TEN_GODS.getOrDefault(value, value);
 	}
 
+	public static String twelveStage(String value) {
+		return switch (value) {
+			case "长生" -> "장생"; case "沐浴" -> "목욕"; case "冠带" -> "관대";
+			case "临官" -> "건록"; case "帝旺" -> "제왕"; case "衰" -> "쇠";
+			case "病" -> "병"; case "死" -> "사"; case "墓" -> "묘";
+			case "绝" -> "절"; case "胎" -> "태"; case "养" -> "양";
+			default -> throw new IllegalArgumentException("Unknown twelve stage");
+		};
+	}
+
 	public static String ganZhi(String value) {
 		if (value == null || value.length() != 2) {
 			return value;

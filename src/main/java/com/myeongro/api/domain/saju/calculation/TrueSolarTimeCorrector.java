@@ -18,19 +18,26 @@ public class TrueSolarTimeCorrector {
 	}
 
 	public List<Correction> correctCandidates(LocalDateTime civilTime, double longitude) {
+		return correctCandidates(civilTime, longitude, SajuCalculationSettings.LEGACY);
+	}
+
+	public List<Correction> correctCandidates(LocalDateTime civilTime, double longitude, SajuCalculationSettings settings) {
 		return SajuCalculationRules.BIRTH_ZONE.getRules().getValidOffsets(civilTime).stream()
-			.map(offset -> correct(civilTime, longitude, offset))
+			.map(offset -> correct(civilTime, longitude, offset, settings))
 			.toList();
 	}
 
 	private Correction correct(
 		LocalDateTime civilTime,
 		double longitude,
-		ZoneOffset offset
+		ZoneOffset offset, SajuCalculationSettings settings
 	) {
 		double standardMeridian = offset.getTotalSeconds() / 3600d * 15d;
 		double longitudeMinutes = (longitude - standardMeridian) * 4d;
-		double equationMinutes = equationOfTimeMinutes(civilTime.getDayOfYear());
+		double equationMinutes = !settings.options().equationOfTime() ? 0d
+			: settings.correctionModel() == SajuCalculationSettings.CorrectionModel.LEGACY_DAY_OF_YEAR
+				? equationOfTimeMinutes(civilTime.getDayOfYear())
+				: PreciseEquationOfTime.minutes(civilTime.toInstant(offset));
 		long totalSeconds = Math.round((longitudeMinutes + equationMinutes) * 60d);
 		return new Correction(
 			civilTime,

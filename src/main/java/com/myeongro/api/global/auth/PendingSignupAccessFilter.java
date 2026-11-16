@@ -26,6 +26,9 @@ public class PendingSignupAccessFilter extends OncePerRequestFilter {
 	);
 
 	@Override
+	protected boolean shouldNotFilter(HttpServletRequest request) { return com.myeongro.api.domain.saju.controller.SajuPublicCalculationFilter.isPublicRequest(request); }
+
+	@Override
 	protected void doFilterInternal(
 		HttpServletRequest request,
 		HttpServletResponse response,

@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Fixed-window request counter keyed by an HMAC of the client network, so Redis never holds an IP.
- * Limits protect session and OAuth capacity, not user data, so a Redis failure lets requests through.
+ * OAuth retains its fail-open policy; public calculation fails closed when Redis is unavailable.
  */
 @Component
 public class IpRateLimiter {
@@ -48,7 +48,7 @@ public class IpRateLimiter {
 
 	public enum Scope {
 		OAUTH_START("oauth-start"),
-		OAUTH_CALLBACK("oauth-callback");
+		OAUTH_CALLBACK("oauth-callback"), SAJU_CALCULATION("saju-calculation");
 
 		private final String keyName;
 
@@ -87,6 +87,11 @@ public class IpRateLimiter {
 	}
 
 	public boolean tryAcquire(Scope scope, String remoteAddress) {
+		Decision decision = acquire(scope, remoteAddress);
+		return decision == Decision.ALLOWED || (scope != Scope.SAJU_CALCULATION && decision == Decision.UNAVAILABLE);
+	}
+	public enum Decision { ALLOWED, LIMITED, UNAVAILABLE }
+	public Decision acquire(Scope scope, String remoteAddress) {
 		int limit = properties.limit(scope);
 		Long count;
 		try {
@@ -97,16 +102,16 @@ public class IpRateLimiter {
 			);
 		} catch (RuntimeException exception) {
 			log.warn("IP_RATE_LIMIT_UNAVAILABLE scope={} cause={}", scope, exception.getClass().getSimpleName());
-			return true;
+			return Decision.UNAVAILABLE;
 		}
 		if (count == null) {
-			return true;
+			return Decision.UNAVAILABLE;
 		}
 		// One line per window keeps a flood from turning into a logging bill.
 		if (count == limit + 1L) {
 			log.warn("IP_RATE_LIMITED scope={}", scope);
 		}
-		return count <= limit;
+		return count <= limit ? Decision.ALLOWED : Decision.LIMITED;
 	}
 
 	// One IPv6 subscriber owns a whole /64, so counting single addresses would not limit anyone.

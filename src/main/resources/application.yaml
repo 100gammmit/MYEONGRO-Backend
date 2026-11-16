@@ -104,6 +104,11 @@ app:
     ip-secret: ${ratelimit.ip-secret}
     oauth-start-per-minute: ${ratelimit.oauth-start-per-minute:60}
     oauth-callback-per-minute: ${ratelimit.oauth-callback-per-minute:60}
+    saju-calculation-per-minute: ${ratelimit.saju-calculation-per-minute:20}
+
+  saju:
+    public-calculation:
+      enabled: ${saju.public-calculation.enabled:false}
 
   eligibility:
     adult-policy-version: 2026-09-09
