@@ -68,7 +68,8 @@ public class SecurityConfig {
 	}
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http,
+		@Value("${app.saju.public-calculation.enabled:false}") boolean publicCalculationEnabled) throws Exception {
 		return http
 			.csrf(csrf -> csrf.disable())
 			.sessionManagement(session -> session
@@ -76,6 +77,7 @@ public class SecurityConfig {
 			)
 			// No saved requests: an anonymous request to a protected URL must not create a session.
 			.requestCache(cache -> cache.requestCache(new NullRequestCache()))
+			.addFilterBefore(new com.myeongro.api.domain.saju.controller.SajuPublicCalculationFilter(publicCalculationEnabled,ipRateLimiter),SecurityContextHolderFilter.class)
 			.addFilterBefore(
 				new OAuth2NextRequestFilter(),
 				OAuth2AuthorizationRequestRedirectFilter.class
@@ -114,6 +116,8 @@ public class SecurityConfig {
 					HttpMethod.POST, "/api/tarot/daily-card-selections"
 				).permitAll()
 				// Only the published price list; the balance at /api/reading-credits stays authenticated.
+				.requestMatchers(HttpMethod.POST,"/api/saju/calculations").permitAll()
+				.requestMatchers(HttpMethod.GET,"/api/saju/calculations/birth-places").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/reading-credits/pricing").permitAll()
 				.anyRequest().authenticated()
 			)

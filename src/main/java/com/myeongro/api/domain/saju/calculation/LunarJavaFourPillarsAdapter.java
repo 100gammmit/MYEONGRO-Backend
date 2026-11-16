@@ -59,6 +59,11 @@ public class LunarJavaFourPillarsAdapter {
 		LuckDirectionBasis luckDirectionBasis,
 		int targetYear
 	) {
+		return calculate(trueSolarTime, engineCivilTime, includeTime, luckDirectionBasis, targetYear, SajuCalculationSettings.LEGACY.options());
+	}
+
+	public Candidate calculate(LocalDateTime trueSolarTime, LocalDateTime engineCivilTime, boolean includeTime,
+		LuckDirectionBasis luckDirectionBasis, int targetYear, SajuCalculationOptions options) {
 		Solar trueSolar = Solar.fromYmdHms(
 			trueSolarTime.getYear(), trueSolarTime.getMonthValue(), trueSolarTime.getDayOfMonth(),
 			trueSolarTime.getHour(), trueSolarTime.getMinute(), trueSolarTime.getSecond()
@@ -68,7 +73,7 @@ public class LunarJavaFourPillarsAdapter {
 			engineCivilTime.getHour(), engineCivilTime.getMinute(), engineCivilTime.getSecond()
 		);
 		EightChar solarEightChar = trueSolar.getLunar().getEightChar();
-		solarEightChar.setSect(SajuCalculationRules.DAY_BOUNDARY_SECT);
+		solarEightChar.setSect(options.dayBoundary().sect());
 		EightChar termEightChar = engineSolar.getLunar().getEightChar();
 		String dayMaster = solarEightChar.getDayGan();
 

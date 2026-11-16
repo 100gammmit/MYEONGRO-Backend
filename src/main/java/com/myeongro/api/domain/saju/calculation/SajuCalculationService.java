@@ -57,6 +57,15 @@ public class SajuCalculationService {
 		int targetYear,
 		Runnable checkDeadline
 	) {
+		BirthTimePrecision precision = BirthTimePrecision.fromValue(requiredString(birthProfile, "birthTimePrecision"));
+		double longitude = precision == BirthTimePrecision.UNKNOWN ? SajuCalculationRules.KOREA_REFERENCE_LONGITUDE
+			: birthPlaceCatalog.requireProvince(requiredString(birthProfile, "provinceCode")).longitude();
+		return calculateForChart(birthProfile, targetYear, longitude, SajuCalculationSettings.LEGACY, SajuCandidateObserver.NONE, checkDeadline);
+	}
+
+	/** Internal calculation carrier only. Public DTO owns its own version; never persist this as a legacy AI snapshot. */
+	public SajuCalculationSnapshot calculateForChart(Map<String, Object> birthProfile, int targetYear, double longitude,
+		SajuCalculationSettings settings, SajuCandidateObserver observer, Runnable checkDeadline) {
 		LocalDate birthDate = LocalDate.parse(requiredString(birthProfile, "birthDate"));
 		BirthTimePrecision precision = BirthTimePrecision.fromValue(
 			requiredString(birthProfile, "birthTimePrecision")
@@ -64,11 +73,6 @@ public class SajuCalculationService {
 		LuckDirectionBasis luckBasis = LuckDirectionBasis.fromValue(
 			requiredString(birthProfile, "luckDirectionBasis")
 		);
-		double longitude = precision == BirthTimePrecision.UNKNOWN
-			? SajuCalculationRules.KOREA_REFERENCE_LONGITUDE
-			: birthPlaceCatalog.requireProvince(
-				requiredString(birthProfile, "provinceCode")
-			).longitude();
 
 		Candidate candidate;
 		TimeCorrection correction = null;
@@ -76,7 +80,7 @@ public class SajuCalculationService {
 		List<SajuLimitationCode> limitations = new ArrayList<>();
 		if (precision == BirthTimePrecision.UNKNOWN) {
 			Resolution resolution = approximateResolver.resolveUnknown(
-				birthDate, longitude, luckBasis, targetYear, checkDeadline
+				birthDate, longitude, luckBasis, targetYear, checkDeadline, settings, observer
 			);
 			candidate = resolution.trusted();
 			limitations.addAll(resolution.limitations());
@@ -96,16 +100,16 @@ public class SajuCalculationService {
 			LocalTime birthTime = LocalTime.parse(requiredString(birthProfile, "birthTime"));
 			LocalDateTime civilTime = birthDate.atTime(birthTime);
 			if (precision == BirthTimePrecision.APPROXIMATE) {
-				var centerCorrections = corrector.correctCandidates(civilTime, longitude);
+				var centerCorrections = corrections(civilTime, longitude, settings);
 				Resolution resolution = approximateResolver.resolve(
-					civilTime, longitude, luckBasis, targetYear, checkDeadline
+					civilTime, longitude, luckBasis, targetYear, checkDeadline, settings, observer
 				);
 				candidate = resolution.trusted();
 				correction = timeCorrection(centerCorrections);
 				limitations.addAll(resolution.limitations());
 				uncertainty = resolution.uncertainty();
 			} else {
-				var corrections = corrector.correctCandidates(civilTime, longitude);
+				var corrections = corrections(civilTime, longitude, settings);
 				if (corrections.isEmpty()) {
 					throw new InvalidReadingRequestException(
 						"INVALID_BIRTH_TIME", "birthProfile.birthTime",
@@ -113,7 +117,7 @@ public class SajuCalculationService {
 					);
 				}
 				Resolution resolution = approximateResolver.resolveExact(
-					corrections, luckBasis, targetYear, checkDeadline
+					corrections, luckBasis, targetYear, checkDeadline, settings, observer
 				);
 				candidate = resolution.trusted();
 				correction = timeCorrection(corrections);
@@ -155,6 +159,11 @@ public class SajuCalculationService {
 			corrected.engineCivilTime().toString(), corrected.zoneOffset(),
 			corrected.longitudeCorrectionMinutes(), corrected.equationOfTimeMinutes()
 		);
+	}
+
+	private List<TrueSolarTimeCorrector.Correction> corrections(LocalDateTime civil, double longitude, SajuCalculationSettings settings) {
+		return settings == SajuCalculationSettings.LEGACY ? corrector.correctCandidates(civil, longitude)
+			: corrector.correctCandidates(civil, longitude, settings);
 	}
 
 	private String requiredString(Map<String, Object> values, String key) {
