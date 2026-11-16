@@ -69,3 +69,12 @@
 - `git diff --check` 통과. Gradle wrapper 환경 잠금을 피해 동일 버전의 설치된 Gradle을 사용했다. 다른 worktree/프로세스/lock을 변경하지 않았다.
 - 초기 테스트에서 옵션 생략과 null 구분, 설정 record의 생성자 바인딩, 테스트용 HTTP 컨텍스트 격리 문제를 발견·수정했다. 실패했던 실행을 통과로 계산하지 않는다.
 - 공개 활성화/유료 AI 연결/운영 동시 부하는 후속 범위다. push/PR/merge/deploy는 수행하지 않는다.
+
+## 첫 리뷰 반영
+
+- 3f227f5 기준 changes-requested: P1 경로 판정 불일치, P2 공망 기준 기둥, P2 공개 varyingFields 경로. 동일 브랜치 후속 커밋에서 보정한다.
+- 공개 gate·rate·세션 예외·인가 모두 동일한 Spring Security PathPatternRequestMatcher를 공유한다. 인코딩된 경로도 실제 로컬 HTTP에서 off404/LIMITED429/UNAVAILABLE503, 정상 on200 및 quota 호출을 검증한다.
+- 공망은 후보 공통값뿐 아니라 최종 일주·연주 확정을 각각 요구한다. unknown/approximate의 같은 순 공망과 입춘 연주 미확정 회귀를 추가했다.
+- varyingFields는 공개 projection에서 chart.pillars.*, annualFlows.*.stemTenGod, monthlyCalendar.months.*.periods.*.stemTenGod로 변환한다. `*`는 배열/맵의 각 항목을 뜻하는 필드 경로다. legacy snapshot 경로는 변경하지 않는다.
+- 일간 미확정으로 가린 파생 12운성도 공개 미확정 항목에 남긴다. 전체 검증은 앞의1회 결과로 구분한다.
+- 보정 후 공개 만세력 전체 관련 테스트, 기존 Golden/M3/corrector/resolver, IpRateLimit, AuthenticatedReadingSecurity를 실행: 15 suites/50 tests, 실패·오류·skip0, BUILD SUCCESSFUL(42초). 실제 HTTP의 인코딩 경로 회귀와 공망·공개 경로 assertion을 포함한다. `git diff --check`도 통과했다.

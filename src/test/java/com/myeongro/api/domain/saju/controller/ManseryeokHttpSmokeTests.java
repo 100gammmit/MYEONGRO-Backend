@@ -65,6 +65,14 @@ class ManseryeokHttpSmokeTests extends ManseryeokHttpContext {
 		assertThat(response.statusCode()).isEqualTo(200); assertThat(response.body()).contains("manseryeok-ko-v1","calculationFingerprint","갑진");
 		assertThat(response.headers().firstValue("cache-control")).contains("no-store");
 		assertThat(response.headers().allValues("set-cookie")).isEmpty();
+		clearInvocations(limiter);
+		assertThat(request("POST","/api/saju/%63alculations",body).statusCode()).isEqualTo(200);
+		verify(limiter).acquire(eq(IpRateLimiter.Scope.SAJU_CALCULATION),anyString());
+		when(limiter.acquire(any(),anyString())).thenReturn(IpRateLimiter.Decision.LIMITED);
+		assertThat(request("POST","/api/saju/%63alculations",body).statusCode()).isEqualTo(429);
+		when(limiter.acquire(any(),anyString())).thenReturn(IpRateLimiter.Decision.UNAVAILABLE);
+		assertThat(request("POST","/api/saju/%63alculations",body).statusCode()).isEqualTo(503);
+		when(limiter.acquire(any(),anyString())).thenReturn(IpRateLimiter.Decision.ALLOWED);
 		var places=request("GET","/api/saju/calculations/birth-places",null);
 		assertThat(places.statusCode()).isEqualTo(200); assertThat(places.body()).contains("cityCode").doesNotContain("longitude","latitude");
 		var openapi=request("GET","/v3/api-docs",null);
@@ -80,6 +88,8 @@ class ManseryeokDisabledHttpSmokeTests extends ManseryeokHttpContext {
 	@Test void defaultOffStopsHttpBeforeMalformedBodyAndRateLimit() throws Exception {
 		assertThat(request("POST","/api/saju/calculations","{invalid").statusCode()).isEqualTo(404);
 		assertThat(request("GET","/api/saju/calculations/birth-places",null).statusCode()).isEqualTo(404);
+		assertThat(request("POST","/api/saju/%63alculations","{invalid").statusCode()).isEqualTo(404);
+		assertThat(request("GET","/api/saju/calculations/%62irth-places",null).statusCode()).isEqualTo(404);
 		verifyNoInteractions(limiter,profiles,eligibility,signup);
 	}
 }

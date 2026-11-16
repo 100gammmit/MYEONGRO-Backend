@@ -95,6 +95,17 @@ public class ManseryeokChartBuilder {
 				merge(voids,"day",dayVoid,"voids.day"); merge(voids,"year",yearVoid,"voids.year");
 				relationVariation |= !relations.equals(candidateRelations); relations.retainAll(candidateRelations);
 			}
+			// A shared derived value is not enough when its required basis pillar is unknown.
+			for (String basis : List.of("year", "day")) {
+				if (commonPillars.get(basis) == null && voids.get(basis) != null) {
+					voids.put(basis,null); varying.add("voids."+basis);
+				}
+			}
+			if (dayMaster == null) {
+				for (String position : POSITIONS) if (stages.get(position) != null) {
+					stages.put(position,null); varying.add("twelveStages."+position);
+				}
+			}
 			count++;
 		}
 		private void mergeHidden(String id, List<HiddenStem> next) {

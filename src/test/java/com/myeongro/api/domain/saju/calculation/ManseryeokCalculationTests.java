@@ -75,6 +75,14 @@ class ManseryeokCalculationTests {
 		assertThat(unknown.annualFlows()).allMatch(v->v.stemTenGod()==null);
 		assertThat(unknown.hiddenStems().values()).allMatch(v->v==null || v.stream().allMatch(h->h.tenGod()==null));
 		assertThat(unknown.twelveStages().values()).allMatch(Objects::isNull);
+		assertThat(unknown.voids().get("day")).isNull();
+		assertThat(unknown.voids().get("year")).isNotNull();
+		assertThat(unknown.uncertainty().varyingFields()).contains("chart.dayMaster","chart.pillars.day","chart.pillars.time","voids.day","annualFlows.*.stemTenGod","monthlyCalendar.months.*.periods.*.stemTenGod");
+		assertThat(unknown.uncertainty().varyingFields()).noneMatch(f->f.startsWith("pillars.")||f.startsWith("annualFortune."));
+		var termUnknown=service().calculate(request("2020-02-04",null,"unknown",null));
+		assertThat(termUnknown.chart().pillars().get("year")).isNull();
+		assertThat(termUnknown.voids().get("year")).isNull();
+		assertThat(termUnknown.uncertainty().varyingFields()).contains("chart.pillars.year","voids.year");
 		assertThat(unknown.interpretationCapabilities().get("annual_personal").status()).isEqualTo("limited");
 		var overlap=service().calculate(request("1988-10-09","02:30","exact",null));
 		assertThat(overlap.uncertainty().candidateZoneOffsets()).hasSize(2); assertThat(overlap.luckCycle()).isNull();
@@ -92,5 +100,20 @@ class ManseryeokCalculationTests {
 		var city=service().calculate(MAPPER.treeToValue(tree,SajuCalculationRequest.class));
 		assertThat(city.appliedOptions().coordinateSource()).isEqualTo("city");
 		assertThat(city.appliedOptions().longitude()).isNotEqualTo(midnight.appliedOptions().longitude());
+	}
+	@Test void sharedVoidOrStageValuesStillRequireTheirConfirmedBasis() throws Exception {
+		for (String precision : List.of("unknown","approximate")) {
+			var result=service().calculate(request("2000-06-16",precision.equals("unknown")?null:"00:30",precision,null));
+			assertThat(result.chart().pillars().get("day")).isNull();
+			assertThat(result.voids().get("day")).isNull();
+			assertThat(result.voids().get("year")).isNotNull();
+			assertThat(result.uncertainty().varyingFields()).contains("voids.day");
+		}
+		// Adjacent Yi/Bing day masters happen to share the Chen stage; a common derived
+		// stage must nevertheless be hidden and marked when the day-master basis is unknown.
+		var result=service().calculate(request("2000-06-17",null,"unknown",null));
+		assertThat(result.chart().dayMaster()).isNull();
+		assertThat(result.twelveStages().get("year")).isNull();
+		assertThat(result.uncertainty().varyingFields()).contains("chart.dayMaster","twelveStages.year");
 	}
 }

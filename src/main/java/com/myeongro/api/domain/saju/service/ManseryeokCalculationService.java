@@ -47,7 +47,9 @@ public class ManseryeokCalculationService {
 			check.run();
 			var calendar = monthly.calculate(year,accumulated.dayMaster());
 			var annual = builder.annualFlows(year,accumulated.dayMaster());
-			var fields = new LinkedHashSet<>(snapshot.uncertainty().varyingFields()); fields.addAll(accumulated.varyingFields());
+			var fields = publicVaryingFields(snapshot.uncertainty().varyingFields());
+			fields.addAll(accumulated.varyingFields());
+			if (accumulated.dayMaster() == null) fields.add("chart.dayMaster");
 			if (accumulated.relations().status().equals("limited")) fields.add("relations");
 			var uncertainty = new SajuCalculationSnapshot.Uncertainty(snapshot.uncertainty().precision(),snapshot.uncertainty().candidateCount(),
 				snapshot.uncertainty().rangeStart(),snapshot.uncertainty().rangeEnd(),List.copyOf(fields),snapshot.uncertainty().candidateZoneOffsets());
@@ -68,6 +70,17 @@ public class ManseryeokCalculationService {
 		} catch (InvalidReadingRequestException | Unavailable exception) { throw exception; }
 		catch (Exception exception) { throw new Failed(); }
 		finally { slots.release(); }
+	}
+	private static LinkedHashSet<String> publicVaryingFields(List<String> internalFields) {
+		var fields = new LinkedHashSet<String>();
+		for (String field : internalFields) {
+			if (field.startsWith("pillars.")) fields.add("chart."+field);
+			else if (field.equals("annualFortune.stemTenGod")) {
+				fields.add("annualFlows.*.stemTenGod");
+				fields.add("monthlyCalendar.months.*.periods.*.stemTenGod");
+			} else fields.add(field);
+		}
+		return fields;
 	}
 	public static class Unavailable extends RuntimeException {
 		private final String code;

@@ -116,8 +116,8 @@ public class SecurityConfig {
 					HttpMethod.POST, "/api/tarot/daily-card-selections"
 				).permitAll()
 				// Only the published price list; the balance at /api/reading-credits stays authenticated.
-				.requestMatchers(HttpMethod.POST,"/api/saju/calculations").permitAll()
-				.requestMatchers(HttpMethod.GET,"/api/saju/calculations/birth-places").permitAll()
+				.requestMatchers(com.myeongro.api.domain.saju.controller.SajuPublicCalculationFilter.CALCULATE,
+					com.myeongro.api.domain.saju.controller.SajuPublicCalculationFilter.BIRTH_PLACES).permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/reading-credits/pricing").permitAll()
 				.anyRequest().authenticated()
 			)

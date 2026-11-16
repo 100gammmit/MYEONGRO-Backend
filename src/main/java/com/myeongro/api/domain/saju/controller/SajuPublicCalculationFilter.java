@@ -2,18 +2,23 @@ package com.myeongro.api.domain.saju.controller;
 
 import java.io.IOException;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import com.myeongro.api.global.ratelimit.IpRateLimiter;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 
 /** Installed only in the Security chain, before body buffering and authenticated-account lookups. */
 public final class SajuPublicCalculationFilter extends OncePerRequestFilter {
+	// Gate, rate limit, account-filter exemptions and authorization share decoded MVC path semantics.
+	public static final RequestMatcher CALCULATE = PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST,"/api/saju/calculations");
+	public static final RequestMatcher BIRTH_PLACES = PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET,"/api/saju/calculations/birth-places");
 	private final boolean enabled;
 	private final IpRateLimiter limiter;
 	public SajuPublicCalculationFilter(boolean enabled, IpRateLimiter limiter) { this.enabled=enabled; this.limiter=limiter; }
 	public static boolean isPublicRequest(HttpServletRequest request) {
-		return ("POST".equals(request.getMethod()) && "/api/saju/calculations".equals(request.getRequestURI()))
-			|| ("GET".equals(request.getMethod()) && "/api/saju/calculations/birth-places".equals(request.getRequestURI()));
+		return CALCULATE.matches(request) || BIRTH_PLACES.matches(request);
 	}
 	@Override protected boolean shouldNotFilter(HttpServletRequest request) { return !isPublicRequest(request); }
 	@Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
