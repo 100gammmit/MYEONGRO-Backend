@@ -30,6 +30,10 @@ spring:
             user-name-attribute: id
 
 app:
+  saju:
+    # SajuCalculationWarmupTests covers the warm-up; skip its real calculations in every Spring test context.
+    calculation-warmup:
+      enabled: false
   rate-limit:
     ip-secret: test-only-rate-limit-ip-secret-32-bytes
     oauth-start-per-minute: 20

@@ -43,7 +43,13 @@ class SegmentedUnknownTimeTests {
 
 	@ParameterizedTest
 	@MethodSource("boundaryDates")
-	void publicOptionsMatchTheMinuteByMinuteSearch(LocalDate date) {
+	void publicDefaultOptionsMatchTheMinuteByMinuteSearch(LocalDate date) {
+		assertEquivalent(date, REFERENCE_LONGITUDE, SajuCalculationSettings.precise(SajuCalculationOptions.DEFAULT));
+	}
+
+	@ParameterizedTest
+	@MethodSource("boundaryDates")
+	void publicAlternativeOptionsMatchTheMinuteByMinuteSearch(LocalDate date) {
 		assertEquivalent(date, REFERENCE_LONGITUDE, HOUR_23_NO_EQUATION);
 	}
 
@@ -67,13 +73,17 @@ class SegmentedUnknownTimeTests {
 			}
 		};
 		var resolver = new ApproximateBirthTimeResolver(new TrueSolarTimeCorrector(), countingAdapter);
-		for (LocalDate date : List.of(LocalDate.of(2020, 2, 4), LocalDate.of(1987, 10, 11), LocalDate.of(2000, 6, 15))) {
+		// The searched count still covers every minute: 1,440 normally, 1,500 with the 1987-10-11 overlap hour and
+		// 1,380 with the 1987-05-10 gap hour.
+		var expectedCounts = java.util.Map.of(
+			LocalDate.of(2020, 2, 4), 1440, LocalDate.of(2000, 6, 15), 1440,
+			LocalDate.of(1987, 10, 11), 1500, LocalDate.of(1987, 5, 10), 1380);
+		expectedCounts.forEach((date, expectedCount) -> {
 			calls.set(0);
 			var resolution = resolver.resolveUnknown(date, REFERENCE_LONGITUDE, LuckDirectionBasis.MALE, 2026, () -> { },
 				SajuCalculationSettings.LEGACY, SajuCandidateObserver.NONE);
 			assertThat(calls.get()).as(date.toString()).isLessThanOrEqualTo(64);
-			// The searched count still covers every minute (and both offsets of a DST overlap).
-			assertThat(resolution.uncertainty().candidateCount()).isGreaterThanOrEqualTo(1380);
-		}
+			assertThat(resolution.uncertainty().candidateCount()).as(date.toString()).isEqualTo(expectedCount);
+		});
 	}
 }

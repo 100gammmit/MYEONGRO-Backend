@@ -6,8 +6,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -19,10 +18,12 @@ import com.myeongro.api.domain.saju.controller.SajuCalculationRequest;
 /**
  * Runs each saju calculation path once at startup with a fixed synthetic birth profile, so the first real request
  * does not pay for class loading and JIT warm-up. No user data is involved and results are discarded unlogged.
+ * It runs once all singletons exist but before the embedded web server starts, so it never competes with live
+ * requests for CPU or for a public calculation slot.
  */
 @Component
 @ConditionalOnProperty(name = "app.saju.calculation-warmup.enabled", havingValue = "true", matchIfMissing = true)
-public class SajuCalculationWarmup implements ApplicationRunner {
+public class SajuCalculationWarmup implements SmartInitializingSingleton {
 
 	private static final Logger log = LoggerFactory.getLogger(SajuCalculationWarmup.class);
 	private static final List<Map<String, Object>> LEGACY_PROFILES = List.of(
@@ -45,7 +46,7 @@ public class SajuCalculationWarmup implements ApplicationRunner {
 	}
 
 	@Override
-	public void run(ApplicationArguments args) {
+	public void afterSingletonsInstantiated() {
 		long started = System.nanoTime();
 		int targetYear = LocalDate.now(SajuCalculationRules.BIRTH_ZONE).getYear();
 		try {

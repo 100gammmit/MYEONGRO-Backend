@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.core.io.ClassPathResource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,7 +36,7 @@ class SajuCalculationWarmupTests {
 		var legacySpy = org.mockito.Mockito.spy(legacy);
 		var manseryeokSpy = org.mockito.Mockito.spy(manseryeok);
 
-		new SajuCalculationWarmup(legacySpy, manseryeokSpy, MAPPER).run(new DefaultApplicationArguments());
+		new SajuCalculationWarmup(legacySpy, manseryeokSpy, MAPPER).afterSingletonsInstantiated();
 
 		verify(legacySpy, times(3)).calculate(anyMap(), anyInt());
 		verify(manseryeokSpy, times(3)).calculate(any());
@@ -49,6 +48,6 @@ class SajuCalculationWarmupTests {
 		when(legacy.calculate(anyMap(), anyInt())).thenThrow(new IllegalStateException("synthetic"));
 
 		assertThatCode(() -> new SajuCalculationWarmup(legacy, mock(ManseryeokCalculationService.class), MAPPER)
-			.run(new DefaultApplicationArguments())).doesNotThrowAnyException();
+			.afterSingletonsInstantiated()).doesNotThrowAnyException();
 	}
 }
