@@ -25,13 +25,28 @@ public class ApproximateBirthTimeResolver {
 
 	private final TrueSolarTimeCorrector corrector;
 	private final LunarJavaFourPillarsAdapter adapter;
+	private final boolean segmentedUnknown;
 
+	@org.springframework.beans.factory.annotation.Autowired
 	public ApproximateBirthTimeResolver(
 		TrueSolarTimeCorrector corrector,
 		LunarJavaFourPillarsAdapter adapter
 	) {
+		this(corrector, adapter, true);
+	}
+
+	/**
+	 * {@code segmentedUnknown=false} keeps the original minute-by-minute search for every range.
+	 * Tests use it as the exhaustive reference that the segmented unknown-time search must equal.
+	 */
+	ApproximateBirthTimeResolver(
+		TrueSolarTimeCorrector corrector,
+		LunarJavaFourPillarsAdapter adapter,
+		boolean segmentedUnknown
+	) {
 		this.corrector = corrector;
 		this.adapter = adapter;
+		this.segmentedUnknown = segmentedUnknown;
 	}
 
 	public Resolution resolve(
@@ -83,6 +98,7 @@ public class ApproximateBirthTimeResolver {
 			.toList();
 		CandidateSet candidateSet = new CandidateSet(
 			candidates,
+			candidates.size(),
 			corrections.stream().map(TrueSolarTimeCorrector.Correction::zoneOffset)
 				.collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)),
 			false,
@@ -162,7 +178,7 @@ public class ApproximateBirthTimeResolver {
 			new Candidate(new Pillars(year, month, day, time), dayMaster, elements, relations, luckCycle, annual),
 			List.copyOf(limitations),
 			new SajuCalculationSnapshot.Uncertainty(
-				precision, candidates.size(), start.toString(), end.toString(), varying,
+				precision, candidateSet.candidateCount(), start.toString(), end.toString(), varying,
 				List.copyOf(candidateSet.zoneOffsets())
 			)
 		);
@@ -177,15 +193,16 @@ public class ApproximateBirthTimeResolver {
 		int targetYear,
 		Runnable checkDeadline, SajuCalculationSettings settings, SajuCandidateObserver observer
 	) {
+		if (!includeTime && segmentedUnknown) {
+			return segmentedCandidates(start, end, longitude, luckDirectionBasis, targetYear, checkDeadline, settings, observer);
+		}
 		List<Candidate> candidates = new ArrayList<>();
 		Set<String> offsets = new LinkedHashSet<>();
 		boolean gap = false;
 		boolean overlap = false;
 		for (LocalDateTime cursor = start; !cursor.isAfter(end); cursor = cursor.plusMinutes(1)) {
 			checkDeadline.run();
-			List<TrueSolarTimeCorrector.Correction> corrections =
-				settings == SajuCalculationSettings.LEGACY ? corrector.correctCandidates(cursor, longitude)
-					: corrector.correctCandidates(cursor, longitude, settings);
+			List<TrueSolarTimeCorrector.Correction> corrections = corrections(cursor, longitude, settings);
 			gap |= corrections.isEmpty();
 			overlap |= corrections.size() > 1;
 			for (TrueSolarTimeCorrector.Correction correction : corrections) {
@@ -195,16 +212,122 @@ public class ApproximateBirthTimeResolver {
 			}
 		}
 		checkDeadline.run();
-		return new CandidateSet(candidates, offsets, gap, overlap);
+		return new CandidateSet(candidates, candidates.size(), offsets, gap, overlap);
+	}
+
+	/**
+	 * Unknown-time search without the per-minute engine call. Without the time pillar and luck cycle a candidate is a
+	 * function of the year, month and day pillars only, and each of them is a step function of time that does not
+	 * return to an earlier value within one civil day. So inside one run of minutes that share a zone offset, two equal
+	 * end candidates mean every minute between them is equal, and bisection finds the few change points.
+	 * Merging and the observer keep only values shared by all candidates, so feeding one representative per run in the
+	 * original minute/offset order yields the same result as feeding every minute. Counts, offsets and DST flags still
+	 * come from every minute through the cheap correction step.
+	 */
+	private CandidateSet segmentedCandidates(LocalDateTime start, LocalDateTime end, double longitude,
+		LuckDirectionBasis basis, int targetYear, Runnable checkDeadline, SajuCalculationSettings settings,
+		SajuCandidateObserver observer) {
+		Set<String> offsets = new LinkedHashSet<>();
+		boolean gap = false;
+		boolean overlap = false;
+		int candidateCount = 0;
+		List<Branch> branches = new ArrayList<>();
+		Map<String, Branch> open = new java.util.HashMap<>();
+		int minute = 0;
+		for (LocalDateTime cursor = start; !cursor.isAfter(end); cursor = cursor.plusMinutes(1), minute++) {
+			checkDeadline.run();
+			List<TrueSolarTimeCorrector.Correction> corrections = corrections(cursor, longitude, settings);
+			gap |= corrections.isEmpty();
+			overlap |= corrections.size() > 1;
+			candidateCount += corrections.size();
+			for (int order = 0; order < corrections.size(); order++) {
+				TrueSolarTimeCorrector.Correction correction = corrections.get(order);
+				offsets.add(correction.zoneOffset());
+				Branch branch = open.get(correction.zoneOffset());
+				if (branch == null || branch.lastMinute() != minute - 1) {
+					branch = new Branch(new ArrayList<>());
+					branches.add(branch);
+					open.put(correction.zoneOffset(), branch);
+				}
+				branch.points().add(new Point(minute, order, correction));
+			}
+		}
+		List<Run> runs = new ArrayList<>();
+		for (Branch branch : branches) {
+			Map<Integer, Candidate> memo = new java.util.HashMap<>();
+			List<Run> branchRuns = new ArrayList<>();
+			collectRuns(branch.points(), 0, branch.points().size() - 1, memo, branchRuns,
+				point -> {
+					checkDeadline.run();
+					return compute(point.correction(), false, basis, targetYear, settings);
+				});
+			runs.addAll(branchRuns);
+		}
+		runs.sort(java.util.Comparator.comparingInt((Run run) -> run.point().minute())
+			.thenComparingInt(run -> run.point().order()));
+		List<Candidate> candidates = new ArrayList<>(runs.size());
+		for (Run run : runs) {
+			observer.accept(run.candidate(), run.point().correction());
+			candidates.add(run.candidate());
+		}
+		checkDeadline.run();
+		return new CandidateSet(candidates, candidateCount, offsets, gap, overlap);
+	}
+
+	private void collectRuns(List<Point> points, int low, int high, Map<Integer, Candidate> memo, List<Run> runs,
+		Function<Point, Candidate> engine) {
+		Candidate first = memo.computeIfAbsent(low, index -> engine.apply(points.get(index)));
+		Candidate last = memo.computeIfAbsent(high, index -> engine.apply(points.get(index)));
+		if (first.equals(last)) {
+			appendRun(runs, points.get(low), first);
+			return;
+		}
+		if (high - low == 1) {
+			appendRun(runs, points.get(low), first);
+			appendRun(runs, points.get(high), last);
+			return;
+		}
+		int middle = (low + high) >>> 1;
+		collectRuns(points, low, middle, memo, runs, engine);
+		collectRuns(points, middle, high, memo, runs, engine);
+	}
+
+	private void appendRun(List<Run> runs, Point point, Candidate candidate) {
+		if (runs.isEmpty() || !runs.getLast().candidate().equals(candidate)) {
+			runs.add(new Run(point, candidate));
+		}
+	}
+
+	private List<TrueSolarTimeCorrector.Correction> corrections(LocalDateTime cursor, double longitude,
+		SajuCalculationSettings settings) {
+		return settings == SajuCalculationSettings.LEGACY ? corrector.correctCandidates(cursor, longitude)
+			: corrector.correctCandidates(cursor, longitude, settings);
 	}
 
 	private Candidate calculate(TrueSolarTimeCorrector.Correction correction, boolean includeTime,
 		LuckDirectionBasis basis, int year, SajuCalculationSettings settings, SajuCandidateObserver observer) {
-		Candidate candidate = settings == SajuCalculationSettings.LEGACY
-			? adapter.calculate(correction.trueSolarTime(), correction.engineCivilTime(), includeTime, basis, year)
-			: adapter.calculate(correction.trueSolarTime(), correction.engineCivilTime(), includeTime, basis, year, settings.options());
+		Candidate candidate = compute(correction, includeTime, basis, year, settings);
 		observer.accept(candidate, correction);
 		return candidate;
+	}
+
+	private Candidate compute(TrueSolarTimeCorrector.Correction correction, boolean includeTime,
+		LuckDirectionBasis basis, int year, SajuCalculationSettings settings) {
+		return settings == SajuCalculationSettings.LEGACY
+			? adapter.calculate(correction.trueSolarTime(), correction.engineCivilTime(), includeTime, basis, year)
+			: adapter.calculate(correction.trueSolarTime(), correction.engineCivilTime(), includeTime, basis, year, settings.options());
+	}
+
+	private record Point(int minute, int order, TrueSolarTimeCorrector.Correction correction) {
+	}
+
+	private record Branch(List<Point> points) {
+		int lastMinute() {
+			return points.getLast().minute();
+		}
+	}
+
+	private record Run(Point point, Candidate candidate) {
 	}
 
 	private void addDstLimitations(
@@ -307,8 +430,10 @@ public class ApproximateBirthTimeResolver {
 		}
 	}
 
+	/** {@code candidateCount} is the number of minute/offset candidates searched, even when only distinct runs are kept. */
 	private record CandidateSet(
 		List<Candidate> candidates,
+		int candidateCount,
 		Set<String> zoneOffsets,
 		boolean gap,
 		boolean overlap

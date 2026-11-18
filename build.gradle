@@ -78,7 +78,9 @@ dependencyManagement {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'slow'
+    }
 
     [
         'freshPostgresJdbcUrl',
@@ -96,6 +98,18 @@ tasks.named('test') {
 
 tasks.named('compileTestJava') {
     dependsOn tasks.named('aiPreviewClasses')
+}
+
+// Slow equivalence sweeps excluded from `test`; run explicitly when changing calculation search code.
+tasks.register('slowTest', Test) {
+    group = 'verification'
+    description = 'Runs tests tagged slow, such as the exhaustive unknown-time equivalence sweep.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'slow'
+    }
+    shouldRunAfter tasks.named('test')
 }
 
 tasks.register('aiPreview', JavaExec) {

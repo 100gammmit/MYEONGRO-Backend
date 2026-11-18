@@ -59,6 +59,18 @@
 - 실제 로컬 Tomcat HTTP on200/off404, malformed400, no-store/쿠키 미생성, OpenAPI 포함 확인. 이 서버는 계산 경로만 실제 연결하며 rate와 인증 부수 의존성은 mock이다. 실제 운영 Redis 장애·부하·프록시 환경의 통합 시험을 대신하지 않는다.
 - 신규 PostgreSQL/Redis 저장 구조·Lua 변경 없음. 외부 DB/Redis를 준비하지 않은 테스트는 skip으로 별도 기록한다.
 
+## 시각 미상 구간 계산 최적화 (2026-11-18, `fix/saju-unknown-time-performance`)
+
+- 원인: 시각 미상은 하루 1,440분마다 lunar-java `getLunar()`를 호출했다. 물리 코어 1개(논리 CPU 2개, Ryzen 5 5600X를 affinity로 고정, t3.small의 vCPU 2개 구조와 같음)·동시 2건에서 중앙 2,180.8ms·최대 2,643.7ms였다. t3.small 코어가 더 느린 점을 감안하면 3초 deadline 초과 위험이 있었다.
+- 변경: 시각 미상(`includeTime=false`)만 같은 오프셋 구간을 이분 탐색해 값이 바뀌는 분에서만 엔진을 호출한다. 후보 수·오프셋·DST 표시는 매분 보정 단계에서 그대로 센다. 시각 확정·대략 경로는 바꾸지 않았다.
+- 동등성 근거: 연·월·일주는 하루 안에서 이전 값으로 돌아가지 않는 계단 함수이고, 병합과 공개 누적기는 공통값만 남긴다. 기존 매분 탐색을 `segmentedUnknown=false` 기준 구현으로 남겨 `Resolution` 전체와 누적기 출력(변동 필드 순서 포함)을 대조한다.
+  - 기본 `test`: 경계일 8개 × LEGACY·정밀(HOUR_23, 균시차 끔), 극단 경도 2곳.
+  - `slowTest`: 1900~2099 모든 Asia/Seoul 오프셋 전환일, 1985·2020 절기일, 무작위 120일(seed 20261118) × 설정 5종, 전환일 × 극단 경도. 2026-11-18 실행: 211일·1,211건 전부 일치, 1,006초(6병렬).
+- 같은 조건 재측정: 시각 미상 중앙 43.0ms·최대 256.3ms(첫 호출 포함), 확정 중앙 41.0ms, 대략 중앙 493.9ms. 엔진 호출은 하루 64회 이하로 테스트한다.
+- 시작 예열 `SajuCalculationWarmup`: 합성 입력으로 LEGACY·공개 경로의 확정·대략·미상을 1회씩 실행한다. 같은 코어 1개 조건에서 예열 2,065ms, 예열 후 첫 요청은 확정 53.8ms·대략 636.9ms·미상 53.4ms였다(예열 전 첫 호출 최대 확정 1,939.7ms·대략 2,706.2ms). `app.saju.calculation-warmup.enabled=false`로 끌 수 있다.
+- 전체 `test`: 98 suites/459 tests, 실패0/오류0, skip3(기존 PostgreSQL·Redis 조건부). 기존 golden 기대값은 수정하지 않았다.
+- 운영 t3.small 실측은 아직 하지 않았다.
+
 ## 실행 결과
 
 - 관련 계산·입력·관계·설정 바인딩·보안·HTTP/legacy golden 테스트: BUILD SUCCESSFUL.
