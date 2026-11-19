@@ -107,9 +107,14 @@ public class SajuReadingInputNormalizer {
 			}
 		}
 		normalizedProfile.put("luckDirectionBasis", direction.value());
-		// Part of the idempotency payload: a retry that changes only these is a different request.
-		normalizedProfile.put("dayBoundary", options.dayBoundary().name());
-		normalizedProfile.put("equationOfTime", options.equationOfTime());
+		// Part of the idempotency payload, so a retry that changes only an option is a different request. Defaults are
+		// left out: an omitted and an explicit default are the same request, and pre-B2 fingerprints stay unchanged.
+		if (options.dayBoundary() != SajuCalculationOptions.DEFAULT.dayBoundary()) {
+			normalizedProfile.put("dayBoundary", options.dayBoundary().name());
+		}
+		if (options.equationOfTime() != SajuCalculationOptions.DEFAULT.equationOfTime()) {
+			normalizedProfile.put("equationOfTime", options.equationOfTime());
+		}
 
 		return new SajuCalculationInput(
 			schemaVersion,

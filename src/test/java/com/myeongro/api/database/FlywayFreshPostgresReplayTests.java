@@ -831,6 +831,15 @@ class FlywayFreshPostgresReplayTests {
 			query.setObject(2, UUID.randomUUID()); query.setString(3, "basis-hash-bad"); query.setString(4, v6.apply(withExtraKey));
 			assertSqlState("23514", query::executeQuery);
 		}
+		// The recreated constraint's schema-7 branch accepts an annual report carrying a basis.
+		var annual = mapper.readTree(v6.apply(valid));
+		((com.fasterxml.jackson.databind.node.ObjectNode)annual).put("reportType", "annual_monthly");
+		try (var connection = DriverManager.getConnection(url, username, password);
+			var query = connection.prepareStatement("select * from public.create_pending_reading(?, ?, 'basis-annual-hash', 'saju'::public.reading_kind, null, 7, ?::jsonb, 'openai', 'test-model', 'basis-test', 4, 10, 1000)")) {
+			query.setObject(1, createProfile(url, username, password)); query.setObject(2, UUID.randomUUID());
+			query.setString(3, mapper.writeValueAsString(annual));
+			try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); }
+		}
 	}
 
 	private record PendingReading(UUID readingId, long generationId, boolean created) {

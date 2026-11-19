@@ -40,11 +40,15 @@ class SajuAiCalculationInputsTests {
 	}
 
 	@Test
-	void absentOptionsAndCityNormalizeToTheDefaultsWithoutACity() {
-		var input = normalizer.normalize(request(profile("exact", "14:30", "11", null), null), 2026);
+	void defaultOptionsAndNoCityLeaveThePreB2ProfileUnchanged() {
+		var omitted = normalizer.normalize(request(profile("exact", "14:30", "11", null), null), 2026);
+		var explicit = normalizer.normalize(request(profile("exact", "14:30", "11", null),
+			"{\"dayBoundary\":\"MIDNIGHT\",\"equationOfTime\":true}"), 2026);
 
-		assertThat(input.birthProfile()).doesNotContainKey("cityCode")
-			.containsEntry("dayBoundary", "MIDNIGHT").containsEntry("equationOfTime", true);
+		// Same keys as before B2, so fingerprints of default requests did not change at deploy.
+		assertThat(omitted.birthProfile()).containsOnlyKeys(
+			"calendarType", "birthDate", "birthTime", "birthTimePrecision", "provinceCode", "luckDirectionBasis");
+		assertThat(explicit.birthProfile()).isEqualTo(omitted.birthProfile());
 	}
 
 	@Test
