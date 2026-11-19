@@ -6,9 +6,11 @@ import java.util.Set;
 
 public final class SajuCalculationRules {
 
-	public static final String CALCULATION_VERSION = "saju-ko-v4";
+	/** v5: precise (NOAA/Meeus) equation of time, shared with the public manseryeok. v4 used the day-of-year formula. */
+	public static final String CALCULATION_VERSION = "saju-ko-v5";
+	public static final String LEGACY_DAY_OF_YEAR_VERSION = "saju-ko-v4";
 	private static final Set<String> SUPPORTED_VERSIONS = Set.of(
-		"saju-ko-v1", "saju-ko-v2", "saju-ko-v3", CALCULATION_VERSION
+		"saju-ko-v1", "saju-ko-v2", "saju-ko-v3", LEGACY_DAY_OF_YEAR_VERSION, CALCULATION_VERSION
 	);
 	public static final String ENGINE = "lunar-java";
 	public static final String ENGINE_VERSION = "1.7.7";

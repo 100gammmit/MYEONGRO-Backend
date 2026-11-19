@@ -71,6 +71,14 @@
 - 전체 `test`: 98 suites/467 tests, 실패0/오류0, skip3(기존 PostgreSQL·Redis 조건부). 기존 golden 기대값은 수정하지 않았다.
 - 운영 t3.small 실측은 아직 하지 않았다.
 
+## AI 사주 v5 전환 (2026-11-19, `feature/saju-calc-v5`)
+
+- 변경: AI 사주 계산(`SajuCalculationService.calculate`)이 LEGACY(1년 중 며칠째로 구하는 간이 균시차식) 대신 공개 만세력과 같은 `precise(DEFAULT)`(NOAA/Meeus 균시차, 하루 경계 00시, 균시차 적용)를 쓴다. `CALCULATION_VERSION`은 `saju-ko-v5`이다. 저장된 v1~v4 기록은 재계산하지 않고, `saju-ko-v4`는 지원 버전에 남긴다. 저장·응답 형태는 같다.
+- 두 균시차식의 차이(1940~2029 매일 정오 기준): 평균 23.9초, 중앙 20.1초, p95 57.9초, 최대 72.1초. 확정 시각 명식 중 시주가 갈리는 비율은 약 0.33%, 일주는 약 0.03%로 추정한다.
+- `saju-ko-v4.json`은 LEGACY 설정으로 그대로 고정했다. `saju-ko-v5.json`은 v4 케이스 8개와, 정밀식 때문에 v4와 시주·일주가 갈리는 서울 경계 케이스 4개(2015-10-25 00:16·13:16, 1995-11-08 00:16·09:16)로 구성한다. 경계 케이스는 진태양시가 시 경계(홀수 시)와 자정의 어느 쪽에 떨어지는지, 그리고 시두법(五鼠遁)으로 구한 시간(時干)으로 손 검산했다.
+- `AiManseryeokParityTests`: 외부 대조 표본 30개(확정·대략·미상·DST 포함)와 경계 4개에서 AI 경로와 공개 만세력의 네 기둥·일간·오행·대운·제한사항이 모두 일치한다. DST 공백 시각은 두 경로 모두 `INVALID_BIRTH_TIME`으로 거절한다.
+- 전체 `test`: 99 suites/470 tests, 실패0/오류0, skip3(기존 조건부).
+
 ## 실행 결과
 
 - 관련 계산·입력·관계·설정 바인딩·보안·HTTP/legacy golden 테스트: BUILD SUCCESSFUL.
