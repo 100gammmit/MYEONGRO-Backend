@@ -134,7 +134,7 @@ public class SajuCalculationService {
 		}
 
 		return new SajuCalculationSnapshot(
-			settings == SajuCalculationSettings.LEGACY
+			settings.correctionModel() == SajuCalculationSettings.CorrectionModel.LEGACY_DAY_OF_YEAR
 				? SajuCalculationRules.LEGACY_DAY_OF_YEAR_VERSION : SajuCalculationRules.CALCULATION_VERSION,
 			SajuCalculationRules.ENGINE,
 			SajuCalculationRules.ENGINE_VERSION,

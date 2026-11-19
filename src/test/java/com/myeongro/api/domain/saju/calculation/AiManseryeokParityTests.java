@@ -41,29 +41,36 @@ class AiManseryeokParityTests {
 		samples.add(new String[] {"1995-11-08", "00:16", "exact"});
 
 		int compared = 0;
+		int rejected = 0;
+		// Every luck basis (forward, backward, none) and a second province longitude (Busan) besides Seoul.
+		List<String[]> variants = List.of(new String[] {"male", "11"}, new String[] {"female", "11"},
+			new String[] {"unspecified", "11"}, new String[] {"female", "26"});
 		for (String[] sample : samples) {
+		for (String[] variant : variants) {
 			String date = sample[0];
 			String time = sample[1].isEmpty() ? null : sample[1];
 			String precision = sample[2];
-			String label = String.join(" ", sample);
+			String label = String.join(" ", sample) + " " + String.join("/", variant);
 			Map<String, Object> profile = new LinkedHashMap<>();
 			profile.put("calendarType", "solar");
 			profile.put("birthDate", date);
 			profile.put("birthTimePrecision", precision);
-			profile.put("luckDirectionBasis", "male");
+			profile.put("luckDirectionBasis", variant[0]);
 			if (time != null) {
 				profile.put("birthTime", time);
-				profile.put("provinceCode", "11");
+				profile.put("provinceCode", variant[1]);
 			}
-			var request = ManseryeokCalculationTests.request(date, time, precision, null);
+			var request = ManseryeokCalculationTests.MAPPER.convertValue(
+				Map.of("birthProfile", profile), com.myeongro.api.domain.saju.controller.SajuCalculationRequest.class);
 
 			SajuCalculationSnapshot aiChart;
 			try {
 				aiChart = ai.calculate(profile, TARGET_YEAR);
-			} catch (InvalidReadingRequestException rejected) {
+			} catch (InvalidReadingRequestException aiRejection) {
 				assertThatThrownBy(() -> manseryeok.calculate(request)).as(label)
 					.isInstanceOfSatisfying(InvalidReadingRequestException.class,
-						e -> assertThat(e.getCode()).isEqualTo(rejected.getCode()));
+						e -> assertThat(e.getCode()).isEqualTo(aiRejection.getCode()));
+				rejected++;
 				continue;
 			}
 			var publicChart = manseryeok.calculate(request);
@@ -84,7 +91,10 @@ class AiManseryeokParityTests {
 			assertThat(aiChart.limitations()).as(label + " limitations").isEqualTo(publicChart.limitations());
 			compared++;
 		}
-		assertThat(compared).isEqualTo(samples.size() - 1); // the DST-gap sample is rejected by both
+		}
+		// Only the DST-gap sample is rejected, by both paths, in every variant.
+		assertThat(rejected).isEqualTo(variants.size());
+		assertThat(compared).isEqualTo((samples.size() - 1) * variants.size());
 	}
 
 	private static SajuCalculationSnapshot.Pillar pillar(SajuCalculationSnapshot.Pillars pillars, String position) {
