@@ -97,6 +97,76 @@ class AiManseryeokParityTests {
 		assertThat(compared).isEqualTo((samples.size() - 1) * variants.size());
 	}
 
+	/** B2: a city longitude and non-default options give the same chart on the AI path as on the public one. */
+	@Test
+	void cityLongitudeAndOptionsMatchThePublicManseryeok() throws Exception {
+		var catalog = ManseryeokCalculationTests.CATALOG;
+		var corrector = new TrueSolarTimeCorrector();
+		var ai = new SajuCalculationService(catalog, corrector,
+			new ApproximateBirthTimeResolver(corrector, new LunarJavaFourPillarsAdapter()));
+		ManseryeokCalculationService manseryeok = ManseryeokCalculationTests.service();
+		// date, time, precision, province, city (Ulleung, Ongjin incl. Baengnyeong, Jongno), boundary, equation
+		String[][] cases = {
+			{"1995-11-08", "00:16", "exact", "47", "47940", "HOUR_23", "false"},
+			{"1990-01-01", "23:40", "exact", "28", "28720", "HOUR_23", "true"},
+			{"1990-01-01", "23:40", "exact", "28", "28720", "MIDNIGHT", "true"},
+			{"2015-10-25", "13:16", "approximate", "11", "11110", "MIDNIGHT", "false"},
+			{"2020-02-04", "", "unknown", "", "", "HOUR_23", "false"},
+		};
+		for (String[] test : cases) {
+			Map<String, Object> profile = new LinkedHashMap<>();
+			profile.put("calendarType", "solar");
+			profile.put("birthDate", test[0]);
+			profile.put("birthTimePrecision", test[2]);
+			profile.put("luckDirectionBasis", "female");
+			if (!test[1].isEmpty()) {
+				profile.put("birthTime", test[1]);
+				profile.put("provinceCode", test[3]);
+				profile.put("cityCode", test[4]);
+			}
+			var request = ManseryeokCalculationTests.MAPPER.convertValue(Map.of("birthProfile", profile,
+				"options", Map.of("dayBoundary", test[5], "equationOfTime", Boolean.parseBoolean(test[6]))),
+				com.myeongro.api.domain.saju.controller.SajuCalculationRequest.class);
+			Map<String, Object> normalized = new LinkedHashMap<>(profile);
+			normalized.put("dayBoundary", test[5]);
+			normalized.put("equationOfTime", Boolean.parseBoolean(test[6]));
+
+			var aiChart = ai.calculate(normalized, TARGET_YEAR);
+			var publicChart = manseryeok.calculate(request);
+			String label = String.join(" ", test);
+			assertThat(publicChart.appliedOptions().coordinateSource()).as(label)
+				.isEqualTo(test[1].isEmpty() ? "reference" : "city");
+			for (String position : List.of("year", "month", "day", "time")) {
+				var aiPillar = pillar(aiChart.pillars(), position);
+				var publicPillar = publicChart.chart().pillars().get(position);
+				assertThat(aiPillar == null ? null : aiPillar.ganZhi()).as(label + " " + position)
+					.isEqualTo(publicPillar == null ? null : publicPillar.ganZhi().korean());
+			}
+			assertThat(aiChart.timeCorrection()).as(label + " correction").isEqualTo(publicChart.timeCorrection());
+			assertThat(aiChart.luckCycle()).as(label + " luckCycle")
+				.isEqualTo(publicChart.luckCycle() == null ? null : publicChart.luckCycle().precise());
+			assertThat(aiChart.limitations()).as(label + " limitations").isEqualTo(publicChart.limitations());
+		}
+	}
+
+	/** The 23-o'clock day boundary moves a 23:xx birth to the next day's pillar. */
+	@Test
+	void hour23BoundaryMovesTheDayPillarOfALateBirth() {
+		var catalog = ManseryeokCalculationTests.CATALOG;
+		var corrector = new TrueSolarTimeCorrector();
+		var ai = new SajuCalculationService(catalog, corrector,
+			new ApproximateBirthTimeResolver(corrector, new LunarJavaFourPillarsAdapter()));
+		Map<String, Object> profile = new LinkedHashMap<>(Map.of("calendarType", "solar", "birthDate", "1990-01-01",
+			"birthTime", "23:59", "birthTimePrecision", "exact", "provinceCode", "11", "luckDirectionBasis", "unspecified"));
+		var midnight = ai.calculate(profile, TARGET_YEAR);
+		profile.put("dayBoundary", "HOUR_23");
+		var hour23 = ai.calculate(profile, TARGET_YEAR);
+
+		assertThat(midnight.pillars().day().ganZhi()).isEqualTo("병인");
+		assertThat(hour23.pillars().day().ganZhi()).isEqualTo("정묘");
+		assertThat(hour23.pillars().time().ganZhi()).isEqualTo(midnight.pillars().time().ganZhi());
+	}
+
 	private static SajuCalculationSnapshot.Pillar pillar(SajuCalculationSnapshot.Pillars pillars, String position) {
 		return switch (position) {
 			case "year" -> pillars.year();

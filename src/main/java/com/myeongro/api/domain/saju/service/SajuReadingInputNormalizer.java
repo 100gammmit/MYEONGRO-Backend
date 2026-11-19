@@ -13,6 +13,8 @@ import com.myeongro.api.domain.saju.model.BirthTimePrecision;
 import com.myeongro.api.domain.saju.model.LuckDirectionBasis;
 import com.myeongro.api.domain.saju.model.SajuBirthProfileRequest;
 import com.myeongro.api.domain.saju.model.SajuFocusArea;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationOptions;
+import com.myeongro.api.domain.saju.model.SajuBirthInputRules;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 
 @Component
@@ -33,13 +35,12 @@ public class SajuReadingInputNormalizer {
 		if (targetYear < 1900 || targetYear > 2100) {
 			throw ReadingInputSupport.invalid("INVALID_TARGET_YEAR", "targetYear", "리딩 연도를 확인해 주세요.");
 		}
-		return normalize(request, com.myeongro.api.domain.saju.model.SajuReportType.fromValue(request.reportType()).schemaVersion(), null, targetYear);
+		return normalize(request, com.myeongro.api.domain.saju.model.SajuReportType.fromValue(request.reportType()).schemaVersion(), targetYear);
 	}
 
 	private SajuCalculationInput normalize(
 		SajuReadingCreateRequest request,
 		int schemaVersion,
-		String legacyCityCode,
 		int targetYear
 	) {
 		var reportType = com.myeongro.api.domain.saju.model.SajuReportType.fromValue(request.reportType());
@@ -75,12 +76,22 @@ public class SajuReadingInputNormalizer {
 				"출생시간을 모르는 경우 출생 시·도를 비워 주세요."
 			);
 		}
+		if (!birthPlaceRequired && profile.cityCode() != null) {
+			throw ReadingInputSupport.invalid(
+				"INVALID_BIRTH_PLACE",
+				"birthProfile.cityCode",
+				"출생시간을 모르는 경우 출생 시·군·구를 비워 주세요."
+			);
+		}
 		if (birthPlaceRequired) {
 			birthPlaceCatalog.requireProvince(profile.provinceCode());
-			if (legacyCityCode != null) {
-				birthPlaceCatalog.require(profile.provinceCode(), legacyCityCode);
+			if (profile.cityCode() != null) {
+				birthPlaceCatalog.requireCity(profile.provinceCode(), profile.cityCode());
 			}
 		}
+		SajuCalculationOptions options = SajuBirthInputRules.parseCalculationOptions(
+			request.calculationOptions(), "calculationOptions"
+		);
 
 		Map<String, Object> normalizedProfile = new LinkedHashMap<>();
 		normalizedProfile.put("calendarType", "solar");
@@ -91,8 +102,14 @@ public class SajuReadingInputNormalizer {
 		normalizedProfile.put("birthTimePrecision", precision.value());
 		if (birthPlaceRequired) {
 			normalizedProfile.put("provinceCode", profile.provinceCode());
+			if (profile.cityCode() != null) {
+				normalizedProfile.put("cityCode", profile.cityCode());
+			}
 		}
 		normalizedProfile.put("luckDirectionBasis", direction.value());
+		// Part of the idempotency payload: a retry that changes only these is a different request.
+		normalizedProfile.put("dayBoundary", options.dayBoundary().name());
+		normalizedProfile.put("equationOfTime", options.equationOfTime());
 
 		return new SajuCalculationInput(
 			schemaVersion,

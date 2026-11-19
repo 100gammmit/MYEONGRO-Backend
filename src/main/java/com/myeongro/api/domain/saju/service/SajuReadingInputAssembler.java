@@ -58,18 +58,21 @@ public class SajuReadingInputAssembler {
 			targetYear,
 			interpretationInputMapper.map(calculated, targetYear)
 		);
-		Map<String, Object> storedCalculation = new LinkedHashMap<>(storedCalculationMapper.map(snapshot));
-		storedCalculation.put("monthlyCalendar", objectMapper.convertValue(
+		// The annual report sends this calculation to the model; the basis is added only to the stored copy.
+		Map<String, Object> modelCalculation = new LinkedHashMap<>(storedCalculationMapper.map(snapshot));
+		modelCalculation.put("monthlyCalendar", objectMapper.convertValue(
 			monthlyCalendarService.calculate(targetYear, snapshot.dayMaster()),
 			new TypeReference<Map<String, Object>>() { }
 		));
+		Map<String, Object> storedCalculation = new LinkedHashMap<>(modelCalculation);
+		storedCalculation.put("calculationBasis", calculationBasis(input.birthProfile()));
 		SajuStoredInput storedInput = new SajuStoredInput(targetYear, storedCalculation);
 		if (input.reportType() == com.myeongro.api.domain.saju.model.SajuReportType.ANNUAL_MONTHLY) {
 			Map<String, Object> stored = new LinkedHashMap<>(storedInput.payload());
 			stored.put("reportType", input.reportType().value());
 			return new PreparedReadingInput(ReadingKind.SAJU, null, input.schemaVersion(), input.question(),
 				Map.of("reportType", input.reportType().value(), "targetYear", targetYear,
-					"focusArea", input.focusArea().value(), "calculationSnapshot", storedCalculation), stored);
+					"focusArea", input.focusArea().value(), "calculationSnapshot", modelCalculation), stored);
 		}
 		return new PreparedReadingInput(
 			ReadingKind.SAJU,
@@ -79,5 +82,18 @@ public class SajuReadingInputAssembler {
 			aiInput.payload(),
 			storedInput.payload()
 		);
+	}
+
+	/**
+	 * Which rules produced the stored chart. Only the option values and the longitude unit are kept: never the
+	 * province or city code, the longitude itself or any raw birth data.
+	 */
+	static Map<String, Object> calculationBasis(Map<String, Object> birthProfile) {
+		var options = SajuCalculationService.options(birthProfile);
+		Map<String, Object> basis = new LinkedHashMap<>();
+		basis.put("dayBoundary", options.dayBoundary().name());
+		basis.put("equationOfTime", options.equationOfTime());
+		basis.put("coordinateSource", SajuCalculationService.coordinateSource(birthProfile));
+		return java.util.Collections.unmodifiableMap(basis);
 	}
 }

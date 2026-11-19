@@ -38,22 +38,8 @@ public record SajuCalculationRequest(
 			profile.put("birthTime", time); profile.put("provinceCode", province);
 			if (birthProfile.has("cityCode")) { longitude = catalog.requireCity(province, text(birthProfile, "cityCode", false)).longitude(); source = "city"; }
 		}
-		SajuCalculationOptions.DayBoundary boundary = SajuCalculationOptions.DayBoundary.MIDNIGHT;
-		boolean equation = true;
-		if (options != null) {
-			if (!options.isObject()) throw invalid("INVALID_CALCULATION_OPTIONS", "options");
-			checkFields(options, Set.of("dayBoundary", "equationOfTime"), "options.");
-			if (options.has("dayBoundary")) {
-				JsonNode value = options.get("dayBoundary");
-				if (!value.isTextual() || !Set.of("MIDNIGHT", "HOUR_23").contains(value.textValue())) throw invalid("INVALID_CALCULATION_OPTIONS", "options.dayBoundary");
-				boundary = SajuCalculationOptions.DayBoundary.valueOf(value.textValue());
-			}
-			if (options.has("equationOfTime")) {
-				if (!options.get("equationOfTime").isBoolean()) throw invalid("INVALID_CALCULATION_OPTIONS", "options.equationOfTime");
-				equation = options.get("equationOfTime").booleanValue();
-			}
-		}
-		return new Validated(Collections.unmodifiableMap(profile), new SajuCalculationOptions(boundary, equation), longitude, source);
+		SajuCalculationOptions calculationOptions = SajuBirthInputRules.parseCalculationOptions(options, "options");
+		return new Validated(Collections.unmodifiableMap(profile), calculationOptions, longitude, source);
 	}
 	private static String text(JsonNode node, String key, boolean optional) {
 		if (!node.has(key) && optional) return null;
