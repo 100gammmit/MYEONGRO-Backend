@@ -17,7 +17,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.*;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.TestPropertySource;
 import com.myeongro.api.domain.saju.calculation.*;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import com.myeongro.api.domain.saju.service.ManseryeokCalculationService;
@@ -54,7 +53,6 @@ abstract class ManseryeokHttpContext {
 	}
 }
 
-@TestPropertySource(properties="app.saju.public-calculation.enabled=true")
 class ManseryeokHttpSmokeTests extends ManseryeokHttpContext {
 	@Test void actualHttpAndOpenApiUseRealCalculationWithoutDatabaseRedisOrAi() throws Exception {
 		when(limiter.acquire(any(),anyString())).thenReturn(IpRateLimiter.Decision.ALLOWED);
@@ -81,15 +79,5 @@ class ManseryeokHttpSmokeTests extends ManseryeokHttpContext {
 		assertThat(invalid.statusCode()).isEqualTo(400); assertThat(invalid.body()).contains("code","field");
 		assertThat(request("POST","/api/saju/readings",body).statusCode()).isEqualTo(401);
 		verifyNoInteractions(profiles,eligibility,signup);
-	}
-}
-
-class ManseryeokDisabledHttpSmokeTests extends ManseryeokHttpContext {
-	@Test void defaultOffStopsHttpBeforeMalformedBodyAndRateLimit() throws Exception {
-		assertThat(request("POST","/api/saju/calculations","{invalid").statusCode()).isEqualTo(404);
-		assertThat(request("GET","/api/saju/calculations/birth-places",null).statusCode()).isEqualTo(404);
-		assertThat(request("POST","/api/saju/%63alculations","{invalid").statusCode()).isEqualTo(404);
-		assertThat(request("GET","/api/saju/calculations/%62irth-places",null).statusCode()).isEqualTo(404);
-		verifyNoInteractions(limiter,profiles,eligibility,signup);
 	}
 }

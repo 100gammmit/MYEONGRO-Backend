@@ -2,14 +2,15 @@ package com.myeongro.api.domain.saju.calculation;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Set;
 
 public final class SajuCalculationRules {
 
-	public static final String CALCULATION_VERSION = "saju-ko-v4";
-	private static final Set<String> SUPPORTED_VERSIONS = Set.of(
-		"saju-ko-v1", "saju-ko-v2", "saju-ko-v3", CALCULATION_VERSION
-	);
+	/**
+	 * Stamped on new snapshots. v5: precise (NOAA/Meeus) equation of time, shared with the public manseryeok.
+	 * v4 used the day-of-year formula. Stored v1-v4 snapshots are read as saved and never recalculated.
+	 */
+	public static final String CALCULATION_VERSION = "saju-ko-v5";
+	public static final String LEGACY_DAY_OF_YEAR_VERSION = "saju-ko-v4";
 	public static final String ENGINE = "lunar-java";
 	public static final String ENGINE_VERSION = "1.7.7";
 	public static final ZoneId BIRTH_ZONE = ZoneId.of("Asia/Seoul");
@@ -20,9 +21,5 @@ public final class SajuCalculationRules {
 	public static final double KOREA_REFERENCE_LONGITUDE = 127.5d;
 
 	private SajuCalculationRules() {
-	}
-
-	public static boolean supports(String version) {
-		return SUPPORTED_VERSIONS.contains(version);
 	}
 }

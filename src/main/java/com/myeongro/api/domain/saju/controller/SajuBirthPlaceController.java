@@ -47,7 +47,7 @@ public class SajuBirthPlaceController {
 		}
 		return ResponseEntity.ok(Map.of(
 			"version", catalog.version(),
-			"provinces", catalog.provinces()
+			"provinces", catalog.publicProvinces()
 		));
 	}
 

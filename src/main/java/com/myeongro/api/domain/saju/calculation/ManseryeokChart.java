@@ -23,7 +23,9 @@ public record ManseryeokChart(
 	public record PositionedRelation(String type, List<Member> members) { }
 	public record CollectionValue<T>(String status, List<T> values, List<String> reasonCodes) { }
 	public record Capability(String status, List<String> fields, List<String> reasonCodes) { }
-	public record MajorLuck(SajuCalculationSnapshot.LuckCycle precise, int integerStartAge, String integerMethod) { }
+	/** {@code periods} is the display strip; {@code precise} keeps the exact start and the raw periods. */
+	public record MajorLuck(SajuCalculationSnapshot.LuckCycle precise, int integerStartAge, String integerMethod, List<MajorLuckFlow> periods) { }
+	public record MajorLuckFlow(int startYear, int endYear, int startAge, int endAge, Symbol ganZhi, String stemTenGod) { }
 	public record AnnualFlow(int year, Symbol ganZhi, String stemTenGod) { }
 	public record AppliedOptions(SajuCalculationOptions.DayBoundary dayBoundary, boolean equationOfTime,
 		String coordinateSource, double longitude, boolean birthTimeKnown) { }

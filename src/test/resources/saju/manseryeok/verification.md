@@ -6,7 +6,7 @@
 ## 범위와 공개 상태
 
 - Backend 전용 `POST /api/saju/calculations`, `GET /api/saju/calculations/birth-places`.
-- `app.saju.public-calculation.enabled` 기본 false. 환경별 설정은 실제 secret 파일을 수정하지 않고 운영자가 별도로 반영한다.
+- 공개 경로는 별도 활성화 설정 없이 배포되면 항상 열린다(2026-11-20 결정). 브라우저 직접 호출 출처만 `app.saju.public-calculation.allowed-origins`로 정한다.
 - 공개 계산 `schemaVersion=1`, `calculationVersion=manseryeok-ko-v1`, `timeCorrectionVersion=meeus-noaa-v1`.
 - 기존 `saju-ko-v4`, 저장 snapshot, AI 생성·프롬프트·크레딧·DB는 변경하지 않았다. 공유 검증 규칙과 후보 계산 경로만 재사용한다.
 - 후속 Front/개인정보 고지/Docs 정책 정렬 전에는 켜지 않는다. 기존 AI는 legacy 계산이므로 무료 명식 기반 풀이 버튼을 연결하지 않는다.
@@ -58,6 +58,26 @@
 - 익명/회원/미완료 가입/성인 미확인 공개 접근, 보호된 사주·기록 경계 유지, rate429/Redis장애503/32KiB초과413 검증.
 - 실제 로컬 Tomcat HTTP on200/off404, malformed400, no-store/쿠키 미생성, OpenAPI 포함 확인. 이 서버는 계산 경로만 실제 연결하며 rate와 인증 부수 의존성은 mock이다. 실제 운영 Redis 장애·부하·프록시 환경의 통합 시험을 대신하지 않는다.
 - 신규 PostgreSQL/Redis 저장 구조·Lua 변경 없음. 외부 DB/Redis를 준비하지 않은 테스트는 skip으로 별도 기록한다.
+
+## 시각 미상 구간 계산 최적화 (2026-11-18, `fix/saju-unknown-time-performance`)
+
+- 원인: 시각 미상은 하루 1,440분마다 lunar-java `getLunar()`를 호출했다. 물리 코어 1개(논리 CPU 2개, Ryzen 5 5600X를 affinity로 고정, t3.small의 vCPU 2개 구조와 같음)·동시 2건에서 중앙 2,180.8ms·최대 2,643.7ms였다. t3.small 코어가 더 느린 점을 감안하면 3초 deadline 초과 위험이 있었다.
+- 변경: 시각 미상(`includeTime=false`)만 같은 오프셋 구간을 이분 탐색해 값이 바뀌는 분에서만 엔진을 호출한다. 후보 수·오프셋·DST 표시는 매분 보정 단계에서 그대로 센다. 시각 확정·대략 경로는 바꾸지 않았다.
+- 동등성 근거: 연·월·일주는 하루 안에서 이전 값으로 돌아가지 않는 계단 함수이고, 병합과 공개 누적기는 공통값만 남긴다. 기존 매분 탐색을 `segmentedUnknown=false` 기준 구현으로 남겨 `Resolution` 전체와 누적기 출력(변동 필드 순서 포함)을 대조한다.
+  - 기본 `test`: 경계일 8개 × LEGACY·정밀(HOUR_23, 균시차 끔), 극단 경도 2곳.
+  - `slowTest`: 1900~2099 모든 Asia/Seoul 오프셋 전환일, 1985·2020 절기일, 무작위 120일(seed 20261118) × 설정 5종, 전환일 × 극단 경도. 2026-11-18 실행: 211일·1,211건 전부 일치, 1,006초(6병렬).
+- 같은 조건 재측정: 시각 미상 중앙 43.0ms·최대 256.3ms(첫 호출 포함), 확정 중앙 41.0ms, 대략 중앙 493.9ms. 엔진 호출은 하루 64회 이하로 테스트한다.
+- 시작 예열 `SajuCalculationWarmup`(웹 서버가 요청을 받기 전, 모든 싱글톤 생성 직후 실행. Spring 테스트 컨텍스트에서는 꺼 둠): 합성 입력으로 AI 사주(당시 LEGACY, v5부터 정밀 설정)·공개 경로의 확정·대략·미상을 1회씩 실행한다. 같은 코어 1개 조건에서 예열 2,065ms, 예열 후 첫 요청은 확정 53.8ms·대략 636.9ms·미상 53.4ms였다(예열 전 첫 호출 최대 확정 1,939.7ms·대략 2,706.2ms). `app.saju.calculation-warmup.enabled=false`로 끌 수 있다.
+- 전체 `test`: 98 suites/467 tests, 실패0/오류0, skip3(기존 PostgreSQL·Redis 조건부). 기존 golden 기대값은 수정하지 않았다.
+- 운영 t3.small 실측은 아직 하지 않았다.
+
+## AI 사주 v5 전환 (2026-11-19, `feature/saju-calc-v5`)
+
+- 변경: AI 사주 계산(`SajuCalculationService.calculate`)이 LEGACY(1년 중 며칠째로 구하는 간이 균시차식) 대신 공개 만세력과 같은 `precise(DEFAULT)`(NOAA/Meeus 균시차, 하루 경계 00시, 균시차 적용)를 쓴다. `CALCULATION_VERSION`은 `saju-ko-v5`이다. 저장된 v1~v4 기록은 재계산하지 않고, `saju-ko-v4`는 지원 버전에 남긴다. 저장·응답 형태는 같다.
+- 두 균시차식의 차이(1940~2029 매일 정오 기준): 평균 23.9초, 중앙 20.1초, p95 57.9초, 최대 72.1초. 확정 시각 명식 중 시주가 갈리는 비율은 약 0.33%, 일주는 약 0.03%로 추정한다.
+- `saju-ko-v4.json`은 LEGACY 설정으로 그대로 고정했다. `saju-ko-v5.json`은 v4 케이스 8개와, 정밀식 때문에 v4와 시주·일주가 갈리는 서울 경계 케이스 4개(2015-10-25 00:16·13:16, 1995-11-08 00:16·09:16)로 구성한다. 경계 케이스는 진태양시가 시 경계(홀수 시)와 자정의 어느 쪽에 떨어지는지, 그리고 시두법(五鼠遁)으로 구한 시간(時干)으로 손 검산했다.
+- `AiManseryeokParityTests`: 외부 대조 표본 30개(확정·대략·미상·DST 포함)와 경계 4개에서 AI 경로와 공개 만세력의 네 기둥·일간·오행·대운·제한사항이 모두 일치한다. DST 공백 시각은 두 경로 모두 `INVALID_BIRTH_TIME`으로 거절한다.
+- 전체 `test`: 99 suites/470 tests, 실패0/오류0, skip3(기존 조건부).
 
 ## 실행 결과
 

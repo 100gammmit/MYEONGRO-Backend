@@ -48,16 +48,20 @@ class SajuBirthPlaceControllerTests {
 	void returnsVersionedProvinceCatalogAfterRequiredConsent() throws Exception {
 		when(consentService.hasAccepted(USER_ID, ConsentScope.SAJU)).thenReturn(true);
 		when(catalog.version()).thenReturn("kr-admin-v1-province");
-		when(catalog.provinces()).thenReturn(List.of(
-			new SajuBirthPlaceCatalog.ProvinceView("11", "서울특별시")
+		when(catalog.publicProvinces()).thenReturn(List.of(
+			new SajuBirthPlaceCatalog.PublicProvinceView("11", "서울특별시",
+				List.of(new SajuBirthPlaceCatalog.CityView("11110", "종로구")))
 		));
 
+		// AI readings accept a city since B2, so the list carries cities; the version stays the stored catalog one.
 		mockMvc.perform(get("/api/saju/birth-places").principal(authentication))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.version").value("kr-admin-v1-province"))
 			.andExpect(jsonPath("$.provinces[0].provinceCode").value("11"))
 			.andExpect(jsonPath("$.provinces[0].provinceName").value("서울특별시"))
-			.andExpect(jsonPath("$.provinces[0].cities").doesNotExist());
+			.andExpect(jsonPath("$.provinces[0].cities[0].cityCode").value("11110"))
+			.andExpect(jsonPath("$.provinces[0].cities[0].cityName").value("종로구"))
+			.andExpect(jsonPath("$.provinces[0].cities[0].longitude").doesNotExist());
 	}
 
 	@Test

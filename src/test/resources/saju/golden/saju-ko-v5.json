@@ -1,0 +1,89 @@
+{
+  "calculationVersion": "saju-ko-v5",
+  "engine": "lunar-java",
+  "engineVersion": "1.7.7",
+  "verificationSource": "https://github.com/6tail/lunar-java/tree/v1.7.7; v5 divergence cases hand-checked: true-solar hour block and 五鼠遁 hour stem",
+  "equationOfTime": "meeus-noaa-v1 (v4: day-of-year formula)",
+  "cases": [
+    {
+      "id": "ordinary-exact-male",
+      "profile": {"birthDate":"1992-08-17","birthTime":"12:00","birthTimePrecision":"exact","provinceCode":"36","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "임신/무신/을축/임오/을/병오/forward"
+    },
+    {
+      "id": "lichun-before-female",
+      "profile": {"birthDate":"2020-02-04","birthTime":"18:00","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"female"},
+      "targetYear": 2026,
+      "expectedSummary": "기해/정축/정축/기유/정/병오/forward"
+    },
+    {
+      "id": "lichun-after-female",
+      "profile": {"birthDate":"2020-02-04","birthTime":"18:10","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"female"},
+      "targetYear": 2026,
+      "expectedSummary": "경자/무인/정축/기유/정/병오/backward"
+    },
+    {
+      "id": "monthly-jie-before",
+      "profile": {"birthDate":"2020-03-05","birthTime":"11:55","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "경자/무인/정미/병오/정/병오/forward"
+    },
+    {
+      "id": "monthly-jie-after",
+      "profile": {"birthDate":"2020-03-05","birthTime":"11:58","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "경자/기묘/정미/병오/정/병오/forward"
+    },
+    {
+      "id": "historical-kst-offset",
+      "profile": {"birthDate":"1960-01-01","birthTime":"00:10","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "기해/병자/무자/임자/무/병오/backward"
+    },
+    {
+      "id": "late-zi-day-boundary",
+      "profile": {"birthDate":"1990-01-01","birthTime":"23:59","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"unspecified"},
+      "targetYear": 2026,
+      "expectedSummary": "기사/병자/병인/경자/병/병오/-"
+    },
+    {
+      "id": "unknown-birth-time",
+      "profile": {"birthDate":"1988-05-05","birthTimePrecision":"unknown","luckDirectionBasis":"unspecified"},
+      "targetYear": 2026,
+      "expectedSummary": "무진/-/-/-/-/병오/-"
+    },
+    {
+      "id": "eot-hour-boundary-v5-wu",
+      "profile": {"birthDate":"2015-10-25","birthTime":"13:16","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "을미/병술/갑술/경오/갑/병오/backward",
+      "v4Summary": "을미/병술/갑술/신미/갑/병오/backward",
+      "note": "v5 true solar 12:59:49 (午), v4 13:00:14 (未)"
+    },
+    {
+      "id": "eot-day-boundary-v5-previous-day",
+      "profile": {"birthDate":"2015-10-25","birthTime":"00:16","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"female"},
+      "targetYear": 2026,
+      "expectedSummary": "을미/병술/계유/갑자/계/병오/forward",
+      "v4Summary": "을미/병술/갑술/갑자/갑/병오/forward",
+      "note": "v5 true solar 10-24 23:59:49, v4 10-25 00:00:14"
+    },
+    {
+      "id": "eot-hour-boundary-v5-si",
+      "profile": {"birthDate":"1995-11-08","birthTime":"09:16","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"male"},
+      "targetYear": 2026,
+      "expectedSummary": "을해/정해/계묘/정사/계/병오/backward",
+      "v4Summary": "을해/정해/계묘/병진/계/병오/backward",
+      "note": "v5 true solar 09:00:20 (巳), v4 08:59:59 (辰)"
+    },
+    {
+      "id": "eot-day-boundary-v5-same-day",
+      "profile": {"birthDate":"1995-11-08","birthTime":"00:16","birthTimePrecision":"exact","provinceCode":"11","luckDirectionBasis":"female"},
+      "targetYear": 2026,
+      "expectedSummary": "을해/병술/계묘/임자/계/병오/forward",
+      "v4Summary": "을해/병술/임인/임자/임/병오/forward",
+      "note": "v5 true solar 11-08 00:00:22, v4 11-07 23:59:59"
+    }
+  ]
+}

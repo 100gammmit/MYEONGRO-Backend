@@ -108,7 +108,8 @@ app:
 
   saju:
     public-calculation:
-      enabled: ${saju.public-calculation.enabled:false}
+      # Browser origins allowed to call the two public paths directly (comma list, no credentials).
+      allowed-origins: ${saju.public-calculation.allowed-origins:${app.frontend-origin}}
 
   eligibility:
     adult-policy-version: 2026-09-09

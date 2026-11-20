@@ -57,11 +57,50 @@ public class SajuCalculationService {
 		int targetYear,
 		Runnable checkDeadline
 	) {
-		BirthTimePrecision precision = BirthTimePrecision.fromValue(requiredString(birthProfile, "birthTimePrecision"));
-		double longitude = precision == BirthTimePrecision.UNKNOWN ? SajuCalculationRules.KOREA_REFERENCE_LONGITUDE
-			: birthPlaceCatalog.requireProvince(requiredString(birthProfile, "provinceCode")).longitude();
-		return calculateForChart(birthProfile, targetYear, longitude, SajuCalculationSettings.LEGACY, SajuCandidateObserver.NONE, checkDeadline);
+		// saju-ko-v5: AI readings use the same precise correction, longitude unit and options as the public manseryeok,
+		// so the same input gives the same chart on both. Stored v1-v4 readings are never recalculated.
+		return calculateForChart(birthProfile, targetYear, longitude(birthPlaceCatalog, birthProfile), settings(birthProfile),
+			SajuCandidateObserver.NONE, checkDeadline);
 	}
+
+	/** Longitude unit used for a normalized profile: {@code reference} (time unknown), {@code city} or {@code province}. */
+	public static String coordinateSource(Map<String, Object> birthProfile) {
+		if (BirthTimePrecision.fromValue((String)birthProfile.get("birthTimePrecision")) == BirthTimePrecision.UNKNOWN) {
+			return "reference";
+		}
+		return birthProfile.get("cityCode") instanceof String ? "city" : "province";
+	}
+
+	/** Options carried by a normalized profile; profiles normalized before B2 carry none and get the defaults. */
+	public static SajuCalculationOptions options(Map<String, Object> birthProfile) {
+		Object boundary = birthProfile.get("dayBoundary");
+		Object equation = birthProfile.get("equationOfTime");
+		return new SajuCalculationOptions(
+			boundary instanceof String text ? SajuCalculationOptions.DayBoundary.valueOf(text)
+				: SajuCalculationOptions.DEFAULT.dayBoundary(),
+			equation instanceof Boolean flag ? flag : SajuCalculationOptions.DEFAULT.equationOfTime()
+		);
+	}
+
+	/**
+	 * Longitude for a normalized profile. The single rule shared by AI readings and the public manseryeok, so the same
+	 * input always gets the same longitude on both. Validates the province and city codes against the catalog.
+	 */
+	public static double longitude(SajuBirthPlaceCatalog catalog, Map<String, Object> birthProfile) {
+		return switch (coordinateSource(birthProfile)) {
+			case "reference" -> SajuCalculationRules.KOREA_REFERENCE_LONGITUDE;
+			case "city" -> catalog.requireCity(
+				(String)birthProfile.get("provinceCode"), (String)birthProfile.get("cityCode")).longitude();
+			default -> catalog.requireProvince((String)birthProfile.get("provinceCode")).longitude();
+		};
+	}
+
+	private static SajuCalculationSettings settings(Map<String, Object> birthProfile) {
+		SajuCalculationOptions options = options(birthProfile);
+		return options.equals(SajuCalculationOptions.DEFAULT) ? AI_READING_SETTINGS : SajuCalculationSettings.precise(options);
+	}
+
+	static final SajuCalculationSettings AI_READING_SETTINGS = SajuCalculationSettings.precise(SajuCalculationOptions.DEFAULT);
 
 	/** Internal calculation carrier only. Public DTO owns its own version; never persist this as a legacy AI snapshot. */
 	public SajuCalculationSnapshot calculateForChart(Map<String, Object> birthProfile, int targetYear, double longitude,
@@ -130,7 +169,8 @@ public class SajuCalculationService {
 		}
 
 		return new SajuCalculationSnapshot(
-			SajuCalculationRules.CALCULATION_VERSION,
+			settings.correctionModel() == SajuCalculationSettings.CorrectionModel.LEGACY_DAY_OF_YEAR
+				? SajuCalculationRules.LEGACY_DAY_OF_YEAR_VERSION : SajuCalculationRules.CALCULATION_VERSION,
 			SajuCalculationRules.ENGINE,
 			SajuCalculationRules.ENGINE_VERSION,
 			birthPlaceCatalog.version(),

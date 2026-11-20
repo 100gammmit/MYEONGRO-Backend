@@ -26,7 +26,7 @@ import com.myeongro.api.global.ratelimit.IpRateLimiter;
 @WebMvcTest(controllers=SajuCalculationController.class)
 @Import({SecurityConfig.class,ActiveAccountSessionFilter.class,AdultEligibilitySessionFilter.class,PendingSignupAccessFilter.class,SajuCalculationExceptionHandler.class})
 @TestPropertySource(properties={
-	"app.frontend-origin=http://localhost:3000", "app.saju.public-calculation.enabled=true",
+	"app.frontend-origin=http://localhost:3000",
 	"app.eligibility.adult-policy-version=2026-09-09",
 	"spring.security.oauth2.client.registration.kakao.client-id=test-client-id",
 	"spring.security.oauth2.client.registration.kakao.client-secret=test-client-secret",
@@ -37,6 +37,7 @@ import com.myeongro.api.global.ratelimit.IpRateLimiter;
 	"spring.security.oauth2.client.provider.kakao.user-info-uri=https://kapi.kakao.com/v2/user/me",
 	"spring.security.oauth2.client.provider.kakao.user-name-attribute=id"
 })
+@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 class PublicManseryeokSecurityTests {
 	@Autowired MockMvc mvc;
 	@MockitoBean IpRateLimiter limiter;
@@ -99,16 +100,58 @@ class PublicManseryeokSecurityTests {
 		mvc.perform(post("/api/saju/readings")).andExpect(status().isUnauthorized());
 		verifyNoInteractions(calculation,catalog,limiter);
 	}
-	@Test void disabledFilterReturns404WithoutReadingBodyOrCountingRequests() throws Exception {
-		var filter=new SajuPublicCalculationFilter(false,limiter);
-		for (String path:new String[]{"/api/saju/calculations","/api/saju/calculations/birth-places"}) {
-			var request=new MockHttpServletRequest(path.endsWith("birth-places") ? "GET":"POST",path) {
-				@Override public jakarta.servlet.ServletInputStream getInputStream() { throw new AssertionError("disabled gate read body"); }
-			};
-			var response=new MockHttpServletResponse();
-			filter.doFilter(request,response,(req,res)->{throw new AssertionError("disabled gate passed");});
-			assertThat(response.getStatus()).isEqualTo(404); assertThat(request.getSession(false)).isNull();
+	private static final String ORIGIN="http://localhost:3000";
+	@Test void allowedOriginPreflightIsAnsweredWithoutQuotaOrCredentials() throws Exception {
+		for (String[] target:new String[][]{{"POST","/api/saju/calculations"},{"GET","/api/saju/calculations/birth-places"}}) {
+			mvc.perform(options(target[1]).header("Origin",ORIGIN).header("Access-Control-Request-Method",target[0])
+					.header("Access-Control-Request-Headers","content-type"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Access-Control-Allow-Origin",ORIGIN))
+				.andExpect(header().string("Access-Control-Max-Age","600"))
+				.andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
+		}
+		verifyNoInteractions(limiter,calculation,catalog,profiles,users);
+	}
+	@Test void actualResponsesIncludingRejectionsCarryCorsHeaders(org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+		when(limiter.acquire(any(),anyString())).thenReturn(IpRateLimiter.Decision.ALLOWED);
+		mvc.perform(post("/api/saju/calculations").header("Origin",ORIGIN).contentType(MediaType.APPLICATION_JSON).content("{\"birthProfile\":{}}"))
+			.andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin",ORIGIN))
+			.andExpect(header().string("Access-Control-Expose-Headers","Retry-After"))
+			.andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
+		when(limiter.acquire(any(),anyString())).thenReturn(IpRateLimiter.Decision.LIMITED);
+		mvc.perform(post("/api/saju/calculations").header("Origin",ORIGIN).contentType(MediaType.APPLICATION_JSON).content("{}"))
+			.andExpect(status().isTooManyRequests()).andExpect(header().string("Access-Control-Allow-Origin",ORIGIN))
+			.andExpect(header().string("Retry-After","60"));
+		when(limiter.acquire(any(),anyString())).thenReturn(IpRateLimiter.Decision.UNAVAILABLE);
+		mvc.perform(post("/api/saju/calculations").header("Origin",ORIGIN).contentType(MediaType.APPLICATION_JSON).content("{}"))
+			.andExpect(status().isServiceUnavailable()).andExpect(header().string("Access-Control-Allow-Origin",ORIGIN));
+		when(limiter.acquire(any(),anyString())).thenReturn(IpRateLimiter.Decision.ALLOWED);
+		when(calculation.calculate(any())).thenThrow(new ManseryeokCalculationService.Unavailable("SAJU_CALCULATION_BUSY"));
+		mvc.perform(post("/api/saju/calculations").header("Origin",ORIGIN).contentType(MediaType.APPLICATION_JSON).content("{\"birthProfile\":{}}"))
+			.andExpect(status().isServiceUnavailable()).andExpect(header().string("Access-Control-Allow-Origin",ORIGIN));
+		// Rejections are logged by code only, for the CloudWatch metric filters; never the IP or the request body.
+		for (String code:new String[]{"SAJU_CALCULATION_RATE_LIMITED","SAJU_CALCULATION_RATE_LIMIT_UNAVAILABLE","SAJU_CALCULATION_BUSY"}) {
+			assertThat(output.getOut()).contains("SAJU_CALCULATION_REJECTED code="+code);
+		}
+		assertThat(output.getOut().lines().filter(line->line.contains("SAJU_CALCULATION_REJECTED")))
+			.allSatisfy(line->assertThat(line).doesNotContain("127.0.0.1","birthProfile"));
+	}
+	@Test void otherOriginsAndOtherPathsGetNoCors() throws Exception {
+		mvc.perform(options("/api/saju/calculations").header("Origin","https://evil.example").header("Access-Control-Request-Method","POST"))
+			.andExpect(status().isForbidden()).andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+		mvc.perform(post("/api/saju/calculations").header("Origin","https://evil.example").contentType(MediaType.APPLICATION_JSON).content("{}"))
+			.andExpect(status().isForbidden()).andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+		for (String path:new String[]{"/api/saju/readings","/api/auth/me","/api/saju/birth-places","/api/reading-credits/pricing"}) {
+			mvc.perform(options(path).header("Origin",ORIGIN).header("Access-Control-Request-Method","POST"))
+				.andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+			mvc.perform(get(path).header("Origin",ORIGIN)).andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
 		}
 		verifyNoInteractions(limiter,calculation);
+	}
+	@Test void allowedOriginsMustBeExplicit() {
+		assertThat(SajuPublicCalculationCors.filter(" https://www.myeongro.com/ , http://localhost:3000")).isNotNull();
+		for (String bad:new String[]{"", " , ", "*", "https://www.myeongro.com,*"}) {
+			assertThatThrownBy(()->SajuPublicCalculationCors.filter(bad)).as(bad).isInstanceOf(IllegalStateException.class);
+		}
 	}
 }

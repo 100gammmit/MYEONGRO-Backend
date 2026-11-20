@@ -51,7 +51,7 @@ class FlywayFreshPostgresReplayTests {
 		var result = flyway.migrate();
 
 		assertThat(result.success).isTrue();
-		assertThat(result.migrationsExecuted + baseline.migrationsExecuted).isEqualTo(5);
+		assertThat(result.migrationsExecuted + baseline.migrationsExecuted).isEqualTo(6);
 		try (var connection = DriverManager.getConnection(jdbcUrl, username, password);
 			var query = connection.prepareStatement("select schema_version, jsonb_exists(input_payload->'calculationSnapshot', 'monthlyCalendar') from public.readings where id = ?")) {
 			query.setObject(1, legacyReading);
@@ -63,6 +63,7 @@ class FlywayFreshPostgresReplayTests {
 		verifyReadingCreationContract(jdbcUrl, username, password);
 		verifyReadingPreparation(jdbcUrl, username, password);
 		verifyAnnualReportContract(jdbcUrl, username, password);
+		verifyCalculationBasisContract(jdbcUrl, username, password);
 		verifyConsentTransitionSerialization(jdbcUrl, username, password);
 	}
 
@@ -91,6 +92,9 @@ class FlywayFreshPostgresReplayTests {
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isTrue();
 			assertThat(resultSet.getString("version")).isEqualTo("5");
+			assertThat(resultSet.getBoolean("success")).isTrue();
+			assertThat(resultSet.next()).isTrue();
+			assertThat(resultSet.getString("version")).isEqualTo("6");
 			assertThat(resultSet.getBoolean("success")).isTrue();
 			assertThat(resultSet.next()).isFalse();
 		}
@@ -769,6 +773,72 @@ class FlywayFreshPostgresReplayTests {
 				query.setString(1, mapper.writeValueAsString(payload)); query.setObject(2, pending.readingId());
 				try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); assertThat(row.getString(1)).isEqualTo(succeeds ? "completed" : "failed"); assertThat(row.getInt(2)).isEqualTo(7); assertThat(row.getBoolean(3)).isTrue(); }
 			}
+		}
+	}
+
+	/** V6: an optional calculationBasis on v6/v7 snapshots is checked strictly; payloads without it are unchanged. */
+	private void verifyCalculationBasisContract(String url, String username, String password) throws Exception {
+		var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+		var snapshot = new java.util.LinkedHashMap<String, Object>();
+		snapshot.put("calculationVersion", "saju-ko-v5"); snapshot.put("engine", "lunar-java");
+		snapshot.put("engineVersion", "1.7.7"); snapshot.put("cityCatalogVersion", "kr-admin-v1-province");
+		snapshot.put("targetYear", 2027);
+		var pillars = new java.util.LinkedHashMap<String, Object>();
+		for (String name : List.of("year", "month", "day", "time")) pillars.put(name, null);
+		snapshot.put("pillars", pillars); snapshot.put("fiveElements", java.util.Map.of()); snapshot.put("relations", List.of());
+		snapshot.put("limitations", List.of()); snapshot.put("uncertainty", java.util.Map.of("varyingFields", List.of()));
+		snapshot.put("monthlyCalendar", new com.myeongro.api.domain.saju.calculation.SajuMonthlyCalendarService().calculate(2027, null));
+		java.util.function.Function<Object, String> v6 = basis -> {
+			var copy = new java.util.LinkedHashMap<>(snapshot);
+			if (basis != null) copy.put("calculationBasis", basis);
+			try { return mapper.writeValueAsString(java.util.Map.of("targetYear", 2027, "calculationSnapshot", copy)); }
+			catch (Exception exception) { throw new IllegalStateException(exception); }
+		};
+		var valid = new java.util.LinkedHashMap<String, Object>();
+		valid.put("dayBoundary", "HOUR_23"); valid.put("equationOfTime", false); valid.put("coordinateSource", "city");
+		var withExtraKey = new java.util.LinkedHashMap<String, Object>(valid); withExtraKey.put("cityCode", "47940");
+		var wrongSource = new java.util.LinkedHashMap<String, Object>(valid); wrongSource.put("coordinateSource", "gps");
+		var wrongType = new java.util.LinkedHashMap<String, Object>(valid); wrongType.put("equationOfTime", "false");
+		var missingKey = new java.util.LinkedHashMap<String, Object>(valid); missingKey.remove("dayBoundary");
+		try (var connection = DriverManager.getConnection(url, username, password);
+			var check = connection.prepareStatement("select public.is_valid_saju_v6_input(?::jsonb), public.is_valid_saju_v7_input(?::jsonb)")) {
+			for (var entry : java.util.List.of(
+				java.util.Map.entry("absent", true), java.util.Map.entry("valid", true),
+				java.util.Map.entry("extra", false), java.util.Map.entry("source", false),
+				java.util.Map.entry("type", false), java.util.Map.entry("missing", false), java.util.Map.entry("string", false))) {
+				Object basis = switch (entry.getKey()) {
+					case "absent" -> null; case "valid" -> valid; case "extra" -> withExtraKey; case "source" -> wrongSource;
+					case "type" -> wrongType; case "missing" -> missingKey; default -> "MIDNIGHT";
+				};
+				String payload = v6.apply(basis);
+				var annual = mapper.readTree(payload); ((com.fasterxml.jackson.databind.node.ObjectNode)annual).put("reportType", "annual_monthly");
+				check.setString(1, payload); check.setString(2, mapper.writeValueAsString(annual));
+				try (var row = check.executeQuery()) {
+					assertThat(row.next()).isTrue();
+					assertThat(row.getBoolean(1)).as("v6 " + entry.getKey()).isEqualTo(entry.getValue());
+					assertThat(row.getBoolean(2)).as("v7 " + entry.getKey()).isEqualTo(entry.getValue());
+				}
+			}
+		}
+		// The recreated CHECK constraint accepts a stored v6 reading with a basis and rejects a bad one.
+		UUID owner = createProfile(url, username, password);
+		try (var connection = DriverManager.getConnection(url, username, password);
+			var query = connection.prepareStatement("select * from public.create_pending_reading(?, ?, ?, 'saju'::public.reading_kind, null, 6, ?::jsonb, 'openai', 'test-model', 'basis-test', 4, 10, 1000)")) {
+			query.setObject(1, owner); query.setObject(2, UUID.randomUUID()); query.setString(3, "basis-hash-ok"); query.setString(4, v6.apply(valid));
+			try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); }
+			// Another owner, so the open generation above cannot be the reason for a refusal.
+			query.setObject(1, createProfile(url, username, password));
+			query.setObject(2, UUID.randomUUID()); query.setString(3, "basis-hash-bad"); query.setString(4, v6.apply(withExtraKey));
+			assertSqlState("23514", query::executeQuery);
+		}
+		// The recreated constraint's schema-7 branch accepts an annual report carrying a basis.
+		var annual = mapper.readTree(v6.apply(valid));
+		((com.fasterxml.jackson.databind.node.ObjectNode)annual).put("reportType", "annual_monthly");
+		try (var connection = DriverManager.getConnection(url, username, password);
+			var query = connection.prepareStatement("select * from public.create_pending_reading(?, ?, 'basis-annual-hash', 'saju'::public.reading_kind, null, 7, ?::jsonb, 'openai', 'test-model', 'basis-test', 4, 10, 1000)")) {
+			query.setObject(1, createProfile(url, username, password)); query.setObject(2, UUID.randomUUID());
+			query.setString(3, mapper.writeValueAsString(annual));
+			try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); }
 		}
 	}
 

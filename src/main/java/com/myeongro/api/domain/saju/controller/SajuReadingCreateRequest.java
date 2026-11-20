@@ -18,8 +18,14 @@ public record SajuReadingCreateRequest(
 	@com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = TargetYearDeserializer.class)
 	Integer targetYear,
 	@com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = ReportTypeDeserializer.class)
-	String reportType
+	String reportType,
+	/** Optional; absent means the defaults. An explicit null arrives as NullNode and is rejected on normalization. */
+	com.fasterxml.jackson.databind.JsonNode calculationOptions
 ) {
+	public SajuReadingCreateRequest(String question, UUID requestId, SajuBirthProfileRequest birthProfile, String focusArea,
+		Integer targetYear, String reportType) {
+		this(question, requestId, birthProfile, focusArea, targetYear, reportType, null);
+	}
 	public SajuReadingCreateRequest(String question, UUID requestId, SajuBirthProfileRequest birthProfile, String focusArea, Integer targetYear) {
 		this(question, requestId, birthProfile, focusArea, targetYear, null);
 	}

@@ -95,7 +95,7 @@ class ManseryeokCalculationTests {
 		assertThat(midnight.chart().pillars().get("time")).isNotEqualTo(null);
 		assertThat(midnight.chart().pillars().get("time").ganZhi()).isEqualTo(hour23.chart().pillars().get("time").ganZhi());
 		var tree=MAPPER.valueToTree(request("2000-06-15","14:30","exact",null));
-		((com.fasterxml.jackson.databind.node.ObjectNode)tree).remove("options");
+		((com.fasterxml.jackson.databind.node.ObjectNode)tree).remove(List.of("options","referenceYear"));
 		((com.fasterxml.jackson.databind.node.ObjectNode)tree.get("birthProfile")).put("cityCode",CATALOG.publicProvinces().getFirst().cities().getFirst().cityCode());
 		var city=service().calculate(MAPPER.treeToValue(tree,SajuCalculationRequest.class));
 		assertThat(city.appliedOptions().coordinateSource()).isEqualTo("city");

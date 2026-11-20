@@ -18,15 +18,52 @@ import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 
 class SajuCalculationGoldenTests {
 
+	/** v4 stays frozen through the LEGACY settings it was recorded with; production no longer uses them. */
 	@Test
 	void matchesFrozenSajuKoV4Fixtures() throws Exception {
 		ObjectMapper objectMapper = new ObjectMapper();
 		SajuCalculationService service = service(objectMapper);
+		SajuBirthPlaceCatalog catalog = catalog(objectMapper);
+		assertFixture(objectMapper, "saju/golden/saju-ko-v4.json", SajuCalculationRules.LEGACY_DAY_OF_YEAR_VERSION,
+			(profile, year) -> legacy(service, catalog, profile, year));
+	}
+
+	@Test
+	void matchesFrozenSajuKoV5FixturesThroughTheAiReadingPath() throws Exception {
+		ObjectMapper objectMapper = new ObjectMapper();
+		SajuCalculationService service = service(objectMapper);
+		assertFixture(objectMapper, "saju/golden/saju-ko-v5.json", SajuCalculationRules.CALCULATION_VERSION,
+			service::calculate);
+	}
+
+	/** The v5 boundary cases are exactly where the precise equation of time moves the chart away from v4. */
+	@Test
+	void v5BoundaryCasesDifferFromV4OnlyAsRecorded() throws Exception {
+		ObjectMapper objectMapper = new ObjectMapper();
+		SajuCalculationService service = service(objectMapper);
+		SajuBirthPlaceCatalog catalog = catalog(objectMapper);
+		JsonNode fixture = objectMapper.readTree(new ClassPathResource("saju/golden/saju-ko-v5.json").getInputStream());
+		int divergent = 0;
+		for (JsonNode testCase : fixture.path("cases")) {
+			Map<String, Object> profile = objectMapper.convertValue(testCase.path("profile"), new TypeReference<>() { });
+			String v4 = summary(legacy(service, catalog, profile, testCase.path("targetYear").asInt()));
+			String expectedV4 = testCase.has("v4Summary")
+				? testCase.path("v4Summary").asText() : testCase.path("expectedSummary").asText();
+			assertThat(v4).as(testCase.path("id").asText()).isEqualTo(expectedV4);
+			if (testCase.has("v4Summary")) {
+				assertThat(expectedV4).isNotEqualTo(testCase.path("expectedSummary").asText());
+				divergent++;
+			}
+		}
+		assertThat(divergent).isEqualTo(4);
+	}
+
+	private void assertFixture(ObjectMapper objectMapper, String path, String version,
+		java.util.function.BiFunction<Map<String, Object>, Integer, SajuCalculationSnapshot> calculate) throws Exception {
 		JsonNode fixture = objectMapper.readTree(
-			new ClassPathResource("saju/golden/saju-ko-v4.json").getInputStream()
+			new ClassPathResource(path).getInputStream()
 		);
-		assertThat(fixture.path("calculationVersion").asText())
-			.isEqualTo(SajuCalculationRules.CALCULATION_VERSION);
+		assertThat(fixture.path("calculationVersion").asText()).isEqualTo(version);
 		assertThat(fixture.path("engineVersion").asText())
 			.isEqualTo(SajuCalculationRules.ENGINE_VERSION);
 
@@ -37,9 +74,10 @@ class SajuCalculationGoldenTests {
 				testCase.path("profile"), new TypeReference<>() {
 				}
 			);
-			SajuCalculationSnapshot snapshot = service.calculate(
+			SajuCalculationSnapshot snapshot = calculate.apply(
 				profile, testCase.path("targetYear").asInt()
 			);
+			assertThat(snapshot.calculationVersion()).isEqualTo(version);
 			if ("unknown-birth-time".equals(testCase.path("id").asText())) {
 				assertThat(snapshot.uncertainty().candidateCount()).isEqualTo(1440);
 				assertThat(snapshot.limitations()).contains(
@@ -107,11 +145,21 @@ class SajuCalculationGoldenTests {
 		assertThat(overlapSnapshot.limitations()).contains("DST_OVERLAP_AMBIGUOUS");
 	}
 
+	private SajuCalculationSnapshot legacy(SajuCalculationService service, SajuBirthPlaceCatalog catalog,
+		Map<String, Object> profile, int targetYear) {
+		double longitude = "unknown".equals(profile.get("birthTimePrecision"))
+			? SajuCalculationRules.KOREA_REFERENCE_LONGITUDE
+			: catalog.requireProvince((String)profile.get("provinceCode")).longitude();
+		return service.calculateForChart(profile, targetYear, longitude, SajuCalculationSettings.LEGACY,
+			SajuCandidateObserver.NONE, () -> { });
+	}
+
+	private SajuBirthPlaceCatalog catalog(ObjectMapper objectMapper) {
+		return new SajuBirthPlaceCatalog(objectMapper, new ClassPathResource("saju/birth-places/kr-admin-v1.json"));
+	}
+
 	private SajuCalculationService service(ObjectMapper objectMapper) {
-		SajuBirthPlaceCatalog catalog = new SajuBirthPlaceCatalog(
-			objectMapper,
-			new ClassPathResource("saju/birth-places/kr-admin-v1.json")
-		);
+		SajuBirthPlaceCatalog catalog = catalog(objectMapper);
 		TrueSolarTimeCorrector corrector = new TrueSolarTimeCorrector();
 		LunarJavaFourPillarsAdapter adapter = new LunarJavaFourPillarsAdapter();
 		return new SajuCalculationService(

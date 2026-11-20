@@ -9,8 +9,14 @@ public record SajuBirthProfileRequest(
 	String birthTime,
 	String birthTimePrecision,
 	String provinceCode,
+	String cityCode,
 	String luckDirectionBasis
 ) {
+
+	public SajuBirthProfileRequest(String calendarType, String birthDate, String birthTime, String birthTimePrecision,
+		String provinceCode, String luckDirectionBasis) {
+		this(calendarType, birthDate, birthTime, birthTimePrecision, provinceCode, null, luckDirectionBasis);
+	}
 
 	@JsonAnySetter
 	void rejectUnknownField(String name, Object value) {
