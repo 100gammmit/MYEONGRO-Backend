@@ -41,8 +41,12 @@ class ManseryeokPublicAccessTests {
 
 	@Test
 	void majorLuckPeriodsCarryHanjaAndTheDayMasterStemTenGod() throws Exception {
-		var chart = ManseryeokCalculationTests.service().calculate(request(null));
+		var directions = new java.util.HashSet<String>();
+		for (String basis : new String[] {"male", "female"}) { // 2000 is a yang year: forward and backward luck
+		var chart = ManseryeokCalculationTests.service().calculate(ManseryeokCalculationTests.MAPPER.readValue(
+			"{\"birthProfile\":" + PROFILE.replace("\"male\"", "\"" + basis + "\"") + "}", SajuCalculationRequest.class));
 		var luck = chart.luckCycle();
+		directions.add(luck.precise().direction());
 		var precise = luck.precise().periods();
 		assertThat(luck.periods()).hasSize(precise.size()).isNotEmpty();
 		String dayMaster = chart.chart().dayMaster().hanja();
@@ -60,6 +64,8 @@ class ManseryeokPublicAccessTests {
 		for (var annual : chart.annualFlows()) {
 			assertThat(annual.stemTenGod()).isEqualTo(tenGod(dayMaster, annual.ganZhi().hanja().substring(0, 1)));
 		}
+		}
+		assertThat(directions).containsExactlyInAnyOrder("forward", "backward");
 	}
 
 	@Test

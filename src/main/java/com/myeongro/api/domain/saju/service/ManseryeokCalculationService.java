@@ -54,7 +54,11 @@ public class ManseryeokCalculationService {
 			var annual = builder.annualFlows(year,accumulated.dayMaster());
 			var fields = publicVaryingFields(snapshot.uncertainty().varyingFields());
 			fields.addAll(accumulated.varyingFields());
-			if (accumulated.dayMaster() == null) fields.add("chart.dayMaster");
+			boolean majorLuck = snapshot.luckCycle()!=null && accumulated.integerLuck()!=null;
+			if (accumulated.dayMaster() == null) {
+				fields.add("chart.dayMaster");
+				if (majorLuck) fields.add("luckCycle.periods.*.stemTenGod");
+			}
 			if (accumulated.relations().status().equals("limited")) fields.add("relations");
 			var uncertainty = new SajuCalculationSnapshot.Uncertainty(snapshot.uncertainty().precision(),snapshot.uncertainty().candidateCount(),
 				snapshot.uncertainty().rangeStart(),snapshot.uncertainty().rangeEnd(),List.copyOf(fields),snapshot.uncertainty().candidateZoneOffsets());
@@ -62,7 +66,7 @@ public class ManseryeokCalculationService {
 				"meeus-noaa-v1",ZoneRulesProvider.getVersions("Asia/Seoul").lastKey(),catalog.publicVersion(),year,
 				new AppliedOptions(input.options().dayBoundary(),input.options().equationOfTime(),input.coordinateSource(),input.longitude(),!"unknown".equals(input.profile().get("birthTimePrecision"))),
 				builder.chart(accumulated),snapshot.fiveElements(),accumulated.relations(),accumulated.hiddenStems(),accumulated.twelveStages(),accumulated.voids(),
-				snapshot.luckCycle()==null || accumulated.integerLuck()==null ? null : new MajorLuck(snapshot.luckCycle(),accumulated.integerLuck(),"nearest-year-three-days-v1",
+				!majorLuck ? null : new MajorLuck(snapshot.luckCycle(),accumulated.integerLuck(),"nearest-year-three-days-v1",
 					builder.majorLuckPeriods(snapshot.luckCycle(),accumulated.dayMaster())),
 				annual,calendar,snapshot.timeCorrection(),snapshot.limitations(),uncertainty,builder.capabilities(snapshot,accumulated),null);
 			var node = mapper.valueToTree(result);

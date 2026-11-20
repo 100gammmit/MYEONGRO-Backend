@@ -39,7 +39,7 @@ public class ManseryeokChartBuilder {
 		var result = new ArrayList<AnnualFlow>();
 		for (int year = referenceYear; year < referenceYear + 10; year++) {
 			String value = Solar.fromYmd(year, 7, 1).getLunar().getYearInGanZhiExact();
-			result.add(new AnnualFlow(year, ganZhi(value), dayMaster == null ? null : SajuKoreanTerms.tenGod(LunarUtil.SHI_SHEN.get(dayMaster + value.substring(0,1)))));
+			result.add(new AnnualFlow(year, ganZhi(value), stemTenGod(dayMaster, value)));
 		}
 		return List.copyOf(result);
 	}
@@ -48,8 +48,12 @@ public class ManseryeokChartBuilder {
 		return precise.periods().stream().map(period -> {
 			String value = SajuKoreanTerms.ganZhiHanja(period.ganZhi());
 			return new MajorLuckFlow(period.startYear(), period.endYear(), period.startAge(), period.endAge(), ganZhi(value),
-				dayMaster == null ? null : SajuKoreanTerms.tenGod(LunarUtil.SHI_SHEN.get(dayMaster + value.substring(0,1))));
+				stemTenGod(dayMaster, value));
 		}).toList();
+	}
+	/** Ten god of a flow's stem against the day master; null while the day master is not confirmed. */
+	private static String stemTenGod(String dayMaster, String ganZhi) {
+		return dayMaster == null ? null : SajuKoreanTerms.tenGod(LunarUtil.SHI_SHEN.get(dayMaster + ganZhi.substring(0,1)));
 	}
 	public Map<String,Capability> capabilities(SajuCalculationSnapshot snapshot, Accumulator a) {
 		var result = new LinkedHashMap<String,Capability>();
