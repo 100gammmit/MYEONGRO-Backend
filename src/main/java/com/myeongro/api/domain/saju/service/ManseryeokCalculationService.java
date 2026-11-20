@@ -37,7 +37,10 @@ public class ManseryeokCalculationService {
 	public ManseryeokChart calculate(SajuCalculationRequest request) {
 		long deadline = System.nanoTime() + 3_000_000_000L;
 		// Validate before taking a slot: invalid input is rejected without holding calculation capacity.
-		var input = request.validate(catalog,LocalDate.ofInstant(clock.instant(),SajuCalculationRules.BIRTH_ZONE).getYear());
+		SajuCalculationRequest.Validated input;
+		try { input = request.validate(catalog,LocalDate.ofInstant(clock.instant(),SajuCalculationRules.BIRTH_ZONE).getYear()); }
+		catch (InvalidReadingRequestException exception) { throw exception; }
+		catch (RuntimeException exception) { throw new Failed(); }
 		int year = input.referenceYear();
 		if (!slots.tryAcquire()) throw new Unavailable("SAJU_CALCULATION_BUSY");
 		try {

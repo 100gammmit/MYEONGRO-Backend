@@ -19,7 +19,6 @@ public record SajuCalculationRequest(
 		example="{\"dayBoundary\":\"MIDNIGHT\",\"equationOfTime\":true}") JsonNode options,
 		@Schema(type="integer", description="세운·월운 기준 연도. 서울 기준 올해 또는 내년만 허용하고, 생략하면 올해입니다. 문자열·소수·null은 허용하지 않습니다.",
 			example="2027") JsonNode referenceYear) {
-	public SajuCalculationRequest(JsonNode birthProfile, JsonNode options) { this(birthProfile, options, null); }
 	@JsonAnySetter void reject(String name, Object ignored) { throw InvalidReadingRequestException.unknownField(name); }
 	/** @param currentYear the current year in Korea; the reference year may be this year or the next. */
 	public Validated validate(SajuBirthPlaceCatalog catalog, int currentYear) {
