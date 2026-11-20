@@ -67,19 +67,22 @@ class SajuAiCalculationInputsTests {
 
 	@Test
 	void rejectsMalformedCalculationOptionsWithFieldPaths() throws Exception {
-		Map<String, String> cases = Map.of(
-			"null", "calculationOptions",
-			"\"MIDNIGHT\"", "calculationOptions",
-			"{\"dayBoundary\":\"23\"}", "calculationOptions.dayBoundary",
-			"{\"dayBoundary\":null}", "calculationOptions.dayBoundary",
-			"{\"equationOfTime\":\"false\"}", "calculationOptions.equationOfTime",
-			"{\"cityCode\":\"11110\"}", "calculationOptions.cityCode"
+		// options JSON -> {error code, field}; the code is what the frontend maps to a message.
+		Map<String, String[]> cases = Map.of(
+			"null", new String[] {"INVALID_CALCULATION_OPTIONS", "calculationOptions"},
+			"\"MIDNIGHT\"", new String[] {"INVALID_CALCULATION_OPTIONS", "calculationOptions"},
+			"{\"dayBoundary\":\"23\"}", new String[] {"INVALID_CALCULATION_OPTIONS", "calculationOptions.dayBoundary"},
+			"{\"dayBoundary\":null}", new String[] {"INVALID_CALCULATION_OPTIONS", "calculationOptions.dayBoundary"},
+			"{\"equationOfTime\":\"false\"}", new String[] {"INVALID_CALCULATION_OPTIONS", "calculationOptions.equationOfTime"},
+			"{\"cityCode\":\"11110\"}", new String[] {"UNKNOWN_FIELD", "calculationOptions.cityCode"}
 		);
 		for (var entry : cases.entrySet()) {
 			var request = request(profile("exact", "14:30", "11", null), entry.getKey());
 			assertThatThrownBy(() -> normalizer.normalize(request, 2026)).as(entry.getKey())
-				.isInstanceOfSatisfying(InvalidReadingRequestException.class,
-					e -> assertThat(e.getField()).isEqualTo(entry.getValue()));
+				.isInstanceOfSatisfying(InvalidReadingRequestException.class, e -> {
+					assertThat(e.getCode()).isEqualTo(entry.getValue()[0]);
+					assertThat(e.getField()).isEqualTo(entry.getValue()[1]);
+				});
 		}
 	}
 

@@ -19,8 +19,8 @@ class SajuBirthPlaceCatalogTests {
 		SajuBirthPlaceCatalog catalog = catalog();
 
 		assertThat(catalog.version()).isEqualTo("kr-admin-v1-province");
-		assertThat(catalog.provinces()).hasSize(16);
-		assertThat(catalog.provinces())
+		assertThat(catalog.publicProvinces()).hasSize(16);
+		assertThat(catalog.publicProvinces())
 			.anySatisfy(province -> {
 				assertThat(province.provinceCode()).isEqualTo("36");
 				assertThat(province.provinceName()).isEqualTo("세종특별자치시");
@@ -34,7 +34,7 @@ class SajuBirthPlaceCatalogTests {
 
 	@Test
 	void rejectsMismatchedProvinceAndCityCodes() {
-		assertThatThrownBy(() -> catalog().require("26", "11680"))
+		assertThatThrownBy(() -> catalog().requireCity("26", "11680"))
 			.isInstanceOfSatisfying(InvalidReadingRequestException.class, exception -> {
 				assertThat(exception.getCode()).isEqualTo("INVALID_BIRTH_PLACE");
 				assertThat(exception.getField()).isEqualTo("birthProfile.cityCode");

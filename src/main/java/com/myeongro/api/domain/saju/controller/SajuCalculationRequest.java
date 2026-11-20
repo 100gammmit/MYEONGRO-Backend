@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.myeongro.api.domain.reading.exception.InvalidReadingRequestException;
 import com.myeongro.api.domain.reading.service.ReadingInputSupport;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationOptions;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationService;
 import com.myeongro.api.domain.saju.model.*;
 import com.myeongro.api.domain.saju.place.SajuBirthPlaceCatalog;
 import java.util.*;
@@ -29,15 +30,15 @@ public record SajuCalculationRequest(
 		LuckDirectionBasis basis = LuckDirectionBasis.fromValue(text(birthProfile, "luckDirectionBasis", false));
 		Map<String, Object> profile = new LinkedHashMap<>();
 		profile.put("calendarType", "solar"); profile.put("birthDate", date); profile.put("birthTimePrecision", precision.value()); profile.put("luckDirectionBasis", basis.value());
-		double longitude = 127.5; String source = "reference";
 		if (precision == BirthTimePrecision.UNKNOWN) {
 			for (String key : List.of("birthTime", "provinceCode", "cityCode")) if (birthProfile.has(key)) throw invalid(key.equals("birthTime") ? "INVALID_BIRTH_TIME" : "INVALID_BIRTH_PLACE", "birthProfile." + key);
 		} else {
-			String province = text(birthProfile, "provinceCode", false);
-			longitude = catalog.requireProvince(province).longitude(); source = "province";
-			profile.put("birthTime", time); profile.put("provinceCode", province);
-			if (birthProfile.has("cityCode")) { longitude = catalog.requireCity(province, text(birthProfile, "cityCode", false)).longitude(); source = "city"; }
+			profile.put("birthTime", time); profile.put("provinceCode", text(birthProfile, "provinceCode", false));
+			if (birthProfile.has("cityCode")) profile.put("cityCode", text(birthProfile, "cityCode", false));
 		}
+		// Same longitude rule as AI readings (also validates the province and city codes).
+		double longitude = SajuCalculationService.longitude(catalog, profile);
+		String source = SajuCalculationService.coordinateSource(profile);
 		SajuCalculationOptions calculationOptions = SajuBirthInputRules.parseCalculationOptions(options, "options");
 		return new Validated(Collections.unmodifiableMap(profile), calculationOptions, longitude, source);
 	}

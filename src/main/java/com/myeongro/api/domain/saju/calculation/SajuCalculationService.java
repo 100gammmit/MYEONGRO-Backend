@@ -59,7 +59,7 @@ public class SajuCalculationService {
 	) {
 		// saju-ko-v5: AI readings use the same precise correction, longitude unit and options as the public manseryeok,
 		// so the same input gives the same chart on both. Stored v1-v4 readings are never recalculated.
-		return calculateForChart(birthProfile, targetYear, longitude(birthProfile), settings(birthProfile),
+		return calculateForChart(birthProfile, targetYear, longitude(birthPlaceCatalog, birthProfile), settings(birthProfile),
 			SajuCandidateObserver.NONE, checkDeadline);
 	}
 
@@ -82,12 +82,16 @@ public class SajuCalculationService {
 		);
 	}
 
-	private double longitude(Map<String, Object> birthProfile) {
+	/**
+	 * Longitude for a normalized profile. The single rule shared by AI readings and the public manseryeok, so the same
+	 * input always gets the same longitude on both. Validates the province and city codes against the catalog.
+	 */
+	public static double longitude(SajuBirthPlaceCatalog catalog, Map<String, Object> birthProfile) {
 		return switch (coordinateSource(birthProfile)) {
 			case "reference" -> SajuCalculationRules.KOREA_REFERENCE_LONGITUDE;
-			case "city" -> birthPlaceCatalog.requireCity(
-				requiredString(birthProfile, "provinceCode"), requiredString(birthProfile, "cityCode")).longitude();
-			default -> birthPlaceCatalog.requireProvince(requiredString(birthProfile, "provinceCode")).longitude();
+			case "city" -> catalog.requireCity(
+				(String)birthProfile.get("provinceCode"), (String)birthProfile.get("cityCode")).longitude();
+			default -> catalog.requireProvince((String)birthProfile.get("provinceCode")).longitude();
 		};
 	}
 

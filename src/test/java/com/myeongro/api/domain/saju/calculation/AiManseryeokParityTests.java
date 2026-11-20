@@ -127,9 +127,16 @@ class AiManseryeokParityTests {
 			var request = ManseryeokCalculationTests.MAPPER.convertValue(Map.of("birthProfile", profile,
 				"options", Map.of("dayBoundary", test[5], "equationOfTime", Boolean.parseBoolean(test[6]))),
 				com.myeongro.api.domain.saju.controller.SajuCalculationRequest.class);
-			Map<String, Object> normalized = new LinkedHashMap<>(profile);
-			normalized.put("dayBoundary", test[5]);
-			normalized.put("equationOfTime", Boolean.parseBoolean(test[6]));
+			// Build the AI profile with the real normalizer, so defaults are omitted exactly as in production.
+			var birthProfile = new com.myeongro.api.domain.saju.model.SajuBirthProfileRequest("solar", test[0],
+				test[1].isEmpty() ? null : test[1], test[2], test[1].isEmpty() ? null : test[3],
+				test[1].isEmpty() ? null : test[4], "female");
+			var aiRequest = new com.myeongro.api.domain.saju.controller.SajuReadingCreateRequest("올해 흐름이 궁금해요",
+				java.util.UUID.randomUUID(), birthProfile, "career", TARGET_YEAR, null,
+				ManseryeokCalculationTests.MAPPER.valueToTree(Map.of("dayBoundary", test[5],
+					"equationOfTime", Boolean.parseBoolean(test[6]))));
+			Map<String, Object> normalized = new com.myeongro.api.domain.saju.service.SajuReadingInputNormalizer(catalog)
+				.normalize(aiRequest, TARGET_YEAR).birthProfile();
 
 			var aiChart = ai.calculate(normalized, TARGET_YEAR);
 			var publicChart = manseryeok.calculate(request);
