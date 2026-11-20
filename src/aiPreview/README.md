@@ -74,9 +74,12 @@ Tarot sample은 `mind_three_card`의 카드 수와 canonical position 순서를 
 choice spread에는 `choiceOptions.a`, `choiceOptions.b`를 포함한다.
 
 사주 fixture의 `input`은 `birthProfile`, `focusArea`, 명시적인 정수 `targetYear`와
-선택적인 `reportType`만 받는다. `question`은 최상위에 두며 `requestId`는 입력하지 않는다.
+선택적인 `reportType`, `calculationOptions`를 받는다. `question`은 최상위에 두며 `requestId`는 입력하지 않는다.
 기본 reportType은 `birth_annual_question`, 연간은 `annual_monthly`다.
 출생정보 형식은 현재 운영 DTO와 같고, 시간 미상에서는 시간·출생지를 생략한다.
+시간을 아는 경우 `birthProfile.cityCode`를 선택적으로 지정할 수 있다. `calculationOptions`의
+`dayBoundary`(`MIDNIGHT`/`HOUR_23`)와 `equationOfTime`(boolean)은 운영 계산 옵션과 같다.
+옵션을 생략하면 운영 기본값을 사용하고, 잘못된 옵션·출생지 조합은 운영 normalizer가 거부한다.
 중첩 unknown field, 계산 결과 직접 주입(`calculation`/`calculationSnapshot`)은 거부한다.
 sample처럼 실제 사용자가 아닌 합성 출생정보만 사용한다.
 

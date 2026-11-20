@@ -16,7 +16,7 @@ import com.myeongro.api.domain.saju.service.SajuReadingInputNormalizer;
 @Component
 @Profile("ai-preview")
 final class AiPreviewSajuInputPreparer {
-	private static final Set<String> INPUT_KEYS = Set.of("birthProfile", "focusArea", "targetYear", "reportType");
+	private static final Set<String> INPUT_KEYS = Set.of("birthProfile", "focusArea", "targetYear", "reportType", "calculationOptions");
 	private final ObjectMapper mapper;
 	private final SajuReadingInputNormalizer normalizer;
 	private final SajuReadingInputAssembler assembler;
