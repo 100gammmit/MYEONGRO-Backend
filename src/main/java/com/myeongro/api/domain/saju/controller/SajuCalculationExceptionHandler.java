@@ -20,6 +20,7 @@ public class SajuCalculationExceptionHandler {
 	}
 	@ExceptionHandler(ManseryeokCalculationService.Unavailable.class)
 	ResponseEntity<Map<String,String>> unavailable(ManseryeokCalculationService.Unavailable e) {
+		SajuPublicCalculationFilter.logRejection(e.code());
 		return ResponseEntity.status(503).header("Cache-Control","no-store").body(Map.of("code",e.code(),"error",e.getMessage()));
 	}
 	@ExceptionHandler(ManseryeokCalculationService.Failed.class)

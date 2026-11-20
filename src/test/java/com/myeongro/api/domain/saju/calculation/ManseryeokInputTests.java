@@ -14,7 +14,7 @@ class ManseryeokInputTests {
 			""");
 	}
 	private SajuCalculationRequest.Validated validate(ObjectNode node) throws Exception {
-		return ManseryeokCalculationTests.MAPPER.treeToValue(node,SajuCalculationRequest.class).validate(ManseryeokCalculationTests.CATALOG);
+		return ManseryeokCalculationTests.MAPPER.treeToValue(node,SajuCalculationRequest.class).validate(ManseryeokCalculationTests.CATALOG,2026);
 	}
 	@Test void missingOptionsAndMissingOptionFieldsUseDefaultsButExplicitNullDoesNot() throws Exception {
 		assertThat(validate(input()).options()).isEqualTo(SajuCalculationOptions.DEFAULT);

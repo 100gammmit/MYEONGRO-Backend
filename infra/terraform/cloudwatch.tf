@@ -227,6 +227,48 @@ resource "aws_cloudwatch_metric_alarm" "reading_daily_usage_high" {
   ok_actions          = var.alarm_notification_email == null ? [] : [aws_sns_topic.production_alarms[0].arn]
 }
 
+# Public manseryeok rejections, logged as "SAJU_CALCULATION_REJECTED code=..." with no IP or input.
+# Capacity rejections (busy slots, deadline, rate-limit store down) mean real users are turned away.
+resource "aws_cloudwatch_log_metric_filter" "saju_calculation_capacity_rejected" {
+  name           = "${local.resource_prefix}-saju-calculation-capacity-rejected"
+  log_group_name = aws_cloudwatch_log_group.backend.name
+  pattern        = "?\"code=SAJU_CALCULATION_BUSY\" ?\"code=SAJU_CALCULATION_DEADLINE\" ?\"code=SAJU_CALCULATION_RATE_LIMIT_UNAVAILABLE\""
+
+  metric_transformation {
+    name      = "SajuCalculationCapacityRejected"
+    namespace = "${var.project_name}/${var.environment}"
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "saju_calculation_capacity_rejected" {
+  alarm_name          = "${local.resource_prefix}-saju-calculation-capacity-rejected"
+  alarm_description   = "Public manseryeok turned away 10 or more requests in 5 minutes for capacity or rate-limit store failure"
+  namespace           = aws_cloudwatch_log_metric_filter.saju_calculation_capacity_rejected.metric_transformation[0].namespace
+  metric_name         = aws_cloudwatch_log_metric_filter.saju_calculation_capacity_rejected.metric_transformation[0].name
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 10
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_notification_email == null ? [] : [aws_sns_topic.production_alarms[0].arn]
+  ok_actions          = var.alarm_notification_email == null ? [] : [aws_sns_topic.production_alarms[0].arn]
+}
+
+# Per-IP limit hits are the abuse guard working, so they are a metric without an alarm.
+resource "aws_cloudwatch_log_metric_filter" "saju_calculation_rate_limited" {
+  name           = "${local.resource_prefix}-saju-calculation-rate-limited"
+  log_group_name = aws_cloudwatch_log_group.backend.name
+  pattern        = "\"code=SAJU_CALCULATION_RATE_LIMITED\""
+
+  metric_transformation {
+    name      = "SajuCalculationRateLimited"
+    namespace = "${var.project_name}/${var.environment}"
+    value     = "1"
+  }
+}
+
 resource "aws_cloudwatch_metric_alarm" "rds_low_memory" {
   alarm_name          = "${local.resource_prefix}-postgres-low-memory"
   alarm_description   = "RDS freeable memory remained below 100 MiB for 10 minutes"

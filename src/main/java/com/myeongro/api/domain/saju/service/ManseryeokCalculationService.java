@@ -36,11 +36,13 @@ public class ManseryeokCalculationService {
 	}
 	public ManseryeokChart calculate(SajuCalculationRequest request) {
 		long deadline = System.nanoTime() + 3_000_000_000L;
-		int year = LocalDate.ofInstant(clock.instant(),SajuCalculationRules.BIRTH_ZONE).getYear();
+		// Validate before taking a slot: invalid input is rejected without holding calculation capacity.
+		var input = request.validate(catalog,LocalDate.ofInstant(clock.instant(),SajuCalculationRules.BIRTH_ZONE).getYear());
+		int year = input.referenceYear();
 		if (!slots.tryAcquire()) throw new Unavailable("SAJU_CALCULATION_BUSY");
 		try {
 			Runnable check = () -> { if (System.nanoTime() >= deadline || Thread.currentThread().isInterrupted()) throw new Unavailable("SAJU_CALCULATION_DEADLINE"); };
-			var input = request.validate(catalog); check.run();
+			check.run();
 			var accumulated = builder.accumulator();
 			var snapshot = calculation.calculateForChart(input.profile(),year,input.longitude(),
 				SajuCalculationSettings.precise(input.options()),accumulated,check);

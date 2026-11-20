@@ -69,7 +69,9 @@ public class SecurityConfig {
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http,
-		@Value("${app.saju.public-calculation.enabled:false}") boolean publicCalculationEnabled) throws Exception {
+		@Value("${app.saju.public-calculation.enabled:false}") boolean publicCalculationEnabled,
+		@Value("${app.saju.public-calculation.allowed-origins:${app.frontend-origin:http://localhost:3000}}") String publicCalculationOrigins) throws Exception {
+		var publicCalculationFilter = new com.myeongro.api.domain.saju.controller.SajuPublicCalculationFilter(publicCalculationEnabled,ipRateLimiter);
 		return http
 			.csrf(csrf -> csrf.disable())
 			.sessionManagement(session -> session
@@ -77,7 +79,10 @@ public class SecurityConfig {
 			)
 			// No saved requests: an anonymous request to a protected URL must not create a session.
 			.requestCache(cache -> cache.requestCache(new NullRequestCache()))
-			.addFilterBefore(new com.myeongro.api.domain.saju.controller.SajuPublicCalculationFilter(publicCalculationEnabled,ipRateLimiter),SecurityContextHolderFilter.class)
+			.addFilterBefore(publicCalculationFilter,SecurityContextHolderFilter.class)
+			// Public manseryeok paths only; runs first so gate and rate-limit responses carry CORS headers too.
+			.addFilterBefore(com.myeongro.api.domain.saju.controller.SajuPublicCalculationCors.filter(publicCalculationOrigins),
+				com.myeongro.api.domain.saju.controller.SajuPublicCalculationFilter.class)
 			.addFilterBefore(
 				new OAuth2NextRequestFilter(),
 				OAuth2AuthorizationRequestRedirectFilter.class

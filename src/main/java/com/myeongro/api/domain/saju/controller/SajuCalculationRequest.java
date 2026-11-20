@@ -16,9 +16,13 @@ public record SajuCalculationRequest(
 	@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="solar만 지원. birthDate(1900~2099 YYYY-MM-DD), birthTimePrecision(exact/approximate/unknown), luckDirectionBasis(male/female/unspecified) 필수. exact/approximate는 birthTime(HH:mm), provinceCode 필수, cityCode 선택. unknown은 시각·출생지 필드 생략.",
 		example="{\"calendarType\":\"solar\",\"birthDate\":\"2000-06-15\",\"birthTime\":\"14:30\",\"birthTimePrecision\":\"exact\",\"provinceCode\":\"11\",\"luckDirectionBasis\":\"male\"}") JsonNode birthProfile,
 	@Schema(description="생략하면 MIDNIGHT / true. 객체 안에서도 각 필드를 생략할 수 있습니다. 명시적 null·다른 필드·타입 변환은 허용하지 않습니다. HOUR_23은 23시 일주 경계, equationOfTime=false는 균시차만 제외합니다.",
-		example="{\"dayBoundary\":\"MIDNIGHT\",\"equationOfTime\":true}") JsonNode options) {
+		example="{\"dayBoundary\":\"MIDNIGHT\",\"equationOfTime\":true}") JsonNode options,
+		@Schema(type="integer", description="세운·월운 기준 연도. 서울 기준 올해 또는 내년만 허용하고, 생략하면 올해입니다. 문자열·소수·null은 허용하지 않습니다.",
+			example="2027") JsonNode referenceYear) {
+	public SajuCalculationRequest(JsonNode birthProfile, JsonNode options) { this(birthProfile, options, null); }
 	@JsonAnySetter void reject(String name, Object ignored) { throw InvalidReadingRequestException.unknownField(name); }
-	public Validated validate(SajuBirthPlaceCatalog catalog) {
+	/** @param currentYear the current year in Korea; the reference year may be this year or the next. */
+	public Validated validate(SajuBirthPlaceCatalog catalog, int currentYear) {
 		if (birthProfile == null || !birthProfile.isObject()) throw invalid("INVALID_BIRTH_DATE", "birthProfile");
 		checkFields(birthProfile, Set.of("calendarType", "birthDate", "birthTime", "birthTimePrecision", "provinceCode", "cityCode", "luckDirectionBasis"), "birthProfile.");
 		if (!"solar".equals(text(birthProfile, "calendarType", false))) throw invalid("UNSUPPORTED_CALENDAR_TYPE", "birthProfile.calendarType");
@@ -40,7 +44,15 @@ public record SajuCalculationRequest(
 		double longitude = SajuCalculationService.longitude(catalog, profile);
 		String source = SajuCalculationService.coordinateSource(profile);
 		SajuCalculationOptions calculationOptions = SajuBirthInputRules.parseCalculationOptions(options, "options");
-		return new Validated(Collections.unmodifiableMap(profile), calculationOptions, longitude, source);
+		return new Validated(Collections.unmodifiableMap(profile), calculationOptions, longitude, source, referenceYear(currentYear));
+	}
+	private int referenceYear(int currentYear) {
+		if (referenceYear == null) return currentYear;
+		if (referenceYear.isIntegralNumber() && referenceYear.canConvertToInt()
+			&& (referenceYear.intValue() == currentYear || referenceYear.intValue() == currentYear + 1)) {
+			return referenceYear.intValue();
+		}
+		throw invalid("INVALID_REFERENCE_YEAR", "referenceYear");
 	}
 	private static String text(JsonNode node, String key, boolean optional) {
 		if (!node.has(key) && optional) return null;
@@ -52,5 +64,5 @@ public record SajuCalculationRequest(
 		node.fieldNames().forEachRemaining(key -> { if (!allowed.contains(key)) throw InvalidReadingRequestException.unknownField(prefix + key); });
 	}
 	private static InvalidReadingRequestException invalid(String code, String field) { return ReadingInputSupport.invalid(code, field, "입력한 계산 정보를 확인해 주세요."); }
-	public record Validated(Map<String,Object> profile, SajuCalculationOptions options, double longitude, String coordinateSource) { }
+	public record Validated(Map<String,Object> profile, SajuCalculationOptions options, double longitude, String coordinateSource, int referenceYear) { }
 }
