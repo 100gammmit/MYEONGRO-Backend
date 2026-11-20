@@ -26,7 +26,7 @@ import com.myeongro.api.global.ratelimit.IpRateLimiter;
 @WebMvcTest(controllers=SajuCalculationController.class)
 @Import({SecurityConfig.class,ActiveAccountSessionFilter.class,AdultEligibilitySessionFilter.class,PendingSignupAccessFilter.class,SajuCalculationExceptionHandler.class})
 @TestPropertySource(properties={
-	"app.frontend-origin=http://localhost:3000", "app.saju.public-calculation.enabled=true",
+	"app.frontend-origin=http://localhost:3000",
 	"app.eligibility.adult-policy-version=2026-09-09",
 	"spring.security.oauth2.client.registration.kakao.client-id=test-client-id",
 	"spring.security.oauth2.client.registration.kakao.client-secret=test-client-secret",
@@ -148,31 +148,10 @@ class PublicManseryeokSecurityTests {
 		}
 		verifyNoInteractions(limiter,calculation);
 	}
-	@Test void disabledGateResponseIsStillReadableCrossOrigin() throws Exception {
-		var cors=SajuPublicCalculationCors.filter(ORIGIN);
-		var gate=new SajuPublicCalculationFilter(false,limiter);
-		var request=new MockHttpServletRequest("POST","/api/saju/calculations"); request.addHeader("Origin",ORIGIN);
-		var response=new MockHttpServletResponse();
-		cors.doFilter(request,response,(req,res)->gate.doFilter(req,res,(r,s)->{throw new AssertionError("disabled gate passed");}));
-		assertThat(response.getStatus()).isEqualTo(404);
-		assertThat(response.getHeader("Access-Control-Allow-Origin")).isEqualTo(ORIGIN);
-	}
 	@Test void allowedOriginsMustBeExplicit() {
 		assertThat(SajuPublicCalculationCors.filter(" https://www.myeongro.com/ , http://localhost:3000")).isNotNull();
 		for (String bad:new String[]{"", " , ", "*", "https://www.myeongro.com,*"}) {
 			assertThatThrownBy(()->SajuPublicCalculationCors.filter(bad)).as(bad).isInstanceOf(IllegalStateException.class);
 		}
-	}
-	@Test void disabledFilterReturns404WithoutReadingBodyOrCountingRequests() throws Exception {
-		var filter=new SajuPublicCalculationFilter(false,limiter);
-		for (String path:new String[]{"/api/saju/calculations","/api/saju/calculations/birth-places"}) {
-			var request=new MockHttpServletRequest(path.endsWith("birth-places") ? "GET":"POST",path) {
-				@Override public jakarta.servlet.ServletInputStream getInputStream() { throw new AssertionError("disabled gate read body"); }
-			};
-			var response=new MockHttpServletResponse();
-			filter.doFilter(request,response,(req,res)->{throw new AssertionError("disabled gate passed");});
-			assertThat(response.getStatus()).isEqualTo(404); assertThat(request.getSession(false)).isNull();
-		}
-		verifyNoInteractions(limiter,calculation);
 	}
 }

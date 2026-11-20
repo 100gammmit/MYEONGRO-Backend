@@ -11,20 +11,18 @@ import jakarta.servlet.http.*;
 
 /** Installed only in the Security chain, before body buffering and authenticated-account lookups. */
 public final class SajuPublicCalculationFilter extends OncePerRequestFilter {
-	// Gate, rate limit, account-filter exemptions and authorization share decoded MVC path semantics.
+	// Rate limit, account-filter exemptions and authorization share decoded MVC path semantics.
 	public static final RequestMatcher CALCULATE = PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST,"/api/saju/calculations");
 	public static final RequestMatcher BIRTH_PLACES = PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET,"/api/saju/calculations/birth-places");
 	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SajuPublicCalculationFilter.class);
-	private final boolean enabled;
 	private final IpRateLimiter limiter;
-	public SajuPublicCalculationFilter(boolean enabled, IpRateLimiter limiter) { this.enabled=enabled; this.limiter=limiter; }
+	public SajuPublicCalculationFilter(IpRateLimiter limiter) { this.limiter=limiter; }
 	public static boolean isPublicRequest(HttpServletRequest request) {
 		return CALCULATE.matches(request) || BIRTH_PLACES.matches(request);
 	}
 	@Override protected boolean shouldNotFilter(HttpServletRequest request) { return !isPublicRequest(request); }
 	@Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
 		response.setHeader("Cache-Control","no-store");
-		if (!enabled) { response.setStatus(404); return; }
 		if (request.getQueryString()!=null) { error(response,400,"CALCULATION_QUERY_NOT_ALLOWED"); return; }
 		if ("POST".equals(request.getMethod())) {
 			var decision = limiter.acquire(IpRateLimiter.Scope.SAJU_CALCULATION,request.getRemoteAddr());

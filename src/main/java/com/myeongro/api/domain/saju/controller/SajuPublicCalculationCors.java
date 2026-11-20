@@ -10,7 +10,7 @@ import org.springframework.web.filter.CorsFilter;
 /**
  * CORS for the two public manseryeok paths only. The browser calls the API domain directly without cookies, so the
  * IP rate limit sees the real client. Every other path stays same-origin through the Next proxy.
- * Installed before {@link SajuPublicCalculationFilter} so its 404, 429 and 503 responses are readable cross-origin
+ * Installed before {@link SajuPublicCalculationFilter} so its 429 and 503 responses are readable cross-origin
  * and preflights never reach the rate limit.
  */
 public final class SajuPublicCalculationCors {

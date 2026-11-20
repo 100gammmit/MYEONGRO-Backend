@@ -6,7 +6,7 @@
 ## 범위와 공개 상태
 
 - Backend 전용 `POST /api/saju/calculations`, `GET /api/saju/calculations/birth-places`.
-- `app.saju.public-calculation.enabled` 기본 false. 환경별 설정은 실제 secret 파일을 수정하지 않고 운영자가 별도로 반영한다.
+- 공개 경로는 별도 활성화 설정 없이 배포되면 항상 열린다(2026-11-20 결정). 브라우저 직접 호출 출처만 `app.saju.public-calculation.allowed-origins`로 정한다.
 - 공개 계산 `schemaVersion=1`, `calculationVersion=manseryeok-ko-v1`, `timeCorrectionVersion=meeus-noaa-v1`.
 - 기존 `saju-ko-v4`, 저장 snapshot, AI 생성·프롬프트·크레딧·DB는 변경하지 않았다. 공유 검증 규칙과 후보 계산 경로만 재사용한다.
 - 후속 Front/개인정보 고지/Docs 정책 정렬 전에는 켜지 않는다. 기존 AI는 legacy 계산이므로 무료 명식 기반 풀이 버튼을 연결하지 않는다.
