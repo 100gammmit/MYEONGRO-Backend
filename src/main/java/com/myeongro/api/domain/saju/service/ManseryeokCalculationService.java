@@ -62,7 +62,8 @@ public class ManseryeokCalculationService {
 				"meeus-noaa-v1",ZoneRulesProvider.getVersions("Asia/Seoul").lastKey(),catalog.publicVersion(),year,
 				new AppliedOptions(input.options().dayBoundary(),input.options().equationOfTime(),input.coordinateSource(),input.longitude(),!"unknown".equals(input.profile().get("birthTimePrecision"))),
 				builder.chart(accumulated),snapshot.fiveElements(),accumulated.relations(),accumulated.hiddenStems(),accumulated.twelveStages(),accumulated.voids(),
-				snapshot.luckCycle()==null || accumulated.integerLuck()==null ? null : new MajorLuck(snapshot.luckCycle(),accumulated.integerLuck(),"nearest-year-three-days-v1"),
+				snapshot.luckCycle()==null || accumulated.integerLuck()==null ? null : new MajorLuck(snapshot.luckCycle(),accumulated.integerLuck(),"nearest-year-three-days-v1",
+					builder.majorLuckPeriods(snapshot.luckCycle(),accumulated.dayMaster())),
 				annual,calendar,snapshot.timeCorrection(),snapshot.limitations(),uncertainty,builder.capabilities(snapshot,accumulated),null);
 			var node = mapper.valueToTree(result);
 			((com.fasterxml.jackson.databind.node.ObjectNode)node).remove("calculationFingerprint");

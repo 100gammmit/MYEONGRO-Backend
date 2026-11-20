@@ -43,6 +43,14 @@ public class ManseryeokChartBuilder {
 		}
 		return List.copyOf(result);
 	}
+	/** Public major-luck strip: Hanja and Korean gan-zhi plus the day-master stem ten god, like {@link #annualFlows}. */
+	public List<MajorLuckFlow> majorLuckPeriods(SajuCalculationSnapshot.LuckCycle precise, String dayMaster) {
+		return precise.periods().stream().map(period -> {
+			String value = SajuKoreanTerms.ganZhiHanja(period.ganZhi());
+			return new MajorLuckFlow(period.startYear(), period.endYear(), period.startAge(), period.endAge(), ganZhi(value),
+				dayMaster == null ? null : SajuKoreanTerms.tenGod(LunarUtil.SHI_SHEN.get(dayMaster + value.substring(0,1))));
+		}).toList();
+	}
 	public Map<String,Capability> capabilities(SajuCalculationSnapshot snapshot, Accumulator a) {
 		var result = new LinkedHashMap<String,Capability>();
 		boolean personal = a.dayMaster != null;

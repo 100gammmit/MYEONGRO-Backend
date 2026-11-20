@@ -75,6 +75,19 @@ public final class SajuKoreanTerms {
 		return stem(value.substring(0, 1)) + branch(value.substring(1, 2));
 	}
 
+	/** Reverse of {@link #ganZhi}: a Korean stem-branch pair back to its Hanja, for values already converted. */
+	static String ganZhiHanja(String korean) {
+		if (korean == null || korean.length() != 2) {
+			throw new IllegalArgumentException("Unknown gan-zhi");
+		}
+		return hanja(STEMS, korean.substring(0, 1)) + hanja(BRANCHES, korean.substring(1, 2));
+	}
+
+	private static String hanja(Map<String, String> table, String korean) {
+		return table.entrySet().stream().filter(entry -> entry.getValue().equals(korean)).map(Map.Entry::getKey)
+			.findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown gan-zhi"));
+	}
+
 	static Pillars pillars(Pillars pillars) {
 		return new Pillars(
 			pillar(pillars.year()), pillar(pillars.month()),
