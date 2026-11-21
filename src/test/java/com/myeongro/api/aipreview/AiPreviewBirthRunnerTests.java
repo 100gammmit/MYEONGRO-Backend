@@ -58,6 +58,6 @@ class AiPreviewBirthRunnerTests {
 			new AiPreviewReportWriter(mapper, new AiPreviewMarkdownRenderer(ZoneId.of("Asia/Seoul")), directory),
 			new AiPreviewLabelFactory(Clock.systemUTC()), mock(OpenAiSajuAnnualGenerator.class),
 			mock(SajuAnnualPromptCatalog.class), mapper, AiPreviewSajuInputPreparerTests.preparer(),
-			"saju", "synthetic-birth", execute, "test");
+			new AiPreviewChatMetrics(), "saju", "synthetic-birth", execute, "test");
 	}
 }

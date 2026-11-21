@@ -65,11 +65,9 @@ final class AiPreviewMarkdownRenderer {
 		}
 		appendDisclaimer(markdown, text(result.get("disclaimer"), null));
 		appendExecutionMetadata(markdown, report);
-		if (!report.metrics().isEmpty()) {
-			appendHeading(markdown, 2, "평가 계측");
-			for (String key : List.of("responseModel", "promptTokens", "completionTokens", "totalTokens", "finishReason")) {
-				appendMetadata(markdown, key, String.valueOf(report.metrics().get(key)));
-			}
+		appendHeading(markdown, 2, "평가 계측");
+		for (String key : AiPreviewChatMetrics.KEYS) {
+			appendMetadata(markdown, key, report.metrics().get(key) == null ? "미제공" : String.valueOf(report.metrics().get(key)));
 		}
 		return markdown.toString();
 	}

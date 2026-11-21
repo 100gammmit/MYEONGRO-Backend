@@ -55,11 +55,13 @@ class SajuAnnualCliFailureTests {
 			new ClassPathResource("prompts/saju/interpretation/interpretation-guide-ko-v7.md"),
 			new ClassPathResource("prompts/saju/annual-interpretation-fixture.md"),
 			new ClassPathResource("prompts/saju/reports/annual-monthly/annual-monthly-ko-v5.md"));
-		var generator = new OpenAiSajuAnnualGenerator(model, mapper, "test", prompts, new DeclinedReadingFactory());
+		var metrics = new AiPreviewChatMetrics();
+		ChatModel measuredModel = (ChatModel)metrics.postProcessAfterInitialization(model, "provider");
+		var generator = new OpenAiSajuAnnualGenerator(measuredModel, mapper, "test", prompts, new DeclinedReadingFactory());
 		var writer = new AiPreviewReportWriter(mapper, new AiPreviewMarkdownRenderer(ZoneId.of("Asia/Seoul")), directory);
 		var runner = new AiPreviewRunner(mock(ReadingGenerator.class), mock(TarotPromptCatalog.class), mock(SajuPromptCatalog.class),
 			loader, writer, new AiPreviewLabelFactory(Clock.systemUTC()), generator, prompts, mapper, preparer,
-			"saju", "annual-cli-test", true, "test");
+			metrics, "saju", "annual-cli-test", true, "test");
 		assertThatThrownBy(runner::run).isInstanceOf(SajuAnnualGenerationException.class).satisfies(exception -> {
 			// CLI/Spring receive this same sanitized throwable; render its entire chain to captured stderr.
 			exception.printStackTrace(System.err);
@@ -68,6 +70,13 @@ class SajuAnnualCliFailureTests {
 		try (var files = java.nio.file.Files.walk(directory)) {
 			for (var file : files.filter(java.nio.file.Files::isRegularFile).toList()) {
 				assertThat(java.nio.file.Files.readString(file)).doesNotContain(marker);
+				if (file.toString().endsWith(".json")) {
+					var saved = mapper.readTree(file.toFile()).path("metrics");
+					assertThat(saved.has("promptTokens")).isFalse();
+					assertThat(saved.has("completionTokens")).isFalse();
+					assertThat(saved.has("responseModel")).isFalse();
+					assertThat(saved.path("contractCode").isTextual()).isTrue();
+				}
 			}
 		}
 	}

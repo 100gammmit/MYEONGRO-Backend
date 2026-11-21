@@ -71,6 +71,11 @@ import com.myeongro.api.domain.saju.service.SajuReadingResultValidator;
 })
 public class AiPreviewApplication {
 
+	@Bean
+	static AiPreviewChatMetrics aiPreviewChatMetrics() {
+		return new AiPreviewChatMetrics();
+	}
+
 	public static void main(String[] args) {
 		SpringApplication application = new SpringApplication(AiPreviewApplication.class);
 		application.setWebApplicationType(WebApplicationType.NONE);

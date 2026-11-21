@@ -12,6 +12,14 @@ import org.junit.jupiter.api.Test;
 class AiPreviewMarkdownRendererTests {
 
 	@Test
+	void distinguishesMissingUsageFromReportedZero() {
+		var report = new AiPreviewReport("test", "test", "tarot", null, "configured", "test", "test",
+			Instant.EPOCH, 1L, Map.of("title", "합성 결과"), Map.of("promptTokens", 0));
+		String markdown = new AiPreviewMarkdownRenderer(ZoneId.of("Asia/Seoul")).render(report);
+		assertThat(markdown).contains("promptTokens: 0", "completionTokens: 미제공", "responseModel: 미제공");
+	}
+
+	@Test
 	void rendersNormalSummaryAfterBodyAndNeverRendersObsoleteGuidance() {
 		String markdown = render(Map.of(
 			"title", "정상 결과", "summary", "핵심 답과 제안",

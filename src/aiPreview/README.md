@@ -83,6 +83,14 @@ choice spread에는 `choiceOptions.a`, `choiceOptions.b`를 포함한다.
 중첩 unknown field, 계산 결과 직접 주입(`calculation`/`calculationSnapshot`)은 거부한다.
 sample처럼 실제 사용자가 아닌 합성 출생정보만 사용한다.
 
+타로·일반 사주·연간 사주 모두 Preview 전용 수집기로 `metrics.responseModel`,
+`promptTokens`, `completionTokens`, `totalTokens`, `finishReason`을 기록한다.
+응답이 제공하지 않은 항목은 JSON에서 생략하고 Markdown에는 ‘미제공’으로 표시한다.
+제공된 0은 그대로 남기며 설정 모델이나 0으로 누락을 대체하지 않는다.
+출력 토큰은 provider가 보고한 reasoning 포함 사용량이다. 원본 응답·질문·native usage는 계측에 복사하지 않는다.
+응답 후 파싱·계약 검증에 실패해도 수집한 사용량을 실패 결과에 남기고 원래 실패를 유지한다.
+요청·응답 객체, 운영 API 및 호출 횟수는 바꾸지 않으며 dry-run은 호출·보고서를 생성하지 않는다.
+
 운영 `SajuReadingInputNormalizer` → `SajuReadingInputAssembler`를 재사용한다.
 일반과 연간 모두 계산된 AI payload만 생성기로 전달하며 출생정보는 전송하지 않는다.
 프롬프트 비교에서는 출생정보·질문·관심사·대상 연도를 고정한다. 보고서 metrics에

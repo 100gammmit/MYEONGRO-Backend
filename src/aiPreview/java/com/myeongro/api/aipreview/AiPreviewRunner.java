@@ -39,6 +39,7 @@ final class AiPreviewRunner {
 	private final com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog annualPrompts;
 	private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 	private final AiPreviewSajuInputPreparer sajuInputPreparer;
+	private final AiPreviewChatMetrics chatMetrics;
 
 	AiPreviewRunner(
 		ReadingGenerator readingGenerator,
@@ -51,6 +52,7 @@ final class AiPreviewRunner {
 		com.myeongro.api.domain.saju.annual.SajuAnnualPromptCatalog annualPrompts,
 		com.fasterxml.jackson.databind.ObjectMapper objectMapper,
 		AiPreviewSajuInputPreparer sajuInputPreparer,
+		AiPreviewChatMetrics chatMetrics,
 		@Value("${ai-preview.kind:}") String kind,
 		@Value("${ai-preview.case:}") String caseId,
 		@Value("${ai-preview.execute:false}") boolean execute,
@@ -70,9 +72,19 @@ final class AiPreviewRunner {
 		this.annualPrompts = annualPrompts;
 		this.objectMapper = objectMapper;
 		this.sajuInputPreparer = sajuInputPreparer;
+		this.chatMetrics = chatMetrics;
 	}
 
 	void run() {
+		chatMetrics.begin();
+		try {
+			runPreview();
+		} finally {
+			chatMetrics.clear();
+		}
+	}
+
+	private void runPreview() {
 		AiPreviewCase previewCase = caseLoader.load(kind, caseId);
 		Map<String, Object> calculationMetadata = Map.of();
 		if (previewCase.kind() == ReadingKind.SAJU) {
@@ -107,6 +119,7 @@ final class AiPreviewRunner {
 			} catch (com.myeongro.api.domain.saju.annual.SajuAnnualGenerationException exception) {
 				var failureMetrics = new java.util.LinkedHashMap<>(calculationMetadata);
 				failureMetrics.putAll(exception.metrics());
+				failureMetrics = new java.util.LinkedHashMap<>(chatMetrics.merge(failureMetrics));
 				var failure = new AiPreviewReport(label, previewCase.id(), "saju", null, model,
 					prompt.version(), prompt.sha256(), startedAt, (System.nanoTime() - startedNanos) / 1_000_000,
 					Map.of("resultType", "failed", "title", "연간 리포트 검증 실패"), failureMetrics);
@@ -120,13 +133,24 @@ final class AiPreviewRunner {
 			measured.put("calendar", objectMapper.convertValue(prepared.calendar(), Map.class));
 			metrics = measured;
 		} else {
-			generated = readingGenerator.generate(
-				previewCase.kind(),
-				previewCase.spreadType() == null ? null : previewCase.spreadType().value(),
-				previewCase.question(),
-				previewCase.input()
-			);
+			try {
+				generated = readingGenerator.generate(
+					previewCase.kind(),
+					previewCase.spreadType() == null ? null : previewCase.spreadType().value(),
+					previewCase.question(),
+					previewCase.input()
+				);
+			} catch (RuntimeException exception) {
+				var failure = new AiPreviewReport(label, previewCase.id(), previewCase.kind().value(),
+					previewCase.spreadType() == null ? null : previewCase.spreadType().value(), model,
+					prompt.version(), prompt.sha256(), startedAt, (System.nanoTime() - startedNanos) / 1_000_000,
+					Map.of("resultType", "failed", "title", "리딩 생성 실패"), chatMetrics.merge(metrics));
+				var written = reportWriter.write(failure);
+				System.out.println("Rejected output metrics: " + written.json());
+				throw exception;
+			}
 		}
+		metrics = chatMetrics.merge(metrics);
 		long durationMillis = (System.nanoTime() - startedNanos) / 1_000_000;
 		AiPreviewReport report = new AiPreviewReport(
 			label,
