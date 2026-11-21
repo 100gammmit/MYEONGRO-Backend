@@ -30,7 +30,7 @@ class TarotSpreadTypeTests {
 	@Test
 	void allocatesCompletionTokensByOutputStructure() {
 		assertThat(TarotSpreadType.MIND_THREE_CARD.maxOutputTokens()).isEqualTo(3000);
-		assertThat(TarotSpreadType.RELATIONSHIP_THREE_CARD.maxOutputTokens()).isEqualTo(2400);
+		assertThat(TarotSpreadType.RELATIONSHIP_THREE_CARD.maxOutputTokens()).isEqualTo(3000);
 		assertThat(TarotSpreadType.CHOICE_FIVE_CARD.maxOutputTokens()).isEqualTo(3000);
 	}
 

@@ -41,7 +41,7 @@ import com.myeongro.api.domain.saju.result.SajuReadingResult;
 public class OpenAiSajuReadingGenerator implements ReadingGenerationHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(OpenAiSajuReadingGenerator.class);
-	private static final int MAX_COMPLETION_TOKENS = 4_000;
+	private static final int MAX_COMPLETION_TOKENS = 7_000;
 
 	private final ChatModel chatModel;
 	private final ObjectMapper objectMapper;

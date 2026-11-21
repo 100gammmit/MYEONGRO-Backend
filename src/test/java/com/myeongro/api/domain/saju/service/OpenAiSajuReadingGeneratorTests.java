@@ -123,6 +123,7 @@ class OpenAiSajuReadingGeneratorTests {
 
 		OpenAiChatOptions options = (OpenAiChatOptions)chatModel.prompt.getOptions();
 		assertThat(options.getModel()).isEqualTo("gpt-test");
+		assertThat(options.getMaxCompletionTokens()).isEqualTo(7_000);
 		assertThat(options.getStore()).isFalse();
 		assertThat(options.getResponseFormat().getJsonSchema().getName())
 			.isEqualTo("saju_birth_annual_question");

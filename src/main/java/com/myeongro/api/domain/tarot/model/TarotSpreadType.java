@@ -24,7 +24,7 @@ public enum TarotSpreadType {
 			new TarotPosition("relationship_flow", "현재의 관계 흐름"),
 			new TarotPosition("check_point", "앞으로의 관계")
 		),
-		2400
+		3000
 	),
 	CHOICE_FIVE_CARD(
 		"choice_five_card",
