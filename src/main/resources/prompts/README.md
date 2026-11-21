@@ -10,11 +10,11 @@
 | 고민 | mind-three-card-ko-v73 | v70 |
 | 관계 | relationship-three-card-ko-v24 | v21 |
 | 선택 | choice-five-card-ko-v20 | v18 |
-| 사주 공통(일반·연간 공유) | common-ko-v12 | v11 |
-| 사주 기본 해석(일반·연간 공유) | base-interpretation-ko-v1 | 이전 조합의 일반 guide5·연간 guide7 |
+| 사주 공통(일반·연간 공유) | common-ko-v25 | v16 |
+| 사주 기본 해석(일반·연간 공유) | base-interpretation-ko-v8 | v2 |
 | 연간 월운 해석 보충 | monthly-interpretation-ko-v1 | 이전 guide7에 포함 |
-| 일반 사주 리포트 | birth-annual-question-ko-v17 | v16 |
-| 연간 사주 리포트 | annual-monthly-ko-v28 | v27 |
+| 일반 사주 리포트 | birth-annual-question-ko-v69 | v19 |
+| 연간 사주 리포트 | annual-monthly-ko-v31 | v28 |
 
 사주 프롬프트 경로는 모두 `application.yaml`의 `app.reading.prompts.saju`에서 설정한다. 카탈로그는 경로에 버전을 고정하지 않고 설정된 리소스를 조립한다. 이 표는 설정을 대체하지 않으며 활성 파일 변경 시 함께 갱신한다.
 

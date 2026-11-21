@@ -38,6 +38,9 @@ class SajuAnnualCalendarDaysTests {
 				assertThat(month.periodDays().get(sliceIndex)).isEqualByComparingTo(expected);
 			}
 			var total = month.periodDays().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+			var longest = month.periodDays().stream().max(BigDecimal::compareTo).orElseThrow();
+			assertThat(OpenAiSajuAnnualGenerator.modelMonth(month).primaryPeriodId())
+				.isEqualTo(month.periodIds().get(month.periodDays().indexOf(longest)));
 			assertThat(total).isCloseTo(BigDecimal.valueOf(YearMonth.of(year, index + 1).lengthOfMonth()),
 				within(new BigDecimal("0.1")));
 		}
@@ -57,8 +60,10 @@ class SajuAnnualCalendarDaysTests {
 			.isInstanceOf(IllegalArgumentException.class);
 	}
 
-	@Test void sendsNumericDaysWithIdsInTheExistingSingleProviderRequest() throws Exception {
-		var input = SajuAnnualTests.input("");
+	@ParameterizedTest @ValueSource(booleans = {false, true})
+	void sendsNumericDaysAndPrimaryIdInTheExistingSingleProviderRequest(boolean brief) throws Exception {
+		var input = brief ? SajuAnnualInput.from("", "self", 2027,
+			SajuAnnualTests.snapshot("unknown", null, "1992-08-17"), SajuAnnualTests.MAPPER) : SajuAnnualTests.input("");
 		String content = SajuAnnualTests.MAPPER.writeValueAsString(Map.of("output", Map.of(
 			"resultType", "reading", "reading", SajuAnnualTests.wire(SajuAnnualTests.valid(input)))));
 		var captured = new AtomicReference<Prompt>();
@@ -74,7 +79,12 @@ class SajuAnnualCalendarDaysTests {
 		assertThat(months.size()).isEqualTo(12);
 		for (int index = 0; index < 12; index++) {
 			var month = months.get(index);
+			var fieldNames = new java.util.ArrayList<String>(); month.fieldNames().forEachRemaining(fieldNames::add);
+			assertThat(fieldNames).containsExactly("month", "periodIds", "periodDays", "primaryPeriodId");
 			assertThat(month.required("periodDays").size()).isEqualTo(2);
+			var source = input.calendar().months().get(index);
+			int primary = source.periodDays().getFirst().compareTo(source.periodDays().getLast()) > 0 ? 0 : 1;
+			assertThat(month.required("primaryPeriodId").asText()).isEqualTo(source.periodIds().get(primary));
 			for (int slice = 0; slice < 2; slice++) {
 				assertThat(month.required("periodDays").get(slice).isNumber()).isTrue();
 				assertThat(month.required("periodDays").get(slice).decimalValue())
@@ -87,5 +97,26 @@ class SajuAnnualCalendarDaysTests {
 		assertThat(text).doesNotContain("birthDate", "birthTime", "provinceCode", "longitude", "startInclusive", "endExclusive");
 		assertThat(result.reading().payload()).doesNotContainKey("calendarMonths");
 		assertThat(result.reading().payload().toString()).doesNotContain("periodDays");
+		assertThat(result.reading().payload().toString()).doesNotContain("primaryPeriodId");
+		assertThat(SajuAnnualTests.MAPPER.writeValueAsString(input.calendar())).doesNotContain("primaryPeriodId");
+		assertThat(SajuAnnualTests.MAPPER.writeValueAsString(generator.schema(input))).doesNotContain("primaryPeriodId");
+	}
+
+	@Test void choosesByMonthlyLengthRatherThanIdOrArrayPosition() {
+		var first = new SajuAnnualCalendar.Month(2, List.of("p09", "p02"), List.of(new BigDecimal("26.0"), new BigDecimal("5.0")));
+		var last = new SajuAnnualCalendar.Month(2, List.of("p09", "p02"), List.of(new BigDecimal("5.0"), new BigDecimal("26.0")));
+		assertThat(OpenAiSajuAnnualGenerator.modelMonth(first).primaryPeriodId()).isEqualTo("p09");
+		assertThat(OpenAiSajuAnnualGenerator.modelMonth(last).primaryPeriodId()).isEqualTo("p02");
+		assertThat(OpenAiSajuAnnualGenerator.modelMonth(first).periodIds()).isEqualTo(first.periodIds());
+		assertThat(OpenAiSajuAnnualGenerator.modelMonth(first).periodDays()).isEqualTo(first.periodDays());
+	}
+
+	@Test void rejectsMissingNonpositiveAndTiedLengthsInsteadOfGuessing() {
+		for (var days : List.of(List.<BigDecimal>of(), List.of(BigDecimal.ZERO, BigDecimal.ONE),
+			List.of(new BigDecimal("-1"), BigDecimal.ONE), List.of(new BigDecimal("15.0"), new BigDecimal("15.00")))) {
+			var ids = days.isEmpty() ? List.<String>of() : List.of("p01", "p02");
+			assertThatThrownBy(() -> OpenAiSajuAnnualGenerator.modelMonth(new SajuAnnualCalendar.Month(1, ids, days)))
+				.isInstanceOf(IllegalArgumentException.class);
+		}
 	}
 }

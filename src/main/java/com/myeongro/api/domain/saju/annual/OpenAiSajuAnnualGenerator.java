@@ -1,5 +1,6 @@
 package com.myeongro.api.domain.saju.annual;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,7 @@ public class OpenAiSajuAnnualGenerator {
 		try {
 			var user = new LinkedHashMap<String, Object>();
 			user.put("trustedCalculation", input.trustedCalculation());
-			user.put("calendarMonths", input.calendar().months());
+			user.put("calendarMonths", input.calendar().months().stream().map(OpenAiSajuAnnualGenerator::modelMonth).toList());
 			user.put("targetYear", input.calendar().targetYear());
 			user.put("detailLevel", input.detailLevel());
 			user.put("untrustedUserInput", Map.of("focusArea", input.focusArea(), "question", input.question()));
@@ -102,6 +103,27 @@ public class OpenAiSajuAnnualGenerator {
 			// Native token details are not copied: providers may add unrelated data.
 			return new Evaluation(reading, Map.copyOf(metrics));
 		} catch (Exception exception) { throw new SajuAnnualGenerationException(exception, metrics); }
+	}
+
+	/** AI-only projection. The calendar, stored snapshot and public result keep their existing shape. */
+	@com.fasterxml.jackson.annotation.JsonPropertyOrder({"month", "periodIds", "periodDays", "primaryPeriodId"})
+	record ModelMonth(int month, List<String> periodIds, List<BigDecimal> periodDays, String primaryPeriodId) { }
+
+	static ModelMonth modelMonth(SajuAnnualCalendar.Month month) {
+		var days = month.periodDays();
+		if (days.isEmpty() || days.stream().anyMatch(day -> day.signum() <= 0)) {
+			throw new IllegalArgumentException("Positive monthly interval lengths required");
+		}
+		var longest = days.stream().max(BigDecimal::compareTo).orElseThrow();
+		int primary = -1;
+		for (int index = 0; index < days.size(); index++) {
+			if (days.get(index).compareTo(longest) == 0) {
+				// Do not silently choose an arbitrary meaning if the calendar has no unique longest slice.
+				if (primary >= 0) throw new IllegalArgumentException("Unique primary monthly interval required");
+				primary = index;
+			}
+		}
+		return new ModelMonth(month.month(), month.periodIds(), days, month.periodIds().get(primary));
 	}
 
 	public Map<String, Object> schema(SajuAnnualInput input) {
