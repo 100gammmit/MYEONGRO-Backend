@@ -86,7 +86,9 @@ sample처럼 실제 사용자가 아닌 합성 출생정보만 사용한다.
 타로·일반 사주·연간 사주 모두 Preview 전용 수집기로 `metrics.responseModel`,
 `promptTokens`, `completionTokens`, `totalTokens`, `finishReason`을 기록한다.
 응답이 제공하지 않은 항목은 JSON에서 생략하고 Markdown에는 ‘미제공’으로 표시한다.
-제공된 0은 그대로 남기며 설정 모델이나 0으로 누락을 대체하지 않는다.
+OpenAI 원본 사용량이 명시한 0은 그대로 남기며 설정 모델이나 0으로 누락을 대체하지 않는다.
+Spring AI가 누락을 0·계산된 합계로 바꾸므로 원본의 nullable 카운터를 읽는다.
+원본을 확인할 수 없는 Usage는 양수 입력·출력만 남기고, 진위를 구분할 수 없는 0과 합계는 생략한다.
 출력 토큰은 provider가 보고한 reasoning 포함 사용량이다. 원본 응답·질문·native usage는 계측에 복사하지 않는다.
 응답 후 파싱·계약 검증에 실패해도 수집한 사용량을 실패 결과에 남기고 원래 실패를 유지한다.
 요청·응답 객체, 운영 API 및 호출 횟수는 바꾸지 않으며 dry-run은 호출·보고서를 생성하지 않는다.

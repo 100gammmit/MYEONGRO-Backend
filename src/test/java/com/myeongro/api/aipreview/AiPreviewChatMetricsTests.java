@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.metadata.DefaultUsage;
+import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.*;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -80,13 +82,46 @@ class AiPreviewChatMetricsTests {
 	}
 
 	static ChatResponse response(Integer input, Integer output) {
-		var usage = new Usage() {
-			@Override public Integer getPromptTokens() { return input; }
-			@Override public Integer getCompletionTokens() { return output; }
-			@Override public Object getNativeUsage() { return Map.of("private", "SYNTHETIC_NATIVE_METADATA"); }
-		};
+		Integer total = input == null || output == null ? null : input + output;
+		var usage = new DefaultUsage(input, output, total, new OpenAiApi.Usage(output, input, total));
+		return responseWithUsage(usage);
+	}
+
+	private static ChatResponse responseWithUsage(Usage usage) {
 		return new ChatResponse(List.of(new Generation(new AssistantMessage("SYNTHETIC_BODY"),
 			ChatGenerationMetadata.builder().finishReason("STOP").build())),
 			ChatResponseMetadata.builder().model("actual-model").usage(usage).build());
+	}
+
+	@Test void nativeNullCountersAndAbsentTotalAreNotInventedByDefaultUsage() {
+		var tap = new AiPreviewChatMetrics();
+		ChatModel provider = mock(ChatModel.class);
+		var missing = responseWithUsage(new DefaultUsage(null, null, null, new OpenAiApi.Usage(null, null, null)));
+		var missingTotal = responseWithUsage(new DefaultUsage(12, 3, null, new OpenAiApi.Usage(3, 12, null)));
+		when(provider.call(any(Prompt.class))).thenReturn(missing).thenReturn(missingTotal);
+		var model = (ChatModel)tap.postProcessAfterInitialization(provider, "provider");
+		tap.begin(); model.call(new Prompt("missing"));
+		assertThat(tap.merge(Map.of())).doesNotContainKeys("promptTokens", "completionTokens", "totalTokens");
+		model.call(new Prompt("partial"));
+		assertThat(tap.merge(Map.of())).containsEntry("promptTokens", 12).containsEntry("completionTokens", 3)
+			.doesNotContainKeys("totalTokens");
+		tap.clear();
+	}
+
+	@Test void nativeExplicitZeroIsPreservedButUnrecoverableZerosAndTotalsAreOmitted() {
+		var tap = new AiPreviewChatMetrics();
+		ChatModel provider = mock(ChatModel.class);
+		var zero = response(0, 0);
+		var noRaw = responseWithUsage(new DefaultUsage(null, null));
+		var partialNoRaw = responseWithUsage(new DefaultUsage(12, null));
+		when(provider.call(any(Prompt.class))).thenReturn(zero).thenReturn(noRaw).thenReturn(partialNoRaw);
+		var model = (ChatModel)tap.postProcessAfterInitialization(provider, "provider");
+		tap.begin(); model.call(new Prompt("zero"));
+		assertThat(tap.merge(Map.of())).containsEntry("promptTokens", 0).containsEntry("completionTokens", 0).containsEntry("totalTokens", 0);
+		model.call(new Prompt("unknown"));
+		assertThat(tap.merge(Map.of())).doesNotContainKeys("promptTokens", "completionTokens", "totalTokens");
+		model.call(new Prompt("partial unknown"));
+		assertThat(tap.merge(Map.of())).containsEntry("promptTokens", 12).doesNotContainKeys("completionTokens", "totalTokens");
+		tap.clear();
 	}
 }

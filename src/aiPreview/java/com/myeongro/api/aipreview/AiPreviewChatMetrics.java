@@ -9,6 +9,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import reactor.core.publisher.Flux;
 
@@ -38,10 +39,16 @@ final class AiPreviewChatMetrics implements BeanPostProcessor {
 			if (metadata.getModel() != null && !metadata.getModel().isBlank()) metrics.put("responseModel", metadata.getModel());
 			var usage = metadata.getUsage();
 			if (usage != null && !(usage instanceof EmptyUsage)) {
-				if (usage.getPromptTokens() != null) metrics.put("promptTokens", usage.getPromptTokens());
-				if (usage.getCompletionTokens() != null) metrics.put("completionTokens", usage.getCompletionTokens());
-				if (usage.getPromptTokens() != null && usage.getCompletionTokens() != null && usage.getTotalTokens() != null) {
-					metrics.put("totalTokens", usage.getTotalTokens());
+				// DefaultUsage replaces nulls with zero and calculates missing totals.
+				// Read only the provider's three nullable counters; never retain native usage.
+				if (usage.getNativeUsage() instanceof OpenAiApi.Usage original) {
+					if (original.promptTokens() != null) metrics.put("promptTokens", original.promptTokens());
+					if (original.completionTokens() != null) metrics.put("completionTokens", original.completionTokens());
+					if (original.totalTokens() != null) metrics.put("totalTokens", original.totalTokens());
+				} else {
+					// Without raw presence information, zero and calculated totals are ambiguous.
+					if (usage.getPromptTokens() != null && usage.getPromptTokens() > 0) metrics.put("promptTokens", usage.getPromptTokens());
+					if (usage.getCompletionTokens() != null && usage.getCompletionTokens() > 0) metrics.put("completionTokens", usage.getCompletionTokens());
 				}
 			}
 		}
