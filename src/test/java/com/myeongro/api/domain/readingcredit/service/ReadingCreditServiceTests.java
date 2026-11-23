@@ -50,6 +50,7 @@ class ReadingCreditServiceTests {
 			)
 		);
 		assertThat(response.costs().saju()).isEqualTo(4);
+		assertThat(response.costs().sajuAnnual()).isEqualTo(6);
 		verify(repository).getStatus(userId, 10);
 	}
 
@@ -73,6 +74,7 @@ class ReadingCreditServiceTests {
 			)
 		);
 		assertThat(pricing.costs().saju()).isEqualTo(4);
+		assertThat(pricing.costs().sajuAnnual()).isEqualTo(6);
 		org.mockito.Mockito.verifyNoInteractions(repository);
 	}
 }

@@ -76,6 +76,7 @@ app:
         relationship-three-card: 2
         choice-five-card: 3
       saju: 4
+      saju-annual: 6
     stale-after: 5m
     cleanup-cron: "0 */5 * * * *"
     global-daily-attempt-limit: 1000

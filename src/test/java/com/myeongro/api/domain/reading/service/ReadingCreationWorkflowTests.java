@@ -593,7 +593,47 @@ class ReadingCreationWorkflowTests {
 		var command = ArgumentCaptor.forClass(PendingReadingCommand.class);
 		verify(repository).createPending(command.capture());
 		assertThat(command.getValue().schemaVersion()).isEqualTo(7);
-		assertThat(command.getValue().creditCost()).isEqualTo(4);
+		assertThat(command.getValue().creditCost()).isEqualTo(6);
+	}
+
+	@Test
+	void annualReservesAndStoresSixCreditsBeforeGenerationRegardlessOfBirthTimePrecision() {
+		for (String precision : List.of("exact", "unknown")) {
+			var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+			var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+			when(repository.createPending(org.mockito.ArgumentMatchers.any())).thenReturn(pending());
+			when(repository.completePending(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(completed());
+			when(generator.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap()))
+				.thenReturn(new GeneratedReading("연간 결과", Map.of("title", "연간 결과")));
+			var facade = service(acceptedConsent(), repository, generator);
+			var original = sajuRequest().birthProfile();
+			var birth = "exact".equals(precision) ? original
+				: new SajuBirthProfileRequest(original.calendarType(), original.birthDate(), null, "unknown", null, null,
+					original.luckDirectionBasis());
+			facade.createSajuReading(USER_ID, REQUEST_ID,
+				new SajuReadingCreateRequest("", REQUEST_ID, birth, "career", 2026, "annual_monthly"));
+			verify(repository).acquirePreparation(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(REQUEST_ID),
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(6));
+			var command = ArgumentCaptor.forClass(PendingReadingCommand.class);
+			verify(repository).createPending(command.capture());
+			assertThat(command.getValue().creditCost()).isEqualTo(6);
+		}
+	}
+
+	@Test
+	void insufficientAnnualCreditsStopBeforeCalculationAndAiCall() {
+		var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		var facade = service(acceptedConsent(), repository, generator);
+		when(repository.acquirePreparation(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(6)))
+			.thenThrow(new InsufficientReadingCreditsException(USER_ID, 6));
+		assertThatThrownBy(() -> facade.createSajuReading(USER_ID, REQUEST_ID,
+			new SajuReadingCreateRequest("", REQUEST_ID, sajuRequest().birthProfile(), "career", 2026, "annual_monthly")))
+			.isInstanceOf(InsufficientReadingCreditsException.class);
+		verifyNoInteractions(generator, sajuInputAssembler);
+		verify(repository, never()).createPending(org.mockito.ArgumentMatchers.any());
 	}
 
 	private TarotReadingCreateRequest request() {

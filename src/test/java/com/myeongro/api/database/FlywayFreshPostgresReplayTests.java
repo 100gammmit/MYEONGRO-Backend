@@ -761,17 +761,17 @@ class FlywayFreshPostgresReplayTests {
 			PendingReading pending;
 			UUID request = UUID.randomUUID();
 			try (var connection = DriverManager.getConnection(url, username, password);
-				var query = connection.prepareStatement("select * from public.create_pending_reading(?, ?, 'annual-hash', 'saju'::public.reading_kind, null, 7, ?::jsonb, 'openai', 'test-model', 'annual-test', 4, 10, 1000)")) {
+				var query = connection.prepareStatement("select * from public.create_pending_reading(?, ?, 'annual-hash', 'saju'::public.reading_kind, null, 7, ?::jsonb, 'openai', 'test-model', 'annual-test', 6, 10, 1000)")) {
 				query.setObject(1, owner); query.setObject(2, request); query.setString(3, mapper.writeValueAsString(payload));
 				try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); pending = new PendingReading(row.getObject("reading_id", UUID.class), row.getLong("generation_id"), row.getBoolean("created")); }
 			}
 			assertBalances(url, username, password, owner, 10, 0);
 			if (succeeds) complete(url, username, password, pending); else fail(url, username, password, pending);
-			assertBalances(url, username, password, owner, succeeds ? 6 : 10, 0);
+			assertBalances(url, username, password, owner, succeeds ? 4 : 10, 0);
 			try (var connection = DriverManager.getConnection(url, username, password);
-				var query = connection.prepareStatement("select status::text, schema_version, input_payload = ?::jsonb from public.readings where id = ?")) {
+				var query = connection.prepareStatement("select status::text, schema_version, input_payload = ?::jsonb, credit_cost from public.readings where id = ?")) {
 				query.setString(1, mapper.writeValueAsString(payload)); query.setObject(2, pending.readingId());
-				try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); assertThat(row.getString(1)).isEqualTo(succeeds ? "completed" : "failed"); assertThat(row.getInt(2)).isEqualTo(7); assertThat(row.getBoolean(3)).isTrue(); }
+				try (var row = query.executeQuery()) { assertThat(row.next()).isTrue(); assertThat(row.getString(1)).isEqualTo(succeeds ? "completed" : "failed"); assertThat(row.getInt(2)).isEqualTo(7); assertThat(row.getBoolean(3)).isTrue(); assertThat(row.getInt(4)).isEqualTo(6); }
 			}
 		}
 	}

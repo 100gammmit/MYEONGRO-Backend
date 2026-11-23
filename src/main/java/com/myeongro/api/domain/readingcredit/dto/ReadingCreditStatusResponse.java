@@ -16,8 +16,6 @@ public record ReadingCreditStatusResponse(
 		}
 	}
 
-	public record Costs(Map<String, Integer> tarot, int saju) {
-		@com.fasterxml.jackson.annotation.JsonProperty("sajuAnnual")
-		public int sajuAnnual() { return saju; }
+	public record Costs(Map<String, Integer> tarot, int saju, int sajuAnnual) {
 	}
 }

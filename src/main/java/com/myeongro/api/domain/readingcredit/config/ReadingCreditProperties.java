@@ -41,13 +41,18 @@ public record ReadingCreditProperties(
 		};
 	}
 	public int cost(ReadingKind kind, String spreadType, String reportType) {
-		if (kind == ReadingKind.SAJU) com.myeongro.api.domain.saju.model.SajuReportType.fromValue(reportType);
-		return cost(kind, spreadType); // Both approved Saju reports, full/brief, use the same configured cost.
+		if (kind == ReadingKind.SAJU
+			&& com.myeongro.api.domain.saju.model.SajuReportType.fromValue(reportType)
+				== com.myeongro.api.domain.saju.model.SajuReportType.ANNUAL_MONTHLY) {
+			return costs.sajuAnnual();
+		}
+		return cost(kind, spreadType);
 	}
 
 	public record Costs(
 		@Valid @NotNull Tarot tarot,
-		@Positive int saju
+		@Positive int saju,
+		@Positive int sajuAnnual
 	) {
 	}
 

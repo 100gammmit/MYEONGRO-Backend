@@ -90,7 +90,8 @@ public class ReadingCreationWorkflow {
 		}
 
 		validateNewRequest.accept(input);
-		int creditCost = creditProperties.cost(input.kind(), input.spreadType());
+		int creditCost = creditProperties.cost(input.kind(), input.spreadType(),
+			(String)input.idempotencyPayload().get("reportType"));
 		UUID preparationToken = UUID.randomUUID();
 		long preparationStartedAt = nanoTime.getAsLong();
 		Runnable checkDeadline = () -> checkPreparationBudget(preparationStartedAt);

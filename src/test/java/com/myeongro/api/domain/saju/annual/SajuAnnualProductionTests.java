@@ -51,9 +51,9 @@ class SajuAnnualProductionTests {
     assertThat(captor.getValue().question()).isEmpty();
     assertThat(captor.getValue().trustedCalculation().toString()).doesNotContain("birthDate", "birthTime", "startInclusive");
   }
-  @Test void approvedPriceIsFourForBothReportTypes() {
+  @Test void annualPriceIsSixWhileGeneralSajuRemainsFour() {
     var prices = ReadingCreditTestFixtures.properties();
-    assertThat(prices.cost(ReadingKind.SAJU, null, "annual_monthly")).isEqualTo(4);
+    assertThat(prices.cost(ReadingKind.SAJU, null, "annual_monthly")).isEqualTo(6);
     assertThat(prices.cost(ReadingKind.SAJU, null, "birth_annual_question")).isEqualTo(4);
   }
 }

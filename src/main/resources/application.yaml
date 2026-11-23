@@ -148,10 +148,11 @@ app:
     daily-free-grant: ${reading.credits.daily-free-grant:10}
     costs:
       tarot:
-        mind-three-card: ${reading.credits.costs.tarot.mind-three-card:2}
-        relationship-three-card: ${reading.credits.costs.tarot.relationship-three-card:2}
-        choice-five-card: ${reading.credits.costs.tarot.choice-five-card:3}
+        mind-three-card: ${reading.credits.costs.tarot.mind-three-card:3}
+        relationship-three-card: ${reading.credits.costs.tarot.relationship-three-card:3}
+        choice-five-card: ${reading.credits.costs.tarot.choice-five-card:4}
       saju: ${reading.credits.costs.saju:4}
+      saju-annual: ${reading.credits.costs.saju-annual:6}
     stale-after: ${reading.credits.stale-after:5m}
     cleanup-cron: "${reading.credits.cleanup-cron:0 */5 * * * *}"
     # Whole-service daily ceiling; 0 stops every new generation immediately.

@@ -151,7 +151,7 @@ class ReadingEndpointContractTests {
 			ReadingCreditStatusResponse.Balance.of(1, 0),
 			Instant.now().plusSeconds(3600),
 			false,
-			new ReadingCreditStatusResponse.Costs(Map.of(), 4)
+			new ReadingCreditStatusResponse.Costs(Map.of(), 4, 6)
 		));
 
 		mockMvc.perform(post("/api/tarot/readings")
