@@ -90,12 +90,14 @@ public class ReadingCreationWorkflow {
 		}
 
 		validateNewRequest.accept(input);
-		int creditCost = creditProperties.cost(input.kind(), input.spreadType(),
-			(String)input.idempotencyPayload().get("reportType"));
+		// The annual format is known only after the chart, so this checks the cheaper format; the pending
+		// reading below records the amount for the format that was actually calculated.
+		String reportType = (String)input.idempotencyPayload().get("reportType");
+		int preparationCost = creditProperties.preparationCost(input.kind(), input.spreadType(), reportType);
 		UUID preparationToken = UUID.randomUUID();
 		long preparationStartedAt = nanoTime.getAsLong();
 		Runnable checkDeadline = () -> checkPreparationBudget(preparationStartedAt);
-		if (!repository.acquirePreparation(userId, requestId, preparationToken, creditCost)) {
+		if (!repository.acquirePreparation(userId, requestId, preparationToken, preparationCost)) {
 			return replay(userId, requestId, input, inputHash)
 				.orElseThrow(ReadingGenerationExpiredException::new);
 		}
@@ -105,6 +107,7 @@ public class ReadingCreationWorkflow {
 		try {
 			checkDeadline.run();
 			prepared = pendingInputFinalizer.apply(input, checkDeadline);
+			int creditCost = creditProperties.cost(reportType, prepared);
 			ReadingGenerationMetadata metadata = generationMetadataResolver.resolve(
 				prepared.kind(), prepared.spreadType(), prepared.aiPayload()
 			);

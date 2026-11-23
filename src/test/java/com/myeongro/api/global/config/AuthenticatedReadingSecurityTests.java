@@ -83,6 +83,9 @@ class AuthenticatedReadingSecurityTests {
 	private SajuReadingCreationService sajuReadingCreationService;
 
 	@MockitoBean
+	private com.myeongro.api.domain.saju.service.SajuAnnualDetailLevelService sajuAnnualDetailLevelService;
+
+	@MockitoBean
 	private ReadingRecordsService readingRecordsService;
 
 	@MockitoBean
@@ -124,6 +127,17 @@ class AuthenticatedReadingSecurityTests {
 			.andExpect(status().isUnauthorized());
 
 		verifyNoInteractions(consentService, userResolver);
+	}
+
+	@Test
+	void unauthenticatedAnnualFormatCheckStopsBeforeCalculation() throws Exception {
+		mockMvc.perform(post("/api/saju/readings/detail-level")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"birthProfile":{"calendarType":"solar","birthDate":"1992-08-17","birthTimePrecision":"unknown","luckDirectionBasis":"unspecified"}}
+					"""))
+			.andExpect(status().isUnauthorized());
+		verifyNoInteractions(sajuAnnualDetailLevelService, ipRateLimiter);
 	}
 
 	@Test

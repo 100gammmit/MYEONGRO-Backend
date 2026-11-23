@@ -505,12 +505,16 @@ class ReadingCreationWorkflowTests {
 		)).thenAnswer(invocation -> {
 			SajuCalculationInput input = invocation.getArgument(0);
 			int targetYear = invocation.getArgument(1);
+			// Like the real assembler, the annual model calculation carries the day master only when the time fixes it.
+			Map<String, Object> annualCalculation = "unknown".equals(input.birthProfile().get("birthTimePrecision"))
+				? Map.of() : Map.of("dayMaster", "을");
 			return new PreparedReadingInput(
 				input.kind(), input.spreadType(), input.schemaVersion(), input.question(),
 				Map.of(
 					"focusArea", input.focusArea().value(),
 					"targetYear", targetYear,
-					"calculation", Map.of("pillars", Map.of())
+					"calculation", Map.of("pillars", Map.of()),
+					"calculationSnapshot", annualCalculation
 				),
 				Map.of(
 					"targetYear", targetYear,
@@ -593,11 +597,12 @@ class ReadingCreationWorkflowTests {
 		var command = ArgumentCaptor.forClass(PendingReadingCommand.class);
 		verify(repository).createPending(command.capture());
 		assertThat(command.getValue().schemaVersion()).isEqualTo(7);
-		assertThat(command.getValue().creditCost()).isEqualTo(6);
+		// The shared request leaves the birth time unknown, so the brief report and its price are recorded.
+		assertThat(command.getValue().creditCost()).isEqualTo(4);
 	}
 
 	@Test
-	void annualReservesAndStoresSixCreditsBeforeGenerationRegardlessOfBirthTimePrecision() {
+	void annualChecksTheBriefPriceFirstAndRecordsThePriceOfTheCalculatedFormat() {
 		for (String precision : List.of("exact", "unknown")) {
 			var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
 			var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
@@ -607,18 +612,31 @@ class ReadingCreationWorkflowTests {
 				org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap()))
 				.thenReturn(new GeneratedReading("연간 결과", Map.of("title", "연간 결과")));
 			var facade = service(acceptedConsent(), repository, generator);
-			var original = sajuRequest().birthProfile();
-			var birth = "exact".equals(precision) ? original
-				: new SajuBirthProfileRequest(original.calendarType(), original.birthDate(), null, "unknown", null, null,
-					original.luckDirectionBasis());
+			var birth = "exact".equals(precision) ? exactBirth() : sajuRequest().birthProfile();
 			facade.createSajuReading(USER_ID, REQUEST_ID,
 				new SajuReadingCreateRequest("", REQUEST_ID, birth, "career", 2026, "annual_monthly"));
 			verify(repository).acquirePreparation(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.eq(REQUEST_ID),
-				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(6));
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(4));
 			var command = ArgumentCaptor.forClass(PendingReadingCommand.class);
 			verify(repository).createPending(command.capture());
-			assertThat(command.getValue().creditCost()).isEqualTo(6);
+			// An exact time fixes the day master (full report); an unknown time leaves it open (brief report).
+			assertThat(command.getValue().creditCost()).isEqualTo("exact".equals(precision) ? 6 : 4);
 		}
+	}
+
+	@Test
+	void fullAnnualReportStopsBeforeTheAiCallWhenOnlyTheBriefPriceIsAffordable() {
+		var repository = org.mockito.Mockito.mock(ReadingCreationRepository.class);
+		var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
+		when(repository.acquirePreparation(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(4))).thenReturn(true);
+		when(repository.createPending(org.mockito.ArgumentMatchers.argThat(command -> command.creditCost() == 6)))
+			.thenThrow(new InsufficientReadingCreditsException(USER_ID, 6));
+		assertThatThrownBy(() -> service(acceptedConsent(), repository, generator).createSajuReading(USER_ID, REQUEST_ID,
+			new SajuReadingCreateRequest("", REQUEST_ID, exactBirth(), "career", 2026, "annual_monthly")))
+			.isInstanceOf(InsufficientReadingCreditsException.class);
+		verify(repository).releasePreparation(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.any());
+		verifyNoInteractions(generator);
 	}
 
 	@Test
@@ -627,8 +645,8 @@ class ReadingCreationWorkflowTests {
 		var generator = org.mockito.Mockito.mock(ReadingGenerator.class);
 		var facade = service(acceptedConsent(), repository, generator);
 		when(repository.acquirePreparation(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(6)))
-			.thenThrow(new InsufficientReadingCreditsException(USER_ID, 6));
+			org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(4)))
+			.thenThrow(new InsufficientReadingCreditsException(USER_ID, 4));
 		assertThatThrownBy(() -> facade.createSajuReading(USER_ID, REQUEST_ID,
 			new SajuReadingCreateRequest("", REQUEST_ID, sajuRequest().birthProfile(), "career", 2026, "annual_monthly")))
 			.isInstanceOf(InsufficientReadingCreditsException.class);
@@ -644,6 +662,10 @@ class ReadingCreationWorkflowTests {
 			List.of(1, 2, 3),
 			null
 		);
+	}
+
+	private static SajuBirthProfileRequest exactBirth() {
+		return new SajuBirthProfileRequest("solar", "1992-08-17", "12:00", "exact", "11", "male");
 	}
 
 	private SajuReadingCreateRequest sajuRequest() {

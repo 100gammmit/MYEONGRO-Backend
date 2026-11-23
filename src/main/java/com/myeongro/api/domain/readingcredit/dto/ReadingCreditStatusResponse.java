@@ -16,6 +16,6 @@ public record ReadingCreditStatusResponse(
 		}
 	}
 
-	public record Costs(Map<String, Integer> tarot, int saju, int sajuAnnual) {
+	public record Costs(Map<String, Integer> tarot, int saju, int sajuAnnual, int sajuAnnualBrief) {
 	}
 }

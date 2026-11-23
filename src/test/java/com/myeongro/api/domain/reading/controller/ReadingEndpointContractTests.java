@@ -39,7 +39,10 @@ import com.myeongro.api.domain.reading.exception.InsufficientReadingCreditsExcep
 import com.myeongro.api.domain.reading.exception.ReadingDailyCapacityReachedException;
 import com.myeongro.api.domain.reading.exception.ReadingGenerationExpiredException;
 import com.myeongro.api.domain.reading.exception.ReadingGenerationInProgressException;
+import com.myeongro.api.domain.saju.service.SajuAnnualDetailLevelService;
 import com.myeongro.api.domain.saju.service.SajuReadingCreationService;
+import com.myeongro.api.global.ratelimit.IpRateLimiter;
+import com.myeongro.api.domain.reading.exception.RequiredConsentMissingException;
 import com.myeongro.api.domain.tarot.controller.TarotReadingController;
 import com.myeongro.api.domain.tarot.controller.TarotReadingCreateRequest;
 import com.myeongro.api.domain.tarot.service.TarotReadingCreationService;
@@ -58,6 +61,8 @@ class ReadingEndpointContractTests {
 
 	private TarotReadingCreationService tarotCreationService;
 	private SajuReadingCreationService sajuCreationService;
+	private SajuAnnualDetailLevelService detailLevelService;
+	private IpRateLimiter rateLimiter;
 	private AuthenticatedUserResolver userResolver;
 	private ReadingCreditService creditService;
 	private MockMvc mockMvc;
@@ -66,11 +71,15 @@ class ReadingEndpointContractTests {
 	void setUp() {
 		tarotCreationService = org.mockito.Mockito.mock(TarotReadingCreationService.class);
 		sajuCreationService = org.mockito.Mockito.mock(SajuReadingCreationService.class);
+		detailLevelService = org.mockito.Mockito.mock(SajuAnnualDetailLevelService.class);
+		rateLimiter = org.mockito.Mockito.mock(IpRateLimiter.class);
+		when(rateLimiter.acquire(org.mockito.ArgumentMatchers.eq(IpRateLimiter.Scope.SAJU_DETAIL_LEVEL),
+			org.mockito.ArgumentMatchers.any())).thenReturn(IpRateLimiter.Decision.ALLOWED);
 		userResolver = org.mockito.Mockito.mock(AuthenticatedUserResolver.class);
 		creditService = org.mockito.Mockito.mock(ReadingCreditService.class);
 		mockMvc = MockMvcBuilders.standaloneSetup(
 			new TarotReadingController(tarotCreationService, userResolver),
-			new SajuReadingController(sajuCreationService, userResolver),
+			new SajuReadingController(sajuCreationService, detailLevelService, rateLimiter, userResolver),
 			new ReadingRecordsController(
 				org.mockito.Mockito.mock(ReadingRecordsService.class), userResolver
 			)
@@ -151,7 +160,7 @@ class ReadingEndpointContractTests {
 			ReadingCreditStatusResponse.Balance.of(1, 0),
 			Instant.now().plusSeconds(3600),
 			false,
-			new ReadingCreditStatusResponse.Costs(Map.of(), 4, 6)
+			new ReadingCreditStatusResponse.Costs(Map.of(), 4, 6, 4)
 		));
 
 		mockMvc.perform(post("/api/tarot/readings")
@@ -418,6 +427,73 @@ class ReadingEndpointContractTests {
 			.andExpect(status().isInternalServerError())
 			.andExpect(jsonPath("$.code").value("SAJU_CALCULATION_FAILED"))
 			.andExpect(jsonPath("$.error").value("사주 계산을 완료하지 못했습니다."));
+	}
+
+	private static final String DETAIL_LEVEL_REQUEST = """
+		{"birthProfile":{"calendarType":"solar","birthDate":"1992-08-17","birthTimePrecision":"unknown","luckDirectionBasis":"unspecified"}}
+		""";
+
+	@Test
+	void reportsTheAnnualFormatAndItsCostWithoutCaching() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(detailLevelService.check(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.any()))
+			.thenReturn(new SajuAnnualDetailLevelService.Result("brief", 4));
+
+		mockMvc.perform(post("/api/saju/readings/detail-level")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(DETAIL_LEVEL_REQUEST))
+			.andExpect(status().isOk())
+			.andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
+			.andExpect(jsonPath("$.detailLevel").value("brief"))
+			.andExpect(jsonPath("$.creditCost").value(4));
+	}
+
+	@Test
+	void limitsTheFormatCheckWithoutCalculating() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(rateLimiter.acquire(org.mockito.ArgumentMatchers.eq(IpRateLimiter.Scope.SAJU_DETAIL_LEVEL),
+			org.mockito.ArgumentMatchers.any())).thenReturn(IpRateLimiter.Decision.LIMITED);
+
+		mockMvc.perform(post("/api/saju/readings/detail-level")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(DETAIL_LEVEL_REQUEST))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(header().string("Retry-After", "60"))
+			.andExpect(jsonPath("$.code").value("SAJU_DETAIL_LEVEL_RATE_LIMITED"));
+		org.mockito.Mockito.verifyNoInteractions(detailLevelService);
+	}
+
+	@Test
+	void formatCheckSharesTheReadingErrorsForConsentAndBirthInput() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(detailLevelService.check(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.any()))
+			.thenThrow(new RequiredConsentMissingException("필수 동의가 필요합니다."))
+			.thenThrow(new InvalidReadingRequestException("INVALID_BIRTH_TIME", "birthProfile.birthTime", "출생시간을 확인해 주세요."));
+
+		mockMvc.perform(post("/api/saju/readings/detail-level")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(DETAIL_LEVEL_REQUEST))
+			.andExpect(status().isForbidden());
+		mockMvc.perform(post("/api/saju/readings/detail-level")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(DETAIL_LEVEL_REQUEST))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("INVALID_BIRTH_TIME"))
+			.andExpect(jsonPath("$.field").value("birthProfile.birthTime"));
+		mockMvc.perform(post("/api/saju/readings/detail-level")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"birthProfile":{"calendarType":"solar","birthDate":"1992-08-17","birthTimePrecision":"unknown","luckDirectionBasis":"unspecified"},"question":"x"}
+					"""))
+			.andExpect(status().isBadRequest());
 	}
 
 	@Test

@@ -48,7 +48,9 @@ public class IpRateLimiter {
 
 	public enum Scope {
 		OAUTH_START("oauth-start"),
-		OAUTH_CALLBACK("oauth-callback"), SAJU_CALCULATION("saju-calculation");
+		OAUTH_CALLBACK("oauth-callback"), SAJU_CALCULATION("saju-calculation"),
+		// The signed-in annual format check before a reading; separate from the public manseryeok budget.
+		SAJU_DETAIL_LEVEL("saju-detail-level");
 
 		private final String keyName;
 

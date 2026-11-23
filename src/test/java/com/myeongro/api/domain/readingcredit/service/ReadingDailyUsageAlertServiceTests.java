@@ -39,7 +39,7 @@ class ReadingDailyUsageAlertServiceTests {
 	private ReadingDailyUsageAlertService service(int limit) {
 		return new ReadingDailyUsageAlertService(repository, new ReadingCreditProperties(
 			10,
-			new ReadingCreditProperties.Costs(new ReadingCreditProperties.Tarot(2, 2, 3), 4, 6),
+			new ReadingCreditProperties.Costs(new ReadingCreditProperties.Tarot(2, 2, 3), 4, 6, 4),
 			Duration.ofMinutes(5),
 			"0 */5 * * * *",
 			limit,

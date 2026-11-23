@@ -105,6 +105,7 @@ app:
     oauth-start-per-minute: ${ratelimit.oauth-start-per-minute:60}
     oauth-callback-per-minute: ${ratelimit.oauth-callback-per-minute:60}
     saju-calculation-per-minute: ${ratelimit.saju-calculation-per-minute:20}
+    saju-detail-level-per-minute: ${ratelimit.saju-detail-level-per-minute:30}
 
   saju:
     public-calculation:
@@ -153,6 +154,8 @@ app:
         choice-five-card: ${reading.credits.costs.tarot.choice-five-card:4}
       saju: ${reading.credits.costs.saju:4}
       saju-annual: ${reading.credits.costs.saju-annual:6}
+      # The brief annual report: charged when the birth time leaves the day master uncertain.
+      saju-annual-brief: ${reading.credits.costs.saju-annual-brief:4}
     stale-after: ${reading.credits.stale-after:5m}
     cleanup-cron: "${reading.credits.cleanup-cron:0 */5 * * * *}"
     # Whole-service daily ceiling; 0 stops every new generation immediately.

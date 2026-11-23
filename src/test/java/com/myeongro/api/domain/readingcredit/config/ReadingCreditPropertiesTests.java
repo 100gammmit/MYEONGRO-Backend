@@ -23,12 +23,13 @@ class ReadingCreditPropertiesTests {
 		org.assertj.core.api.Assertions.assertThat(bound.costs().tarot()).isEqualTo(new ReadingCreditProperties.Tarot(3, 3, 4));
 		org.assertj.core.api.Assertions.assertThat(bound.costs().saju()).isEqualTo(4);
 		org.assertj.core.api.Assertions.assertThat(bound.costs().sajuAnnual()).isEqualTo(6);
+		org.assertj.core.api.Assertions.assertThat(bound.costs().sajuAnnualBrief()).isEqualTo(4);
 	}
 
 	@Test
 	void pricesAnnualReportIndependentlyFromGeneralSajuAndKeepsTarotPricesConfigurable() {
 		var properties = new ReadingCreditProperties(10,
-			new ReadingCreditProperties.Costs(new ReadingCreditProperties.Tarot(3, 3, 4), 4, 6),
+			new ReadingCreditProperties.Costs(new ReadingCreditProperties.Tarot(3, 3, 4), 4, 6, 4),
 			Duration.ofMinutes(5), "0 */5 * * * *", 1000, 50);
 		var tarot = com.myeongro.api.domain.reading.entity.ReadingKind.TAROT;
 		var saju = com.myeongro.api.domain.reading.entity.ReadingKind.SAJU;
@@ -39,6 +40,16 @@ class ReadingCreditPropertiesTests {
 		org.assertj.core.api.Assertions.assertThat(properties.cost(saju, null, "birth_annual_question")).isEqualTo(4);
 		org.assertj.core.api.Assertions.assertThat(properties.cost(saju, null, "annual_monthly")).isEqualTo(6);
 		assertThatThrownBy(() -> properties.cost(saju, null, "unknown")).isInstanceOf(IllegalArgumentException.class);
+		// The annual format is unknown before the chart, so the cheaper one gates preparation.
+		org.assertj.core.api.Assertions.assertThat(properties.preparationCost(saju, null, "annual_monthly")).isEqualTo(4);
+		org.assertj.core.api.Assertions.assertThat(properties.preparationCost(saju, null, null)).isEqualTo(4);
+		org.assertj.core.api.Assertions.assertThat(properties.preparationCost(tarot, "choice_five_card", null)).isEqualTo(4);
+		org.assertj.core.api.Assertions.assertThat(properties.annualCost("full")).isEqualTo(6);
+		org.assertj.core.api.Assertions.assertThat(properties.annualCost("brief")).isEqualTo(4);
+		org.assertj.core.api.Assertions.assertThat(properties.cost("annual_monthly", annual(java.util.Map.of("dayMaster", "갑")))).isEqualTo(6);
+		org.assertj.core.api.Assertions.assertThat(properties.cost("annual_monthly", annual(java.util.Map.of()))).isEqualTo(4);
+		org.assertj.core.api.Assertions.assertThat(properties.cost(null, new com.myeongro.api.domain.reading.service.PreparedReadingInput(
+			saju, null, 6, "q", java.util.Map.of("calculationSnapshot", java.util.Map.of()), java.util.Map.of()))).isEqualTo(4);
 	}
 
 	@Test
@@ -58,7 +69,7 @@ class ReadingCreditPropertiesTests {
 		var invalid = new ReadingCreditProperties(
 			-1,
 			new ReadingCreditProperties.Costs(
-				new ReadingCreditProperties.Tarot(0, 0, 0), 0, 0
+				new ReadingCreditProperties.Tarot(0, 0, 0), 0, 0, 0
 			),
 			Duration.ofMinutes(5),
 			"0 */5 * * * *",
@@ -74,6 +85,7 @@ class ReadingCreditPropertiesTests {
 					"dailyFreeGrant",
 					"costs.saju",
 					"costs.sajuAnnual",
+					"costs.sajuAnnualBrief",
 					"costs.tarot.mindThreeCard",
 					"costs.tarot.relationshipThreeCard",
 					"costs.tarot.choiceFiveCard",
@@ -83,11 +95,17 @@ class ReadingCreditPropertiesTests {
 		}
 	}
 
+	private static com.myeongro.api.domain.reading.service.PreparedReadingInput annual(java.util.Map<String, Object> calculation) {
+		return new com.myeongro.api.domain.reading.service.PreparedReadingInput(com.myeongro.api.domain.reading.entity.ReadingKind.SAJU, null, 7, "",
+			java.util.Map.of("reportType", "annual_monthly", "calculationSnapshot", calculation),
+			java.util.Map.of("reportType", "annual_monthly"));
+	}
+
 	private ReadingCreditProperties properties(Duration staleAfter, String cleanupCron) {
 		return new ReadingCreditProperties(
 			10,
 			new ReadingCreditProperties.Costs(
-				new ReadingCreditProperties.Tarot(2, 2, 3), 4, 6
+				new ReadingCreditProperties.Tarot(2, 2, 3), 4, 6, 4
 			),
 			staleAfter,
 			cleanupCron,

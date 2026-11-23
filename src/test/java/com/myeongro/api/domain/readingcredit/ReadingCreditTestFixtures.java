@@ -14,7 +14,7 @@ public final class ReadingCreditTestFixtures {
 			10,
 			new ReadingCreditProperties.Costs(
 				new ReadingCreditProperties.Tarot(2, 2, 3),
-				4, 6
+				4, 6, 4
 			),
 			Duration.ofMinutes(5),
 			"0 */5 * * * *",

@@ -62,7 +62,8 @@ public class ReadingCreditService {
 	}
 
 	private ReadingCreditStatusResponse.Costs costs() {
-		return new ReadingCreditStatusResponse.Costs(tarotCosts(), properties.costs().saju(), properties.costs().sajuAnnual());
+		return new ReadingCreditStatusResponse.Costs(tarotCosts(), properties.costs().saju(), properties.costs().sajuAnnual(),
+			properties.costs().sajuAnnualBrief());
 	}
 
 	private Map<String, Integer> tarotCosts() {

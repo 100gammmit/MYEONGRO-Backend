@@ -11,7 +11,7 @@ import com.myeongro.api.domain.saju.service.SajuInterpretationInputMapper;
 public record SajuAnnualInput(String question, String focusArea, SajuAnnualCalendar calendar,
 	Map<String, Object> trustedCalculation) {
 	public SajuAnnualInput { trustedCalculation = Map.copyOf(trustedCalculation); }
-	public String detailLevel() { return trustedCalculation.containsKey("dayMaster") ? "full" : "brief"; }
+	public String detailLevel() { return SajuAnnualDetailLevel.ofCalculation(trustedCalculation); }
 
 	public static SajuAnnualInput from(String question, String focusArea, int targetYear,
 		Map<String, Object> snapshot, ObjectMapper mapper) {
