@@ -73,7 +73,7 @@ class ReadingEndpointContractTests {
 		sajuCreationService = org.mockito.Mockito.mock(SajuReadingCreationService.class);
 		detailLevelService = org.mockito.Mockito.mock(SajuAnnualDetailLevelService.class);
 		rateLimiter = org.mockito.Mockito.mock(IpRateLimiter.class);
-		when(rateLimiter.acquire(org.mockito.ArgumentMatchers.eq(IpRateLimiter.Scope.SAJU_DETAIL_LEVEL),
+		when(rateLimiter.acquireForUser(org.mockito.ArgumentMatchers.eq(IpRateLimiter.Scope.SAJU_DETAIL_LEVEL),
 			org.mockito.ArgumentMatchers.any())).thenReturn(IpRateLimiter.Decision.ALLOWED);
 		userResolver = org.mockito.Mockito.mock(AuthenticatedUserResolver.class);
 		creditService = org.mockito.Mockito.mock(ReadingCreditService.class);
@@ -454,8 +454,8 @@ class ReadingEndpointContractTests {
 	void limitsTheFormatCheckWithoutCalculating() throws Exception {
 		TestingAuthenticationToken authentication = authentication();
 		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
-		when(rateLimiter.acquire(org.mockito.ArgumentMatchers.eq(IpRateLimiter.Scope.SAJU_DETAIL_LEVEL),
-			org.mockito.ArgumentMatchers.any())).thenReturn(IpRateLimiter.Decision.LIMITED);
+		when(rateLimiter.acquireForUser(IpRateLimiter.Scope.SAJU_DETAIL_LEVEL, USER_ID))
+			.thenReturn(IpRateLimiter.Decision.LIMITED);
 
 		mockMvc.perform(post("/api/saju/readings/detail-level")
 				.principal(authentication)
@@ -465,6 +465,21 @@ class ReadingEndpointContractTests {
 			.andExpect(header().string("Retry-After", "60"))
 			.andExpect(jsonPath("$.code").value("SAJU_DETAIL_LEVEL_RATE_LIMITED"));
 		org.mockito.Mockito.verifyNoInteractions(detailLevelService);
+	}
+
+	@Test
+	void reportsABusyFormatCheckSoTheScreenCanFallBack() throws Exception {
+		TestingAuthenticationToken authentication = authentication();
+		when(userResolver.requireUser(authentication)).thenReturn(new AuthenticatedUser(USER_ID));
+		when(detailLevelService.check(org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.any()))
+			.thenThrow(org.mockito.Mockito.mock(SajuAnnualDetailLevelService.Busy.class));
+
+		mockMvc.perform(post("/api/saju/readings/detail-level")
+				.principal(authentication)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(DETAIL_LEVEL_REQUEST))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("SAJU_DETAIL_LEVEL_BUSY"));
 	}
 
 	@Test

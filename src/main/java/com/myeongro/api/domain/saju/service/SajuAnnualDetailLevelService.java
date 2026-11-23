@@ -3,6 +3,7 @@ package com.myeongro.api.domain.saju.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import com.myeongro.api.domain.consent.entity.ConsentScope;
 import com.myeongro.api.domain.reading.service.ReadingCreationWorkflow;
 import com.myeongro.api.domain.readingcredit.config.ReadingCreditProperties;
 import com.myeongro.api.domain.saju.annual.SajuAnnualDetailLevel;
+import com.myeongro.api.domain.saju.calculation.SajuCalculationException;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationRules;
 import com.myeongro.api.domain.saju.calculation.SajuCalculationService;
 import com.myeongro.api.domain.saju.controller.SajuDetailLevelRequest;
@@ -25,6 +27,15 @@ import com.myeongro.api.domain.saju.model.SajuReportType;
 public class SajuAnnualDetailLevelService {
 
 	public record Result(String detailLevel, int creditCost) { }
+
+	/** No calculation slot or the deadline passed; the caller falls back to showing both prices. */
+	public static final class Busy extends RuntimeException {
+		Busy() { super(null, null, false, false); }
+	}
+
+	private static final long DEADLINE_NANOS = 3_000_000_000L;
+	// Like the public manseryeok, a few concurrent full-day searches at most, so checks never crowd out readings.
+	private final Semaphore slots = new Semaphore(2);
 
 	private final ReadingCreationWorkflow workflow;
 	private final SajuReadingInputNormalizer normalizer;
@@ -55,9 +66,21 @@ public class SajuAnnualDetailLevelService {
 			"", UUID.randomUUID(), request.birthProfile(), "self", currentYear,
 			SajuReportType.ANNUAL_MONTHLY.value(), request.calculationOptions()
 		), currentYear);
-		String detailLevel = SajuAnnualDetailLevel.of(
-			calculationService.calculate(input.birthProfile(), currentYear).dayMaster()
-		);
+		if (!slots.tryAcquire()) throw new Busy();
+		String dayMaster;
+		try {
+			long deadline = System.nanoTime() + DEADLINE_NANOS;
+			dayMaster = calculationService.calculate(input.birthProfile(), currentYear, () -> {
+				if (System.nanoTime() >= deadline || Thread.currentThread().isInterrupted()) throw new Busy();
+			}).dayMaster();
+		} catch (SajuCalculationException exception) {
+			// The calculation wraps unexpected exceptions; an expired deadline must still read as busy.
+			if (exception.getCause() instanceof Busy busy) throw busy;
+			throw exception;
+		} finally {
+			slots.release();
+		}
+		String detailLevel = SajuAnnualDetailLevel.of(dayMaster);
 		return new Result(detailLevel, creditProperties.annualCost(detailLevel));
 	}
 }

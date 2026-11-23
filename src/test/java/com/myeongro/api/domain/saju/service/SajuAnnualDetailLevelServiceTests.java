@@ -81,6 +81,19 @@ class SajuAnnualDetailLevelServiceTests {
 		verifyNoInteractions(guarded);
 	}
 
+	@Test
+	void anExpiredCalculationReadsAsBusy() {
+		SajuCalculationService slow = mock(SajuCalculationService.class);
+		org.mockito.Mockito.when(slow.calculate(org.mockito.ArgumentMatchers.anyMap(), org.mockito.ArgumentMatchers.anyInt(),
+			org.mockito.ArgumentMatchers.any())).thenThrow(
+				new com.myeongro.api.domain.saju.calculation.SajuCalculationException(new SajuAnnualDetailLevelService.Busy()));
+		var busy = new SajuAnnualDetailLevelService(workflow, new SajuReadingInputNormalizer(places()), slow,
+			ReadingCreditTestFixtures.properties());
+		assertThatThrownBy(() -> busy.check(USER_ID, request(new SajuBirthProfileRequest(
+			"solar", "1992-08-17", null, "unknown", null, "unspecified"))))
+			.isInstanceOf(SajuAnnualDetailLevelService.Busy.class);
+	}
+
 	private static SajuDetailLevelRequest request(SajuBirthProfileRequest profile) {
 		return new SajuDetailLevelRequest(profile, null);
 	}

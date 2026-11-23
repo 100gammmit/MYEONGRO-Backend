@@ -49,7 +49,7 @@ public class IpRateLimiter {
 	public enum Scope {
 		OAUTH_START("oauth-start"),
 		OAUTH_CALLBACK("oauth-callback"), SAJU_CALCULATION("saju-calculation"),
-		// The signed-in annual format check before a reading; separate from the public manseryeok budget.
+		// The signed-in annual format check before a reading, counted per user; separate from the public manseryeok budget.
 		SAJU_DETAIL_LEVEL("saju-detail-level");
 
 		private final String keyName;
@@ -94,12 +94,24 @@ public class IpRateLimiter {
 	}
 	public enum Decision { ALLOWED, LIMITED, UNAVAILABLE }
 	public Decision acquire(Scope scope, String remoteAddress) {
+		return count(scope, KEY_PREFIX + scope.keyName + ":" + hash(network(remoteAddress)));
+	}
+
+	/**
+	 * Counts per signed-in user for requests that reach the backend through the web server's proxy, where every
+	 * visitor shares the proxy's address. The user id is hashed with the same key, so no id is stored in Redis.
+	 */
+	public Decision acquireForUser(Scope scope, java.util.UUID userId) {
+		return count(scope, KEY_PREFIX + scope.keyName + ":user:" + hash(userId.toString()));
+	}
+
+	private Decision count(Scope scope, String key) {
 		int limit = properties.limit(scope);
 		Long count;
 		try {
 			count = redisTemplate.execute(
 				COUNT_SCRIPT,
-				List.of(KEY_PREFIX + scope.keyName + ":" + hash(network(remoteAddress))),
+				List.of(key),
 				Long.toString(WINDOW.toMillis())
 			);
 		} catch (RuntimeException exception) {

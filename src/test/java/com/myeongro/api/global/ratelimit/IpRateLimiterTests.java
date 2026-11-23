@@ -63,6 +63,19 @@ class IpRateLimiterTests {
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
+	void countsTheFormatCheckPerUserWithoutStoringTheUserId() {
+		var user = java.util.UUID.fromString("3b413be2-2b81-4802-8c6a-f868a85d8d83");
+		countIs(30L);
+		assertThat(limiter.acquireForUser(IpRateLimiter.Scope.SAJU_DETAIL_LEVEL, user)).isEqualTo(IpRateLimiter.Decision.ALLOWED);
+		countIs(31L);
+		assertThat(limiter.acquireForUser(IpRateLimiter.Scope.SAJU_DETAIL_LEVEL, user)).isEqualTo(IpRateLimiter.Decision.LIMITED);
+		ArgumentCaptor<List<String>> keys = ArgumentCaptor.forClass(List.class);
+		verify(redisTemplate, org.mockito.Mockito.atLeastOnce()).execute(any(), keys.capture(), any());
+		assertThat(keys.getValue().getFirst()).contains(":saju-detail-level:user:").doesNotContain(user.toString());
+	}
+
+	@Test
 	void allowsUpToTheLimitAndRejectsTheNextRequest() {
 		countIs(20L);
 		assertThat(limiter.tryAcquire(IpRateLimiter.Scope.OAUTH_START, "203.0.113.7")).isTrue();
